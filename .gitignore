@@ -1,0 +1,5 @@
+misc/
+.vs/
+.vscode/
+**/Debug/
+**/Release/

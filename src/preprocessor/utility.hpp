@@ -1,6 +1,7 @@
 #if !defined(PREPROCESSOR_UTILITY_HPP_)
 #define PREPROCESSOR_UTILITY_HPP_
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
@@ -58,11 +59,13 @@ bool file_exists(const Path& path);
 struct Sorter {
 	template <class Container>
 	Sorter(Container& c) {
+		using std::sort;
 		sort(c.begin(), c.end());
 	}
 
 	template <class Container, class Pred>
 	Sorter(Container& c, Pred pred) {
+		using std::sort;
 		sort(c.begin(), c.end(), pred);
 	}
 };

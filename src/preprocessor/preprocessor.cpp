@@ -49,19 +49,19 @@ Token::Type as_directive(const Token& token) {
 }
 
 const char* kLevelTag[] = {
-	u8"",
-	u8"致命的エラー",
-	u8"エラー",
-	u8"警告",
-	u8"情報",
-	u8"トレース",
-	u8"デバッグ",
+	"",
+	"致命的エラー",
+	"エラー",
+	"警告",
+	"情報",
+	"トレース",
+	"デバッグ",
 };
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-const std::string kPathDelimiter = u8"\\";
+const std::string kPathDelimiter = "\\";
 #else
-const std::string kPathDelimiter = u8"/";
+const std::string kPathDelimiter = "/";
 #endif
 
 std::string escape_string(const std::string& s) {
@@ -476,15 +476,15 @@ bool Preprocessor::Options::parse_options(const std::vector<std::string>& args) 
 }
 
 void Preprocessor::Options::print_usage() {
-	printf(u8"使い方: cpp [options] input\n");
-	printf(u8"Options:\n");
-	printf(u8"-D <name>[=definition]\tマクロを定義する。\n");
-	printf(u8"-D <name(params)>[=definitiion]\tマクロを定義する。\n");
-	printf(u8"-U <name>\tマクロを削除する。\n");
-	printf(u8"-I <directory>\t\tインクルード検索パスを追加する。\n");
-	printf(u8"-o <file>\t出力先を指定する。(デフォルトは標準出力)\n");
-	printf(u8"-e <file>\tエラー出力先を指定する。(デフォルトは標準エラー出力)\n");
-	printf(u8"-h\t\tヘルプを出力する。\n");
+	puts("使い方: cpp [options] input");
+	puts("Options:\n");
+	puts("-D <name>[=definition]\tマクロを定義する。");
+	puts("-D <name(params)>[=definitiion]\tマクロを定義する。");
+	puts("-U <name>\tマクロを削除する。");
+	puts("-I <directory>\t\tインクルード検索パスを追加する。");
+	puts("-o <file>\t出力先を指定する。(デフォルトは標準出力)");
+	puts("-e <file>\tエラー出力先を指定する。(デフォルトは標準エラー出力)");
+	puts("-h\t\tヘルプを出力する。");
 }
 
 

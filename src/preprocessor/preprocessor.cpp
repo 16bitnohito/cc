@@ -13,29 +13,29 @@
 
 using namespace std;
 
-
-namespace pp {
 namespace {
 
-std::vector<std::tuple<std::string, Token::Type>> directives = {
-	{ "include", Token::kInclude },
-	{ "define", Token::kDefine },
-	{ "undef", Token::kUndef },
-	{ "if", Token::kIf },
-	{ "ifdef", Token::kIfdef },
-	{ "ifndef", Token::kIfndef },
-	{ "elif", Token::kElif },
-	{ "else", Token::kElse },
-	{ "endif", Token::kEndif },
-	{ "error", Token::kError },
-	{ "line", Token::kLine },
-	{ "pragma", Token::kPragma },
+using namespace pp;
+
+std::vector<std::tuple<std::string, TokenType>> directives = {
+	{ "include", TokenType::kInclude },
+	{ "define", TokenType::kDefine },
+	{ "undef", TokenType::kUndef },
+	{ "if", TokenType::kIf },
+	{ "ifdef", TokenType::kIfdef },
+	{ "ifndef", TokenType::kIfndef },
+	{ "elif", TokenType::kElif },
+	{ "else", TokenType::kElse },
+	{ "endif", TokenType::kEndif },
+	{ "error", TokenType::kError },
+	{ "line", TokenType::kLine },
+	{ "pragma", TokenType::kPragma },
 };
 Sorter directives_sorter(directives, [](const auto& lhs, const auto& rhs) {
 	return get<0>(lhs) < get<0>(rhs);
 });
 
-Token::Type as_directive(const Token& token) {
+TokenType as_directive(const Token& token) {
 	const string& s = token.string();
 	auto it = lower_bound(begin(directives), end(directives), s,
 			[](const auto& lhs, const auto& rhs) {
@@ -132,7 +132,7 @@ std::string destringize(const std::string& s) {
 
 inline
 Token shrink_ws(const Token& t) {
-	assert(t.type() == Token::kWhiteSpace || t.type() == Token::kComment);
+	assert(t.type() == TokenType::kWhiteSpace || t.type() == TokenType::kComment);
 	return Token(Token::kTokenValueASpace, t.line(), t.column());
 }
 
@@ -141,9 +141,9 @@ TokenList shrink_ws_tokens(const TokenList& ts) {
 	result.reserve(ts.size());
 
 	for (const auto& t : ts) {
-		if (t.type() == Token::kNewLine) {
+		if (t.type() == TokenType::kNewLine) {
 			// skip
-		} else if (t.type() == Token::kComment || t.type() == Token::kWhiteSpace) {
+		} else if (t.type() == TokenType::kComment || t.type() == TokenType::kWhiteSpace) {
 			if (!result.empty() && !result.back().is_ws()) {
 				result.push_back(shrink_ws(t));
 			}
@@ -158,41 +158,41 @@ TokenList shrink_ws_tokens(const TokenList& ts) {
 	return result;
 }
 
-const Operator kOperatorOpenParen = { kOpOpenParen, "(", 254, 0 };
-const Operator kOperatorCloseParen = { kOpCloseParen, ")", 255, 0 };
-const Operator kOperatorUnknown = { kOpUnknown, "", 0, 0 };
-const Operator kOperatorPlus = { kOpPlus, "+", 2, 1 };
-const Operator kOperatorMinus = { kOpMinus, "-", 2, 1 };
+const Operator kOperatorOpenParen = { OperatorId::kOpenParen, "(", 254, 0 };
+const Operator kOperatorCloseParen = { OperatorId::kCloseParen, ")", 255, 0 };
+const Operator kOperatorUnknown = { OperatorId::kUnknown, "", 0, 0 };
+const Operator kOperatorPlus = { OperatorId::kPlus, "+", 2, 1 };
+const Operator kOperatorMinus = { OperatorId::kMinus, "-", 2, 1 };
 
 std::vector<Operator> operators = {
 	kOperatorUnknown,
 	kOperatorCloseParen,
 	kOperatorOpenParen,
 	//{ kOpComma, ",", 15, 2 },
-	{ kOpColon, ":", 13, 3 },
-	{ kOpCond, "?", 13, 1 },
-	{ kOpOr, "||", 12, 2 },
-	{ kOpAnd, "&&", 11, 2 },
-	{ kOpBitOr, "|", 10, 2 },
-	{ kOpBitXor, "^", 9, 2 },
-	{ kOpBitAnd, "&", 8, 2 },
-	{ kOpEq, "==", 7, 2 },
-	{ kOpNeq, "!=", 7, 2 },
-	{ kOpLt, "<", 6, 2 },
-	{ kOpGt, ">", 6, 2 },
-	{ kOpLeq, "<=", 6, 2 },
-	{ kOpGeq, ">=", 6, 2 },
-	{ kOpShl, "<<", 5, 2 },
-	{ kOpShr, ">>", 5, 2 },
-	{ kOpAdd, "+", 4, 2 },
-	{ kOpSub, "-", 4, 2 },
-	{ kOpMul, "*", 3, 2 },
-	{ kOpDiv, "/", 3, 2 },
-	{ kOpMod, "%", 3, 2 },
-	//{ kOpPlus, "+", 2, 1 },
-	//{ kOpMinus, "-", 2, 1 },
-	{ kOpNot, "!", 2, 1 },
-	{ kOpCompl, "~", 2, 1 },
+	{ OperatorId::kColon, ":", 13, 3 },
+	{ OperatorId::kCond, "?", 13, 1 },
+	{ OperatorId::kOr, "||", 12, 2 },
+	{ OperatorId::kAnd, "&&", 11, 2 },
+	{ OperatorId::kBitOr, "|", 10, 2 },
+	{ OperatorId::kBitXor, "^", 9, 2 },
+	{ OperatorId::kBitAnd, "&", 8, 2 },
+	{ OperatorId::kEq, "==", 7, 2 },
+	{ OperatorId::kNeq, "!=", 7, 2 },
+	{ OperatorId::kLt, "<", 6, 2 },
+	{ OperatorId::kGt, ">", 6, 2 },
+	{ OperatorId::kLeq, "<=", 6, 2 },
+	{ OperatorId::kGeq, ">=", 6, 2 },
+	{ OperatorId::kShl, "<<", 5, 2 },
+	{ OperatorId::kShr, ">>", 5, 2 },
+	{ OperatorId::kAdd, "+", 4, 2 },
+	{ OperatorId::kSub, "-", 4, 2 },
+	{ OperatorId::kMul, "*", 3, 2 },
+	{ OperatorId::kDiv, "/", 3, 2 },
+	{ OperatorId::kMod, "%", 3, 2 },
+	//{ OperatorId::kPlus, "+", 2, 1 },
+	//{ OperatorId::kMinus, "-", 2, 1 },
+	{ OperatorId::kNot, "!", 2, 1 },
+	{ OperatorId::kCompl, "~", 2, 1 },
 };
 Sorter operators_sorter(operators,
 		[](const auto& lhs, const auto& rhs) { return lhs.sequence < rhs.sequence; });
@@ -209,22 +209,22 @@ const Operator& string_to_op(const std::string& s) {
 
 }	//  anonymous namespace
 
+namespace pp {
 
-const Token kTokenNull("", Token::kNull);
-const Token kTokenEndOfFile("", Token::kEndOfFile);
-const Token kTokenASpace(" ", Token::kWhiteSpace);
-const Token kTokenOpenParen("(", Token::kPunctuator);
-const Token kTokenCloseParen(")", Token::kPunctuator);
-const Token kTokenComma(",", Token::kPunctuator);
-const Token kTokenEllipsis("...", Token::kPunctuator);
-const Token kTokenOpStringize("#", Token::kPunctuator);
-const Token kTokenOpConcat("##", Token::kPunctuator);
-const Token kTokenOpDefined("defined", Token::kIdentifier);
-const Token kTokenOpPragma("_Pragma", Token::kIdentifier);
-const Token kTokenStdc("STDC", Token::kIdentifier);
-const Token kTokenVaArgs("__VA_ARGS__", Token::kIdentifier);
-const Token kTokenVaOpt("__VA_OPT__", Token::kIdentifier);
-
+const Token kTokenNull("", TokenType::kNull);
+const Token kTokenEndOfFile("", TokenType::kEndOfFile);
+const Token kTokenASpace(" ", TokenType::kWhiteSpace);
+const Token kTokenOpenParen("(", TokenType::kPunctuator);
+const Token kTokenCloseParen(")", TokenType::kPunctuator);
+const Token kTokenComma(",", TokenType::kPunctuator);
+const Token kTokenEllipsis("...", TokenType::kPunctuator);
+const Token kTokenOpStringize("#", TokenType::kPunctuator);
+const Token kTokenOpConcat("##", TokenType::kPunctuator);
+const Token kTokenOpDefined("defined", TokenType::kIdentifier);
+const Token kTokenOpPragma("_Pragma", TokenType::kIdentifier);
+const Token kTokenStdc("STDC", TokenType::kIdentifier);
+const Token kTokenVaArgs("__VA_ARGS__", TokenType::kIdentifier);
+const Token kTokenVaOpt("__VA_OPT__", TokenType::kIdentifier);
 
 Macro::Macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token) {
 	name_ = name;
@@ -238,7 +238,7 @@ Macro::Macro(const std::string& name, const ParamList& params, const TokenList& 
 	reset(params, replist, source, name_token);
 }
 
-Macro::Macro(const std::string& name, const std::string& value, const Token::Type type) {
+Macro::Macro(const std::string& name, const std::string& value, const TokenType type) {
 	name_ = name;
 	is_predefined_ = true;
 	reset({ Token(value, type) }, "", kTokenNull);
@@ -259,8 +259,8 @@ size_t Macro::param_index_of(const std::string& param_name) const {
 }
 
 void Macro::reset(const TokenList& replist, const std::string& source, const Token& name_token) {
-	form_ = kObjectLike;
-	expantion_method_ = get_expantion_method(kObjectLike, name_, replist);
+	form_ = MacroForm::kObjectLike;
+	expantion_method_ = get_expantion_method(MacroForm::kObjectLike, name_, replist);
 	params_ = Macro::kNoParams;
 	replist_ = replist;
 	has_va_args_ = false;
@@ -270,8 +270,8 @@ void Macro::reset(const TokenList& replist, const std::string& source, const Tok
 }
 
 void Macro::reset(const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token) {
-	form_ = kFunctionLike;
-	expantion_method_ = get_expantion_method(kFunctionLike, name_, replist);
+	form_ = MacroForm::kFunctionLike;
+	expantion_method_ = get_expantion_method(MacroForm::kFunctionLike, name_, replist);
 	params_ = params;
 	replist_ = replist;
 	has_va_args_ = (params.empty()) ? false : (params.back() == kTokenEllipsis.string());
@@ -280,20 +280,20 @@ void Macro::reset(const ParamList& params, const TokenList& replist, const std::
 	column_ = name_token.column();
 }
 
-Macro::ExpantionMethod Macro::get_expantion_method(Form /*form*/, const std::string& name, const TokenList& replist) {
+MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::string& name, const TokenList& replist) {
 	if (name == kTokenOpPragma.string()) {
-		return kExpantionMethodOpPragma;
+		return MacroExpantionMethod::kOpPragma;
 	} else {
 		bool directly = true;
 		for (const auto& t : replist) {
-			if (t.type() == Token::kIdentifier ||
+			if (t.type() == TokenType::kIdentifier ||
 				t == kTokenOpStringize ||
 				t == kTokenOpConcat) {
 				directly = false;
 				break;
 			}
 		}
-		return directly ? kExpantionMethodDirectlyCopyable : kExpantionMethodNormal;
+		return directly ? MacroExpantionMethod::kDirectlyCopyable : MacroExpantionMethod::kNormal;
 	}
 }
 
@@ -522,7 +522,7 @@ void Preprocessor::Source::reset_line_number(uint32_t new_line_number) {
 		Token& t = lookahead[(p + i) % kNumLookahead];
 		t.line(new_line_number);
 
-		if (t.type() == Token::kNewLine) {
+		if (t.type() == TokenType::kNewLine) {
 			new_line_number++;
 		}
 	}
@@ -532,19 +532,24 @@ void Preprocessor::Source::reset_line_number(uint32_t new_line_number) {
 
 
 Preprocessor::Preprocessor()
-	: include_dirs_()
+	: opts_()
+	, include_dirs_()
+	, diag_level_(DiagLevel::kWarning)
+	, clock_start_()
+	, clock_end_()
+	, stream_stack_()
 	, output_(stdout)
 	, error_output_(stderr)
 	, sources_()
 	, macros_()
 	, predef_macro_names_()
+	, used_macro_names_()
+	, error_location_()
+	, warning_count_()
+	, error_count_()
+	, included_files_()
+	, rescan_count_()
 {
-	diag_level_ = DiagLevel::kWarning;
-	warning_count_ = 0;
-	error_count_ = 0;
-	included_files_ = 0;
-	inclusion_depth_ = 0;
-
 	clock_start_ = clock();
 }
 
@@ -679,29 +684,29 @@ void Preprocessor::prepare_predefined_macro() {
 	//  定義済みマクロをここで追加する。
 	predef_macro_names_.clear();
 
-	add_predefined_macro("__DATE__",         quote_string(date), Token::kStringLiteral);
-	add_predefined_macro("__FILE__",         quote_string(""),   Token::kStringLiteral);
-	add_predefined_macro("__LINE__",         "0",                Token::kPpNumber);
-	add_predefined_macro("__STDC__",         "1",                Token::kPpNumber);
-	add_predefined_macro("__STDC_HOSTED__",  "0",                Token::kPpNumber);
-	add_predefined_macro("__STDC_VERSION__", "201112L",          Token::kPpNumber);
-	add_predefined_macro("__TIME__",         quote_string(time), Token::kStringLiteral);
+	add_predefined_macro("__DATE__",         quote_string(date), TokenType::kStringLiteral);
+	add_predefined_macro("__FILE__",         quote_string(""),   TokenType::kStringLiteral);
+	add_predefined_macro("__LINE__",         "0",                TokenType::kPpNumber);
+	add_predefined_macro("__STDC__",         "1",                TokenType::kPpNumber);
+	add_predefined_macro("__STDC_HOSTED__",  "0",                TokenType::kPpNumber);
+	add_predefined_macro("__STDC_VERSION__", "201112L",          TokenType::kPpNumber);
+	add_predefined_macro("__TIME__",         quote_string(time), TokenType::kStringLiteral);
 
 	//
-	//add_predefined_macro("__STDC_ISO_10646__",       "yyyymmL", Token::kPpNumber);
-	//add_predefined_macro("__STDC_MB_MIGHT_NEQ_WC__", "1",       Token::kPpNumber);
-	//add_predefined_macro("__STDC_UTF_16__",          "1",       Token::kPpNumber);
-	//add_predefined_macro("__STDC_UTF_32__",          "1",       Token::kPpNumber);
+	//add_predefined_macro("__STDC_ISO_10646__",       "yyyymmL", TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_MB_MIGHT_NEQ_WC__", "1",       TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_UTF_16__",          "1",       TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_UTF_32__",          "1",       TokenType::kPpNumber);
 
 	//
-	//add_predefined_macro("__STDC_ANALYZABLE__",      "1",       Token::kPpNumber);
-	//add_predefined_macro("__STDC_IEC_559__",         "1",       Token::kPpNumber);
-	//add_predefined_macro("__STDC_IEC_559_COMPLEX__", "1",       Token::kPpNumber);
-	//add_predefined_macro("__STDC_LIB_EXT1__",        "201109L", Token::kPpNumber);
-	add_predefined_macro("__STDC_NO_ATOMICS__", "1", Token::kPpNumber);
-	add_predefined_macro("__STDC_NO_COMPLEX__", "1", Token::kPpNumber);
-	add_predefined_macro("__STDC_NO_THREADS__", "1", Token::kPpNumber);
-	add_predefined_macro("__STDC_NO_VLA__",     "1", Token::kPpNumber);
+	//add_predefined_macro("__STDC_ANALYZABLE__",      "1",       TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_IEC_559__",         "1",       TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_IEC_559_COMPLEX__", "1",       TokenType::kPpNumber);
+	//add_predefined_macro("__STDC_LIB_EXT1__",        "201109L", TokenType::kPpNumber);
+	add_predefined_macro("__STDC_NO_ATOMICS__", "1", TokenType::kPpNumber);
+	add_predefined_macro("__STDC_NO_COMPLEX__", "1", TokenType::kPpNumber);
+	add_predefined_macro("__STDC_NO_THREADS__", "1", TokenType::kPpNumber);
+	add_predefined_macro("__STDC_NO_VLA__",     "1", TokenType::kPpNumber);
 
 	//  マクロではないが、マクロ定義の対象にならない？ようなのでここで追加する。
 	predef_macro_names_.push_back(kTokenOpDefined.string());
@@ -712,7 +717,7 @@ void Preprocessor::prepare_predefined_macro() {
 	//  _Pragma演算子はマクロとして扱う。definedと違って括弧が必要なので、所々で特別扱いしないで済む。
 	//  実際の処理は独自のメソッドで行われるので置換リストは適当に。
 	auto op_pragma = make_shared<Macro>(
-			kTokenOpPragma.string(), Macro::ParamList{ "content" }, TokenList{ Token("content", Token::kIdentifier) }, "", kTokenNull);
+			kTokenOpPragma.string(), Macro::ParamList{ "content" }, TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
 	auto result = macros_.insert({ op_pragma->name(), op_pragma });
 	if (!result.second) {
 		fatal_error(kTokenNull, __func__ /* ロジックエラーかメモリーが足りないか？ */);
@@ -756,13 +761,13 @@ void Preprocessor::prepare_predefined_macro() {
 void Preprocessor::preprocessing_file(std::istream* input, const std::string& path) {
 	Scanner scanner(input, opts_.support_trigraphs());
 	Source source(path, &scanner, this);
-	Group root(true, source.line, Token::kNull);
+	Group root(true, source.line, TokenType::kNull);
 
 	if constexpr (false) {
 		Token t = scanner.next_token();
-		while (t.type() != Token::kEndOfFile) {
+		while (t.type() != TokenType::kEndOfFile) {
 			t = scanner.next_token();
-			if (t.type() == Token::kNewLine) {
+			if (t.type() == TokenType::kNewLine) {
 				output_text("[kNewLine]\n");
 			} else {
 				output_text(quote_string(t.string()) + "(" + Token::type_to_string(t.type()) + ")");
@@ -771,7 +776,7 @@ void Preprocessor::preprocessing_file(std::istream* input, const std::string& pa
 	} else {
 		//group()?;
 		sources_.push(&source);
-		while (peek(1).type() != Token::kEndOfFile) {
+		while (peek(1).type() != TokenType::kEndOfFile) {
 			group(*sources_.top(), root);
 		}
 		sources_.pop();
@@ -792,54 +797,54 @@ void Preprocessor::group(Source& source, Group& group) {
 		if (!group_part()) {
 			break;
 		}
-	} while (peek(1).type() != Token::kEndOfFile);
+	} while (peek(1).type() != TokenType::kEndOfFile);
 }
 
 bool Preprocessor::group_part() {
 	TokenList ws_tokens;
 	skip_ws(&ws_tokens);
 
-	if (peek(1).type() == Token::kPunctuator && peek(1).string() == "#") {
-		match(Token::kPunctuator);
+	if (peek(1).type() == TokenType::kPunctuator && peek(1).string() == "#") {
+		match(TokenType::kPunctuator);
 		skip_ws();
 
 		Source& src = *sources_.top();
 		Token dir_token = peek(1);
-		Token::Type dir = as_directive(dir_token);
-		Token::Type cur_group = src.groups.top()->type;
+		TokenType dir = as_directive(dir_token);
+		TokenType cur_group = src.groups.top()->type;
 
-		if (((cur_group == Token::kIf)     && (dir == Token::kElif || dir == Token::kElse || dir == Token::kEndif)) ||
-			((cur_group == Token::kIfdef)  && (dir == Token::kElif || dir == Token::kElse || dir == Token::kEndif)) ||
-			((cur_group == Token::kIfndef) && (dir == Token::kElif || dir == Token::kElse || dir == Token::kEndif)) ||
-			((cur_group == Token::kElif)   && (dir == Token::kElif || dir == Token::kElse || dir == Token::kEndif)) ||
-			((cur_group == Token::kElse)   && (dir == Token::kEndif))) {
+		if (((cur_group == TokenType::kIf)     && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kIfdef)  && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kIfndef) && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kElif)   && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kElse)   && (dir == TokenType::kEndif))) {
 			return false;
 		}
 
-		if (dir == Token::kIf ||
-			dir == Token::kIfdef ||
-			dir == Token::kIfndef) {
+		if (dir == TokenType::kIf ||
+			dir == TokenType::kIfdef ||
+			dir == TokenType::kIfndef) {
 			if_section();
 		} else if (
-			dir == Token::kInclude ||
-			dir == Token::kDefine ||
-			dir == Token::kUndef ||
-			dir == Token::kLine ||
-			dir == Token::kError ||
-			dir == Token::kPragma ||
-			dir == Token::kNewLine) {
+			dir == TokenType::kInclude ||
+			dir == TokenType::kDefine ||
+			dir == TokenType::kUndef ||
+			dir == TokenType::kLine ||
+			dir == TokenType::kError ||
+			dir == TokenType::kPragma ||
+			dir == TokenType::kNewLine) {
 			control_line(dir);
 		} else {
 			if (src.condition_level == 0) {
-				if (dir == Token::kElif) {
+				if (dir == TokenType::kElif) {
 					error(dir_token, kElifWithoutIfError);
-				} else if (dir == Token::kElse) {
+				} else if (dir == TokenType::kElse) {
 					error(dir_token, kElseWithoutIfError);
-				} else if (dir == Token::kEndif) {
+				} else if (dir == TokenType::kEndif) {
 					error(dir_token, kEndifWithoutIfError);
 				}
 			} else {
-				if (cur_group == Token::kElse && dir == Token::kElif) {
+				if (cur_group == TokenType::kElse && dir == TokenType::kElif) {
 					error(dir_token, kElifAfterElseError);
 				}
 			}
@@ -861,10 +866,10 @@ void Preprocessor::if_section() {
 	src.condition_level++;
 
 	Token if_token = peek(1);
-	Token::Type dir = as_directive(if_token);
-	if (dir == Token::kIf ||
-		dir == Token::kIfdef ||
-		dir == Token::kIfndef) {
+	TokenType dir = as_directive(if_token);
+	if (dir == TokenType::kIf ||
+		dir == TokenType::kIfdef ||
+		dir == TokenType::kIfndef) {
 		processed = if_group();
 	} else {
 		fatal_error(if_token, __func__ /* ロジックエラーっぽい */);
@@ -873,21 +878,21 @@ void Preprocessor::if_section() {
 	//  ここに来た時点で "#"は consume済み。
 	skip_ws();
 
-	if (as_directive(peek(1)) == Token::kElif) {
+	if (as_directive(peek(1)) == TokenType::kElif) {
 		//processed = elif_groups(processed);
 		Token t;
 		do {
 			processed = elif_group(processed) || processed;
-		} while (as_directive(peek(1)) == Token::kElif);
+		} while (as_directive(peek(1)) == TokenType::kElif);
 	}
 
 	skip_ws();
-	if (as_directive(peek(1)) == Token::kElse) {
+	if (as_directive(peek(1)) == TokenType::kElse) {
 		else_group(processed);
 	}
 
 	skip_ws();
-	if (as_directive(peek(1)) == Token::kEndif) {
+	if (as_directive(peek(1)) == TokenType::kEndif) {
 		endif_line();
 	} else {
 		error(if_token, kUnterminatedIfError, if_token.line());
@@ -906,7 +911,7 @@ TokenList Preprocessor::make_constant_expression() {
 		t = peek(1);
 		consume();
 
-		if (t.type() != Token::kIdentifier) {
+		if (t.type() != TokenType::kIdentifier) {
 			expr.push_back(t);
 			continue;
 		}
@@ -926,12 +931,12 @@ TokenList Preprocessor::make_constant_expression() {
 
 			Token macro_name = peek(1);
 			consume();
-			if (macro_name.type() != Token::kIdentifier) {
+			if (macro_name.type() != TokenType::kIdentifier) {
 				error(peek(1), __func__ /* マクロ名が指定されていなかった？構文がおかしいので失敗 */);
 				bad_expr = true;
 			} else {
 				MacroPtr m = find_macro(macro_name.string());
-				Token v((m != nullptr) ? "1" : "0", Token::kPpNumber);
+				Token v((m != nullptr) ? "1" : "0", TokenType::kPpNumber);
 				expr.push_back(v);
 
 				if (open) {
@@ -946,13 +951,9 @@ TokenList Preprocessor::make_constant_expression() {
 		} else {
 			const MacroPtr m = find_macro(t.string());
 			if (m == nullptr) {
-				expr.push_back(Token("0", Token::kPpNumber));
+				expr.push_back(Token("0", TokenType::kPpNumber));
 			} else {
 				TokenList replaced;
-				if (sources_.top()->path.find("check.hpp") != string::npos &&
-					sources_.top()->line == 27) {
-					replaced = replaced;
-				}
 				if (!m->is_function()) {
 					DEBUG(t, "[START]: %s", m->name().c_str());
 					expand(*m, Macro::kNoArgs, replaced);
@@ -980,7 +981,7 @@ TokenList Preprocessor::make_constant_expression() {
 	//new_line();
 
 	if (expr.empty() || bad_expr) {
-		expr.push_back(Token("0", Token::kPpNumber));
+		expr.push_back(Token("0", TokenType::kPpNumber));
 	}
 
 	return expr;
@@ -1005,9 +1006,9 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 	Token t = peek(1);
 	while (!t.is_eol() && !bad_expr) {
 		switch (t.type()) {
-		case Token::kPpNumber: {
+		case TokenType::kPpNumber: {
 			string s = t.string();
-			match(Token::kPpNumber);
+			match(TokenType::kPpNumber);
 
 			target_intmax_t n = 0;
 			if (!parse_int(s, &n)) {
@@ -1018,11 +1019,11 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 			unary = false;
 			break;
 		}
-		case Token::kCharacterConstant: {
+		case TokenType::kCharacterConstant: {
 			//  TODO: 全くまともに作っていない。kPpNumberの場合と同じようにするには辛いので、Scanner側で
 			//      数値を求めておきたい。
 			string s = t.string();
-			match(Token::kCharacterConstant);
+			match(TokenType::kCharacterConstant);
 
 			auto i = s.find('\'');
 			int c = s[i + 1];
@@ -1030,30 +1031,30 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 			unary = false;
 			break;
 		}
-		case Token::kPunctuator: {
+		case TokenType::kPunctuator: {
 			string opstr = t.string();
-			match(Token::kPunctuator);
+			match(TokenType::kPunctuator);
 
 			Operator op = string_to_op(opstr);
 
 			if (unary) {
 				switch (op.id) {
-				case kOpAdd:
+				case OperatorId::kAdd:
 					op = kOperatorPlus;
 					break;
 
-				case kOpSub:
+				case OperatorId::kSub:
 					op = kOperatorMinus;
 					break;
 
-				case kOpCompl:
-				case kOpNot:
-				case kOpOpenParen:
-				case kOpCloseParen:
+				case OperatorId::kCompl:
+				case OperatorId::kNot:
+				case OperatorId::kOpenParen:
+				case OperatorId::kCloseParen:
 					//  差し替えは必要ない。
 					break;
 
-				case kOpUnknown:
+				case OperatorId::kUnknown:
 					//  下の　kInvalidOperatorErrorにするのでここでは何もしない。
 					break;
 
@@ -1063,20 +1064,20 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 					break;
 				}
 			}
-			if (op.id == kOpUnknown) {
+			if (op.id == OperatorId::kUnknown) {
 				error(dir_token, kInvalidOperatorError, opstr.c_str());
 				bad_expr = true;
 			}
 
 			if (!bad_expr) {
-				if (op.id == kOpOpenParen) {
+				if (op.id == OperatorId::kOpenParen) {
 					ops.push(kOperatorOpenParen);
 					unary = false;
 				} else {
 					if (!unary) {
 						calc(ops, nums, op);
 					}
-					if (op.id == kOpCloseParen) {
+					if (op.id == OperatorId::kCloseParen) {
 						ops.pop();
 						unary = false;
 					} else {
@@ -1124,8 +1125,8 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 
 	int nest = 0;
 	while (!ops.empty() &&
-		((next_op.id != kOpCloseParen && next_op.precedence > ops.top().precedence) ||
-		(next_op.id == kOpCloseParen && !(nest == 0 && ops.top().id == kOpOpenParen)))) {
+		((next_op.id != OperatorId::kCloseParen && next_op.precedence > ops.top().precedence) ||
+		(next_op.id == OperatorId::kCloseParen && !(nest == 0 && ops.top().id == OperatorId::kOpenParen)))) {
 		if (ops.empty()) {
 			break;
 		}
@@ -1144,19 +1145,19 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 			nums.pop();
 
 			switch (op.id) {
-			case kOpPlus:
+			case OperatorId::kPlus:
 				result = l;
 				break;
-			case kOpMinus:
+			case OperatorId::kMinus:
 				result = -l;
 				break;
-			case kOpCompl:
+			case OperatorId::kCompl:
 				result = ~l;
 				break;
-			case kOpNot:
+			case OperatorId::kNot:
 				result = (l == 0) ? 1 : 0;
 				break;
-			case kOpCond:
+			case OperatorId::kCond:
 				result = l;
 				break;
 			default:
@@ -1176,61 +1177,61 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 			nums.pop();
 
 			switch (op.id) {
-			case kOpOr:
+			case OperatorId::kOr:
 				result = l || r;
 				break;
-			case kOpAnd:
+			case OperatorId::kAnd:
 				result = l && r;
 				break;
-			case kOpBitOr:
+			case OperatorId::kBitOr:
 				result = l | r;
 				break;
-			case kOpBitXor:
+			case OperatorId::kBitXor:
 				result = l ^ r;
 				break;
-			case kOpBitAnd:
+			case OperatorId::kBitAnd:
 				result = l & r;
 				break;
-			case kOpEq:
+			case OperatorId::kEq:
 				result = l == r;
 				break;
-			case kOpNeq:
+			case OperatorId::kNeq:
 				result = l != r;
 				break;
-			case kOpLt:
+			case OperatorId::kLt:
 				result = l < r;
 				break;
-			case kOpGt:
+			case OperatorId::kGt:
 				result = l > r;
 				break;
-			case kOpLeq:
+			case OperatorId::kLeq:
 				result = l <= r;
 				break;
-			case kOpGeq:
+			case OperatorId::kGeq:
 				result = l >= r;
 				break;
-			case kOpShl:
+			case OperatorId::kShl:
 				result = l << r;
 				break;
-			case kOpShr:
+			case OperatorId::kShr:
 				result = l >> r;
 				break;
-			case kOpAdd:
+			case OperatorId::kAdd:
 				result = l + r;
 				break;
-			case kOpSub:
+			case OperatorId::kSub:
 				result = l - r;
 				break;
-			case kOpMul:
+			case OperatorId::kMul:
 				result = l * r;
 				break;
-			case kOpDiv:
+			case OperatorId::kDiv:
 				result = l / r;
 				break;
-			case kOpMod:
+			case OperatorId::kMod:
 				result = l % r;
 				break;
-			//case kOpComma:
+			//case OperatorId::kComma:
 			//	result = r;
 			//	break;
 			default:
@@ -1252,7 +1253,7 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 			nums.pop();
 
 			switch (op.id) {
-			case kOpColon:
+			case OperatorId::kColon:
 				result = c ? l : r;
 				break;
 			default:
@@ -1263,12 +1264,12 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 		}
 		default:
 			switch (op.id) {
-			case kOpUnknown:
+			case OperatorId::kUnknown:
 				break;
-			case kOpOpenParen:
+			case OperatorId::kOpenParen:
 				nest--;
 				break;
-			case kOpCloseParen:
+			case OperatorId::kCloseParen:
 				nest++;
 				break;
 			default:
@@ -1286,13 +1287,13 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 bool Preprocessor::if_group() {
 	skip_ws();
 
-	//"#" "if" constant_expression(); match(Token::kNewLine); group() ? ;
-	//"#" "ifdef" match(Token::kIdentifier); match(Token::kNewLine); group() ? ;
-	//"#" "ifndef" match(Token::kIdentifier); match(Token::kNewLine); group() ? ;
+	//"#" "if" constant_expression(); match(TokenType::kNewLine); group() ? ;
+	//"#" "ifdef" match(TokenType::kIdentifier); match(TokenType::kNewLine); group() ? ;
+	//"#" "ifndef" match(TokenType::kIdentifier); match(TokenType::kNewLine); group() ? ;
 	target_intmax_t result;
 	Source& src = *sources_.top();
 	Token dir_token = peek(1);
-	Token::Type dir = as_directive(dir_token);
+	TokenType dir = as_directive(dir_token);
 	Group* parent = src.groups.top();
 
 	if (!parent->processing) {
@@ -1300,20 +1301,20 @@ bool Preprocessor::if_group() {
 		new_line();
 		result = 0;
 	} else {
-		if (dir == Token::kIf) {
+		if (dir == TokenType::kIf) {
 			match("if");
 			result = constant_expression(make_constant_expression(), dir_token);
-		} else if (dir == Token::kIfdef) {
+		} else if (dir == TokenType::kIfdef) {
 			match("ifdef");
 			skip_ws();
 
 			Token name_token = peek(1);
-			if (name_token.type() != Token::kIdentifier) {
+			if (name_token.type() != TokenType::kIdentifier) {
 				skip_directive_line();
 				result = 0;
 			} else {
 				string name = name_token.string();
-				match(Token::kIdentifier);
+				match(TokenType::kIdentifier);
 				skip_ws();
 
 				if (name_token == kTokenVaArgs) {
@@ -1321,17 +1322,17 @@ bool Preprocessor::if_group() {
 				}
 				result = (find_macro(name) != nullptr);
 			}
-		} else if (dir == Token::kIfndef) {
+		} else if (dir == TokenType::kIfndef) {
 			match("ifndef");
 			skip_ws();
 
 			Token name_token = peek(1);
-			if (name_token.type() != Token::kIdentifier) {
+			if (name_token.type() != TokenType::kIdentifier) {
 				skip_directive_line();
 				result = 0;
 			} else {
 				string name = name_token.string();
-				match(Token::kIdentifier);
+				match(TokenType::kIdentifier);
 				skip_ws();
 
 				if (name_token == kTokenVaArgs) {
@@ -1358,7 +1359,7 @@ bool Preprocessor::elif_groups(bool /*processed*/) {
 
 	//do {
 	//	processed = elif_group(processed) || processed;
-	//} while (peek(1).string() == "#" && as_directive(peek(2)) == Token::kElif);
+	//} while (peek(1).string() == "#" && as_directive(peek(2)) == TokenType::kElif);
 
 	//return processed;
 	assert(false && "elif_groupsは展開されている。");
@@ -1384,7 +1385,7 @@ bool Preprocessor::elif_group(bool processed) {
 	}
 	new_line();
 
-	Group g(parent->processing && !processed && (result != 0), src.line, Token::kElif);
+	Group g(parent->processing && !processed && (result != 0), src.line, TokenType::kElif);
 	group(src, g);
 
 	return g.processing;
@@ -1399,7 +1400,7 @@ void Preprocessor::else_group(bool processed) {
 
 	Source& src = *sources_.top();
 	Group* parent = src.groups.top();
-	Group g(parent->processing && !processed, src.line, Token::kElse);
+	Group g(parent->processing && !processed, src.line, TokenType::kElse);
 	group(src, g);
 }
 
@@ -1448,13 +1449,13 @@ std::string normalize_path(const std::string& path) {
 	return result;
 }
 
-void Preprocessor::control_line(Token::Type directive) {
+void Preprocessor::control_line(TokenType directive) {
 	assert(directive == as_directive(peek(1)));
 
-	//"#" "include" pp_tokens(Token::kHeaderName); new_line();
-	//"#" "define" match(Token::kIdentifier); replacement_list(); new_line();
+	//"#" "include" pp_tokens(TokenType::kHeaderName); new_line();
+	//"#" "define" match(TokenType::kIdentifier); replacement_list(); new_line();
 
-	//"#" "define" match(Token::kIdentifier); lparen();
+	//"#" "define" match(TokenType::kIdentifier); lparen();
 	//while (? ? ? ) {
 	//	identifier_list();
 	//}
@@ -1462,13 +1463,13 @@ void Preprocessor::control_line(Token::Type directive) {
 	//replacement_list();
 	//new_line();
 
-	//"#" "define" match(Token::kIdentifier); lparen();
+	//"#" "define" match(TokenType::kIdentifier); lparen();
 	//match("...");
 	//match(')');
 	//replacement_list();
 	//new_line();
 
-	//"#" "define" match(Token::kIdentifier); lparen();
+	//"#" "define" match(TokenType::kIdentifier); lparen();
 	//identifier_list();
 	//match(',');
 	//match("...");
@@ -1493,19 +1494,19 @@ void Preprocessor::control_line(Token::Type directive) {
 	}
 
 	switch (directive) {
-	case Token::kInclude: {
-		src.scanner->state_hint(Scanner::kHintIncludeDirective);
+	case TokenType::kInclude: {
+		src.scanner->state_hint(ScannerHint::kIncludeDirective);
 		match("include");
-		src.scanner->state_hint(Scanner::kHintInitial);
+		src.scanner->state_hint(ScannerHint::kInitial);
 		skip_ws();
 
 		Token header_name_token = peek(1);
 		string header_name;
-		if (header_name_token.type() == Token::kHeaderName) {
+		if (header_name_token.type() == TokenType::kHeaderName) {
 			header_name = header_name_token.string();
-			match(Token::kHeaderName);
-		} else if (header_name_token.type() == Token::kIdentifier) {
-			match(Token::kIdentifier);
+			match(TokenType::kHeaderName);
+		} else if (header_name_token.type() == TokenType::kIdentifier) {
+			match(TokenType::kIdentifier);
 
 			TokenList expanded;
 			const MacroPtr m = find_macro(header_name_token.string());
@@ -1547,17 +1548,17 @@ void Preprocessor::control_line(Token::Type directive) {
 		}
 		break;
 	}
-	case Token::kDefine: {
+	case TokenType::kDefine: {
 		match("define");
 		execute_define();
 		break;
 	}
-	case Token::kUndef: {
+	case TokenType::kUndef: {
 		match("undef");
 		execute_undef();
 		break;
 	}
-	case Token::kLine: {
+	case TokenType::kLine: {
 		match("line");
 		skip_ws();
 
@@ -1566,8 +1567,8 @@ void Preprocessor::control_line(Token::Type directive) {
 
 		Token num_token = peek(1);
 		string numstr;
-		if (num_token.type() == Token::kIdentifier) {
-			match(Token::kIdentifier);
+		if (num_token.type() == TokenType::kIdentifier) {
+			match(TokenType::kIdentifier);
 
 			TokenList expanded;
 			const MacroPtr m = find_macro(num_token.string());
@@ -1593,8 +1594,8 @@ void Preprocessor::control_line(Token::Type directive) {
 			} else {
 				numstr = Token::concat_string(expanded);
 			}
-		} else if (num_token.type() == Token::kPpNumber) {
-			match(Token::kPpNumber);
+		} else if (num_token.type() == TokenType::kPpNumber) {
+			match(TokenType::kPpNumber);
 			numstr = num_token.string();
 		}
 
@@ -1617,13 +1618,13 @@ void Preprocessor::control_line(Token::Type directive) {
 		Token path_token = peek(1);
 		if (path_token.is_eol()) {
 			//  行番号のみの形式に合致したので、パスは無し。
-		} else if (path_token.type() == Token::kStringLiteral) {
+		} else if (path_token.type() == TokenType::kStringLiteral) {
 			//  行番号と名前の形式に合致した。
 			path = path_token.string();
 			consume();
-		} else if (path_token.type() == Token::kIdentifier) {
+		} else if (path_token.type() == TokenType::kIdentifier) {
 			//  展開できれば名前になるかもしれないので、とりあえず展開してみる。
-			match(Token::kIdentifier);
+			match(TokenType::kIdentifier);
 
 			TokenList expanded;
 			const MacroPtr m = find_macro(path_token.string());
@@ -1668,7 +1669,7 @@ void Preprocessor::control_line(Token::Type directive) {
 
 		break;
 	}
-	case Token::kError: {
+	case TokenType::kError: {
 		Token t = peek(1);
 		match("error");
 		skip_ws();
@@ -1681,7 +1682,7 @@ void Preprocessor::control_line(Token::Type directive) {
 		error(t, "#error " + Token::concat_string(ts));
 		break;
 	}
-	case Token::kPragma: {
+	case TokenType::kPragma: {
 		match("pragma");
 		skip_ws();
 
@@ -1696,7 +1697,7 @@ void Preprocessor::control_line(Token::Type directive) {
 		execute_pragma(ts, first_token);
 		break;
 	}
-	case Token::kNewLine: {
+	case TokenType::kNewLine: {
 		new_line();
 		break;
 	}
@@ -1713,7 +1714,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 	Group* cur_group = src.groups.top();
 	//bool output = cur_group->processing;
 
-	//while (peek(1).type() != Token::kNewLine) {
+	//while (peek(1).type() != TokenType::kNewLine) {
 	//	pp_tokens(output);
 	//}
 	//if (output) {
@@ -1738,10 +1739,10 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 		t = peek(1);
 		consume();
 
-		if (t.type() == Token::kComment) {
+		if (t.type() == TokenType::kComment) {
 			continue;
 		}
-		if (t.type() != Token::kIdentifier) {
+		if (t.type() != TokenType::kIdentifier) {
 			output_text(t.string());
 			continue;
 		}
@@ -1777,7 +1778,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 				expanded = move(ws);
 				dont_replace = true;
 
-				if (broken && (peek(1).type() == Token::kPunctuator && peek(1).string() == "#")) {
+				if (broken && (peek(1).type() == TokenType::kPunctuator && peek(1).string() == "#")) {
 					//  改行してディレクティブ行に到達したかもしれない。
 					break;
 				}
@@ -1855,7 +1856,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 			if (next_it != macro.replist().end() && *next_it == kTokenOpConcat) {
 				substituted.push_back(t);
 			} else {
-				if (t.type() != Token::kIdentifier) {
+				if (t.type() != TokenType::kIdentifier) {
 					substituted.push_back(t);
 				} else {
 					if (macro.has_va_args() && t == kTokenVaArgs) {
@@ -1904,7 +1905,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 			if (*it == kTokenOpStringize) {
 				auto next_it = next(it);
 				if (!(next_it != substituted.end() &&
-					next_it->type() == Token::kIdentifier &&
+					next_it->type() == TokenType::kIdentifier &&
 					(find(macro.params().begin(), macro.params().end(), next_it->string()) != macro.params().end() ||
 						*next_it == kTokenVaArgs))) {
 					fatal_error(*next_it, __func__ /* マクロ定義時に失敗しているはず */);
@@ -1922,7 +1923,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 				}
 
 				it = substituted.erase(it, next(next_it));
-				it = substituted.insert(it, Token(s, Token::kStringLiteral));
+				it = substituted.insert(it, Token(s, TokenType::kStringLiteral));
 			}
 		}
 	}
@@ -1985,7 +1986,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 				if (t2 == kTokenOpConcat || t2.is_ws()) {
 					error(r, kGeneratedInvalidPpTokenError2, l.string().c_str(), r.string().c_str());
 					concat_result.pop_back();
-					concat_result.push_back(Token(t2.string(), Token::kNonReplacementTarget));
+					concat_result.push_back(Token(t2.string(), TokenType::kNonReplacementTarget));
 				}
 			} else {
 				error(r, kGeneratedInvalidPpTokenError2, l.string().c_str(), r.string().c_str());
@@ -2032,7 +2033,7 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 	get_expanded_arg(0, macro_args[0], expanded_args);
 
 	if (expanded_args[0].size() != 1 ||
-			expanded_args[0][0].type() != Token::kStringLiteral) {
+			expanded_args[0][0].type() != TokenType::kStringLiteral) {
 		error(macro_args[0][0], kOpPragmaParameterTypeMismatch);
 		return true;
 	}
@@ -2056,7 +2057,7 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 }
 
 TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token) {
-	if (token.type() != Token::kIdentifier) {
+	if (token.type() != TokenType::kIdentifier) {
 		//result.push_back(token);
 		return { token };
 	}
@@ -2108,7 +2109,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
 		t = peek(1);
 		consume();
 
-		if (t.type() != Token::kIdentifier) {
+		if (t.type() != TokenType::kIdentifier) {
 			result_expanded.push_back(t);
 			continue;
 		}
@@ -2122,7 +2123,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
 		}
 		if (used_macro_names_.find(t.string()) != used_macro_names_.end()) {
 			DEBUG(t, "%s[USED]: %s", Indent::tab().c_str(), t.string().c_str());
-			result_expanded.push_back(Token(t.string(), Token::kNonReplacementTarget));
+			result_expanded.push_back(Token(t.string(), TokenType::kNonReplacementTarget));
 			continue;
 		}
 		const MacroPtr m = find_macro(t.string());
@@ -2185,7 +2186,7 @@ void Preprocessor::non_directive() {
 //}
 
 std::optional<TokenList> Preprocessor::replacement_list(
-		Macro::Form macro_form, const Macro::ParamList& macro_params) {
+		MacroForm macro_form, const Macro::ParamList& macro_params) {
 	TokenList result;
 	Token t = peek(1);
 
@@ -2210,7 +2211,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
 
 	//
 	int old_error_count = error_count_;
-	if (macro_form == Macro::kFunctionLike) {
+	if (macro_form == MacroForm::kFunctionLike) {
 		for (auto it = result.begin(); it != result.end(); it++) {
 			if (*it == kTokenOpStringize) {
 				//  #の次の空白は取り除いておく。
@@ -2254,8 +2255,8 @@ std::optional<TokenList> Preprocessor::replacement_list(
 	}
 
 	//  __VA_ARGS__を使えない場合にそれが見つかればエラーとする。
-	if ((macro_form == Macro::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kTokenEllipsis.string()))) ||
-			macro_form == Macro::kObjectLike) {
+	if ((macro_form == MacroForm::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kTokenEllipsis.string()))) ||
+			macro_form == MacroForm::kObjectLike) {
 		Token va_args;
 		auto it = find_if(result.begin(), result.end(),
 				[&va_args](const auto& t) {
@@ -2297,7 +2298,7 @@ std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
 
 		skip_ws();
 		Token delim_or_close = peek(1);
-		if (delim_or_close.type() != Token::kPunctuator ||
+		if (delim_or_close.type() != TokenType::kPunctuator ||
 				(delim_or_close != kTokenComma && delim_or_close != kTokenCloseParen)) {
 			error(id, kBadMacroParameterFormError);
 			bad_params = true;
@@ -2308,7 +2309,7 @@ std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
 			}
 		}
 
-		if (id.type() == Token::kIdentifier) {
+		if (id.type() == TokenType::kIdentifier) {
 			if (id == kTokenVaArgs) {
 				error(id, kVaArgsIdentifierUsageError);
 				bad_params = true;
@@ -2357,7 +2358,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 
 	Macro::ArgList args;
 	args.reserve(macro.params().size());
-	int comma = 0;
+	size_t comma = 0;
 
 	Token t = peek(1);
 	while (t != kTokenCloseParen) {
@@ -2368,7 +2369,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 				(macro.has_va_args() && args.size() < macro.params().size() - 1)) {
 			//  
 			while (nest > 0 || (t != kTokenComma && t != kTokenCloseParen)) {
-				if (t.type() == Token::kEndOfFile) {
+				if (t.type() == TokenType::kEndOfFile) {
 					if (stream_stack_.empty()) {
 						error(t, kBadMacroArgumentError);
 					}
@@ -2392,7 +2393,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 		} else {
 			//  
 			while (nest > 0 || t != kTokenCloseParen) {
-				if (t.type() == Token::kEndOfFile) {
+				if (t.type() == TokenType::kEndOfFile) {
 					error(t, kBadMacroArgumentError);
 					return nullopt;
 				}
@@ -2432,7 +2433,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 	match(")");
 
 	//  最後の引数が空の場合には上のループで追加されないので、ここで空を追加する。
-	if (!macro.params().empty() && (args.size() == comma) && args.size() == macro.params().size() - 1) {
+	if (!macro.params().empty() && (args.size() == comma) && (args.size() == macro.params().size() - 1)) {
 		args.push_back({});
 	}
 
@@ -2464,12 +2465,12 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 //}
 
 void Preprocessor::new_line() {
-	Token::Type t = peek(1).type();
+	TokenType t = peek(1).type();
 
-	if (t == Token::kNewLine) {
-		match(Token::kNewLine);
-	} else if (t == Token::kEndOfFile) {
-		match(Token::kEndOfFile);
+	if (t == TokenType::kNewLine) {
+		match(TokenType::kNewLine);
+	} else if (t == TokenType::kEndOfFile) {
+		match(TokenType::kEndOfFile);
 	} else {
 		error(peek(1), __func__);
 	}
@@ -2490,7 +2491,7 @@ void Preprocessor::skip_directive_line(TokenList* skipped_tokens /* = nullptr */
 void Preprocessor::skip_ws(TokenList* read_tokens) {
 	const Token* t = &peek(1);
 	while (t->is_ws()) {
-		if (read_tokens && t->type() == Token::kWhiteSpace) {
+		if (read_tokens && t->type() == TokenType::kWhiteSpace) {
 			read_tokens->push_back(*t);
 		}
 		consume();
@@ -2503,10 +2504,10 @@ void Preprocessor::skip_ws_and_nl(TokenList* read_tokens, bool* broken) {
 
 	const Token* t = &peek(1);
 	while (t->is_ws_nl()) {
-		if (read_tokens && t->type() == Token::kWhiteSpace) {
+		if (read_tokens && t->type() == TokenType::kWhiteSpace) {
 			read_tokens->push_back(*t);
 		}
-		if (t->type() == Token::kNewLine) {
+		if (t->type() == TokenType::kNewLine) {
 			b = true;
 		}
 
@@ -2519,7 +2520,7 @@ void Preprocessor::skip_ws_and_nl(TokenList* read_tokens, bool* broken) {
 	}
 }
 
-void Preprocessor::match(Token::Type type) {
+void Preprocessor::match(TokenType type) {
 	if (peek(1).type() == type) {
 		consume();
 	} else {
@@ -2550,7 +2551,7 @@ std::string Preprocessor::execute_stringize(const Macro::ArgList& args, Macro::A
 	for (auto i = first; i < last; i++) {
 		const auto& arg = args[i];
 		for (const auto& t : arg) {
-			if (t.type() == Token::kStringLiteral || t.type() == Token::kCharacterConstant) {
+			if (t.type() == TokenType::kStringLiteral || t.type() == TokenType::kCharacterConstant) {
 				result += escape_string(t.string());
 			} else {
 				result += t.string();
@@ -2622,18 +2623,18 @@ bool Preprocessor::execute_define() {
 	skip_ws();
 
 	Token name = peek(1);
-	if (name.type() != Token::kIdentifier) {
+	if (name.type() != TokenType::kIdentifier) {
 		error(name, kInvalidMacroName);
 		skip_directive_line();
 	} else {
-		match(Token::kIdentifier);
+		match(TokenType::kIdentifier);
 
 		//  NOTE: マクロ名の直後に空白やコメントを挟まずに括弧が
 		//   有る場合のみ、関数型マクロとして解釈する。なので、ここでは
 		//   空白を読み飛ばしてはならない。
 		bool func_type = (peek(1) == kTokenOpenParen);
 		if (!func_type) {
-			optional<TokenList> replist = replacement_list(Macro::kObjectLike, Macro::kNoParams);
+			optional<TokenList> replist = replacement_list(MacroForm::kObjectLike, Macro::kNoParams);
 			if (!replist.has_value()) {
 				skip_directive_line();
 			} else {
@@ -2648,7 +2649,7 @@ bool Preprocessor::execute_define() {
 					info(name, kMinSpecMacroParametersWarning, kMinSpecMacroParameters, params.value().size());
 				}
 
-				optional<TokenList> replist = replacement_list(Macro::kFunctionLike, *params);
+				optional<TokenList> replist = replacement_list(MacroForm::kFunctionLike, *params);
 				if (!replist.has_value()) {
 					skip_directive_line();
 				} else {
@@ -2667,7 +2668,7 @@ bool Preprocessor::execute_undef() {
 	skip_ws();
 
 	Token name = peek(1);
-	if (name.type() != Token::kIdentifier) {
+	if (name.type() != TokenType::kIdentifier) {
 		skip_directive_line();
 		new_line();
 
@@ -2675,7 +2676,7 @@ bool Preprocessor::execute_undef() {
 		return false;
 	}
 
-	match(Token::kIdentifier);
+	match(TokenType::kIdentifier);
 	skip_ws();
 	TokenList extra_tokens;
 	skip_directive_line(&extra_tokens);
@@ -2729,7 +2730,9 @@ void Preprocessor::output_error(const char* format, ...) {
 }
 
 void Preprocessor::output_log(DiagLevel level, const Token& token, const char* format, va_list args) {
-	assert(0 <= level && level <= DiagLevel::kMaxLevel);
+	if (level < kMinDiagLevel || level > kMaxDiagLevel) {
+		throw invalid_argument("level");
+	}
 
 	if (level > diag_level_) {
 		return;
@@ -2737,7 +2740,7 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const char* f
 
 	uint32_t l;
 	size_t c;
-	if (token.type() != Token::kNull) {
+	if (token.type() != TokenType::kNull) {
 		l = token.line();
 		c = token.column();
 	} else {
@@ -2752,7 +2755,8 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const char* f
 	}
 	string s = current_source_path();
 
-	fprintf(error_output_, "%s:%s:%" PRIu32 ":%zu:", s.c_str(), kLevelTag[level], l, c);
+	auto i = static_cast<underlying_type_t<decltype(level)>>(level);
+	fprintf(error_output_, "%s:%s:%" PRIu32 ":%zu:", s.c_str(), kLevelTag[i], l, c);
 	vfprintf(error_output_, format, args);
 	fprintf(error_output_, "\n");
 #if !defined(NDEBUG)
@@ -2852,7 +2856,7 @@ void Preprocessor::current_source_line_number(uint32_t value) {
 	(*sources_.top()).reset_line_number(value);
 }
 
-void Preprocessor::add_predefined_macro(const std::string& name, const std::string& value, const Token::Type type) {
+void Preprocessor::add_predefined_macro(const std::string& name, const std::string& value, const TokenType type) {
 	macros_.insert({ name, make_shared<Macro>(name, value, type) });
 	predef_macro_names_.push_back(name);
 }
@@ -2894,7 +2898,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 			warning(name, kMacroRedefinitionWarning, name.string().c_str(), m->source().c_str(), m->line(), m->column());
 		}
 		m->reset(replist, current_source_path(), name);
-		DEBUG(name, "[REDEF] %s", macro_def_string(Macro::kObjectLike, name, Macro::kNoParams, replist).c_str());
+		DEBUG(name, "[REDEF] %s", macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist).c_str());
 
 		return m;
 	} else {
@@ -2903,7 +2907,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 		if (!result.second) {
 			fatal_error(name, __func__ /* ロジックエラーかメモリーが足りないか？ */);
 		}
-		DEBUG(name, "[DEF] %s", macro_def_string(Macro::kObjectLike, name, Macro::kNoParams, replist).c_str());
+		DEBUG(name, "[DEF] %s", macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist).c_str());
 
 		auto inserted = *result.first;
 		return inserted.second;
@@ -2922,7 +2926,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 			warning(name, kMacroRedefinitionWarning, name.string().c_str(), m->source().c_str(), m->line(), m->column());
 		}
 		m->reset(params, replist, current_source_path(), name);
-		DEBUG(name, "[REDEF] %s", macro_def_string(Macro::kFunctionLike, name, params, replist).c_str());
+		DEBUG(name, "[REDEF] %s", macro_def_string(MacroForm::kFunctionLike, name, params, replist).c_str());
 
 		return m;
 	} else {
@@ -2931,19 +2935,19 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 		if (!result.second) {
 			fatal_error(name, __func__ /* ロジックエラー */);
 		}
-		DEBUG(name, "[DEF] %s", macro_def_string(Macro::kFunctionLike, name, params, replist).c_str());
+		DEBUG(name, "[DEF] %s", macro_def_string(MacroForm::kFunctionLike, name, params, replist).c_str());
 
 		auto inserted = *result.first;
 		return inserted.second;
 	}
 }
 
-std::string Preprocessor::macro_def_string(Macro::Form form, const Token& name, const Macro::ParamList& params, const TokenList& replist) {
+std::string Preprocessor::macro_def_string(MacroForm form, const Token& name, const Macro::ParamList& params, const TokenList& replist) {
 	string buf;
 	buf.reserve(name.string().length() + 1 + params.size() * 16 + 2 + replist.size() * 32);
 
 	buf += name.string();
-	if (form == Macro::kFunctionLike) {
+	if (form == MacroForm::kFunctionLike) {
 		buf += "(";
 		if (!params.empty()) {
 			//buf += params.front();
@@ -2984,9 +2988,9 @@ const MacroPtr Preprocessor::find_macro(const std::string& name) {
 	}
 	auto m = it->second;
 	if (name == "__FILE__") {
-		m->reset({ Token(quote_string(current_source_path()), Token::kStringLiteral) }, "", kTokenNull);
+		m->reset({ Token(quote_string(current_source_path()), TokenType::kStringLiteral) }, "", kTokenNull);
 	} else if (name == "__LINE__") {
-		m->reset({ Token(to_string(current_source_line_number()), Token::kPpNumber)}, "", kTokenNull);
+		m->reset({ Token(to_string(current_source_line_number()), TokenType::kPpNumber)}, "", kTokenNull);
 	}
 
 	return m;

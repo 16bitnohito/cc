@@ -7,7 +7,7 @@
 
 namespace pp {
 
-enum DiagLevel {
+enum class DiagLevel {
 	kNoLog,
 	kFatalError,
 	kError,
@@ -15,9 +15,10 @@ enum DiagLevel {
 	kInfo,
 	kTrace,
 	kDebug,
-
-	kMaxLevel = kDebug,
 };
+
+constexpr auto kMinDiagLevel = DiagLevel::kNoLog;
+constexpr auto kMaxDiagLevel = DiagLevel::kDebug;
 
 constexpr char kPredefinedMacroNameError[] = "\"%s\"はマクロ名として利用できない。";
 constexpr char kMacroRedefinitionWarning[] = "マクロ %sが再定義された。(以前の定義は %s:%" PRIu32 ")";

@@ -67,7 +67,7 @@ std::string to_cp932(const std::wstring& ws) {
 	if (converted == 0) {
 		last_error();
 	}
-	assert(strlen(result.c_str()) == needs);
+	assert(needs > 0 && strlen(result.c_str()) == static_cast<size_t>(needs));
 
 	return result;
 }
@@ -98,7 +98,7 @@ std::string to_u8string(const std::wstring& ws) {
 	if (converted == 0) {
 		last_error();
 	}
-	assert(strlen(result.c_str()) == needs);
+	assert(needs > 0 && strlen(result.c_str()) == static_cast<size_t>(needs));
 
 	return result;
 }
@@ -123,7 +123,7 @@ std::wstring to_wstring(const std::string& u8s) {
 	if (converted == 0) {
 		last_error();
 	}
-	assert(wcslen(result.c_str()) == needs);
+	assert(needs > 0 && wcslen(result.c_str()) == static_cast<size_t>(needs));
 
 	return result;
 }

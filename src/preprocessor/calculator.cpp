@@ -6,9 +6,9 @@
 
 using namespace std;
 
-
-namespace pp {
 namespace {
+
+using namespace pp;
 
 std::vector<std::string_view> integer_suffixes = {
 	"L",
@@ -38,6 +38,7 @@ Sorter integer_suffixes_sorter(integer_suffixes);
 
 }	//  anonymous namespace
 
+namespace pp {
 
 bool parse_int(const std::string& s, target_intmax_t* result) {
 	assert(result != nullptr);

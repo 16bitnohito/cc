@@ -19,6 +19,7 @@
 #include <preprocessor/config.hpp>
 #include <preprocessor/diagnostics.hpp>
 #include <preprocessor/scanner.hpp>
+#include <preprocessor/utility.hpp>
 
 
 namespace pp {
@@ -31,21 +32,29 @@ constexpr char kFileOutputError[] = "出力に失敗した。\n";
 
 extern const Token kTokenEndOfFile;
 
+/**
+ */
+enum class MacroForm {
+	kObjectLike,
+	kFunctionLike,
+};
+
+/**
+ */
+enum class MacroExpantionMethod {
+	kDirectlyCopyable,
+	kNormal,
+	kOpPragma,
+
+	kNumElements,
+};
+
+constexpr auto kNumOfMacroExpantionMethod = enum_ordinal(MacroExpantionMethod::kNumElements);
+
+/**
+ */
 struct Macro {
 public:
-	enum Form {
-		kObjectLike,
-		kFunctionLike,
-	};
-
-	enum ExpantionMethod {
-		kExpantionMethodDirectlyCopyable,
-		kExpantionMethodNormal,
-		kExpantionMethodOpPragma,
-
-		kMaxExpantionMethod,
-	};
-
 	using ParamList = std::vector<std::string>;
 	using ArgList = std::vector<TokenList>;
 
@@ -54,7 +63,7 @@ public:
 
 	Macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token);
 	Macro(const std::string& name, const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
-	Macro(const std::string& name, const std::string& value, const Token::Type type);
+	Macro(const std::string& name, const std::string& value, const TokenType type);
 	Macro(const Macro&) = delete;
 	Macro(Macro&&) = delete;
 	~Macro();
@@ -63,13 +72,13 @@ public:
 	Macro& operator=(Macro&&) = delete;
 
 	const std::string& name() const { return name_; }
-	Form form() const { return form_; }
-	ExpantionMethod expantion_method() const { return expantion_method_; }
+	MacroForm form() const { return form_; }
+	MacroExpantionMethod expantion_method() const { return expantion_method_; }
 	const ParamList& params() const { return params_; }
 	const TokenList& replist() const { return replist_; }
 	bool has_va_args() const { return has_va_args_; }
-	bool is_function() const { return form() == kFunctionLike; }
-	bool is_object() const { return form() == kObjectLike; }
+	bool is_function() const { return form() == MacroForm::kFunctionLike; }
+	bool is_object() const { return form() == MacroForm::kObjectLike; }
 	bool is_predefined() const { return is_predefined_; }
 	//bool needs_concat() const { return needs_concat_; }
 	//bool needs_stringize() const { return needs_stringize_; }
@@ -77,16 +86,16 @@ public:
 	uint32_t line() const { return line_; }
 	uint32_t column() const { return column_; }
 
-	size_t param_index_of(const std::string& param_name) const;
+	std::size_t param_index_of(const std::string& param_name) const;
 	void reset(const TokenList& replist, const std::string& source, const Token& name_token);
 	void reset(const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
 
 private:
-	ExpantionMethod get_expantion_method(Form form, const std::string& name, const TokenList& replist);
+	MacroExpantionMethod get_expantion_method(MacroForm form, const std::string& name, const TokenList& replist);
 
 	std::string name_;
-	Form form_;
-	ExpantionMethod expantion_method_;
+	MacroForm form_;
+	MacroExpantionMethod expantion_method_;
 	ParamList params_;
 	TokenList replist_;
 	bool has_va_args_;
@@ -150,9 +159,9 @@ private:
 	struct Group {
 		bool processing;
 		uint32_t start_line_number;
-		Token::Type type;
+		TokenType type;
 
-		Group(bool p, uint32_t l, Token::Type t) {
+		Group(bool p, uint32_t l, TokenType t) {
 			processing = p;
 			start_line_number = l;
 			type = t;
@@ -280,7 +289,7 @@ private:
 			, i_() {
 		}
 
-		virtual ~TokenStreamFromTokenList() override {
+		virtual ~TokenStreamFromTokenList() {
 		}
 
 		virtual void consume() override {
@@ -311,14 +320,14 @@ private:
 			, lookahead_(scanner_.next_token()) {
 		}
 
-		virtual ~TokenStreamFromString() override {
+		virtual ~TokenStreamFromString() {
 		}
 
-		void consume() {
+		void consume() override {
 			lookahead_ = scanner_.next_token();
 		}
 
-		const Token& peek(int /*i*/) const {
+		const Token& peek(int /*i*/) const override {
 			return lookahead_;
 		}
 
@@ -359,10 +368,10 @@ private:
 	bool elif_group(bool processed);
 	void else_group(bool processed);
 	void endif_line();
-	void control_line(Token::Type directive);
+	void control_line(TokenType directive);
 	void text_line(const TokenList& ws_tokens);
 
-	const TokenList& get_expanded_arg(size_t n, const TokenList& arg, Macro::ArgList& cache);
+	const TokenList& get_expanded_arg(std::size_t n, const TokenList& arg, Macro::ArgList& cache);
 
 #if !defined(NDEBUG)
 	class Indent {
@@ -396,16 +405,18 @@ private:
 		Indent indent;
 #endif
 
-		return (this->*expantion_methods_[macro.expantion_method()])(macro, macro_args, result_expanded);
+		auto ord = enum_ordinal(macro.expantion_method());
+		return (this->*expantion_methods_[ord])(macro, macro_args, result_expanded);
 	}
 	bool expand_directly_copyable(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 	bool expand_normal(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 	bool expand_op_pragma(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
-	static constexpr bool (Preprocessor::*expantion_methods_[Macro::kMaxExpantionMethod])(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) = {
-		&expand_directly_copyable,
-		&expand_normal,
-		&expand_op_pragma,
+	using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
+	static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {
+		&Preprocessor::expand_directly_copyable,
+		&Preprocessor::expand_normal,
+		&Preprocessor::expand_op_pragma,
 	};
 
 	TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);
@@ -413,7 +424,7 @@ private:
 
 	void non_directive();
 	//void lparen();
-	std::optional<TokenList> replacement_list(Macro::Form macro_form, const Macro::ParamList& macro_params);
+	std::optional<TokenList> replacement_list(MacroForm macro_form, const Macro::ParamList& macro_params);
 	std::optional<Macro::ParamList> read_macro_params();
 	std::optional<Macro::ArgList> read_macro_args(const Macro& macro, TokenList* read_tokens);
 
@@ -425,7 +436,7 @@ private:
 	void skip_ws(TokenList* read_tokens = nullptr);
 	void skip_ws_and_nl(TokenList* read_tokens, bool* broken);
 
-	void match(Token::Type type);
+	void match(TokenType type);
 	void match(const std::string& seq);
 	void match(const char* seq);
 
@@ -501,7 +512,7 @@ private:
 	uint32_t current_source_line_number();
 	void current_source_line_number(uint32_t value);
 
-	void add_predefined_macro(const std::string& name, const std::string& value, const Token::Type type);
+	void add_predefined_macro(const std::string& name, const std::string& value, const TokenType type);
 	bool is_predefined_macro_name(const std::string& name) {
 		auto it = std::lower_bound(predef_macro_names_.begin(), predef_macro_names_.end(), name);
 		return (it != predef_macro_names_.end()) && !(name < *it);
@@ -509,7 +520,7 @@ private:
 	bool is_valid_macro_name(const Token& name);
 	MacroPtr add_macro(const Token& name, const TokenList& replist);
 	MacroPtr add_macro(const Token& name, const Macro::ParamList& params, const TokenList& replist);
-	std::string macro_def_string(Macro::Form form, const Token& name, const Macro::ParamList& params, const TokenList& replist);
+	std::string macro_def_string(MacroForm form, const Token& name, const Macro::ParamList& params, const TokenList& replist);
 	void remove_macro(const Token& name);
 	const MacroPtr find_macro(const std::string& name);
 	void print_macros();
@@ -537,7 +548,6 @@ private:
 	int32_t error_count_;
 
 	int included_files_;
-	int inclusion_depth_;
 	int rescan_count_;
 };
 

@@ -5,47 +5,47 @@ using namespace std;
 
 namespace pp {
 
-const std::shared_ptr<Token::TokenValue> Token::kTokenValueNull = make_shared<TokenValue>("", Token::kNull);
-const std::shared_ptr<Token::TokenValue> Token::kTokenValueASpace = make_shared<TokenValue>(" ", Token::kWhiteSpace);
+const std::shared_ptr<Token::TokenValue> Token::kTokenValueNull = make_shared<TokenValue>("", TokenType::kNull);
+const std::shared_ptr<Token::TokenValue> Token::kTokenValueASpace = make_shared<TokenValue>(" ", TokenType::kWhiteSpace);
 
 //  static
-const char* Token::type_to_string(Type type) {
+const char* Token::type_to_string(TokenType type) {
 #define CASE(t)		case t: return #t
 	switch (type) {
-	CASE(kHeaderName);
-	CASE(kIdentifier);
-	CASE(kPpNumber);
-	CASE(kCharacterConstant);
-	CASE(kStringLiteral);
-	CASE(kPunctuator);
-	CASE(kNonWhiteSpaceCharacter);
+	CASE(TokenType::kHeaderName);
+	CASE(TokenType::kIdentifier);
+	CASE(TokenType::kPpNumber);
+	CASE(TokenType::kCharacterConstant);
+	CASE(TokenType::kStringLiteral);
+	CASE(TokenType::kPunctuator);
+	CASE(TokenType::kNonWhiteSpaceCharacter);
 
-	CASE(kNewLine);
-	CASE(kWhiteSpace);
-	CASE(kComment);
+	CASE(TokenType::kNewLine);
+	CASE(TokenType::kWhiteSpace);
+	CASE(TokenType::kComment);
 
-	CASE(kInclude);
-	CASE(kDefine);
-	CASE(kUndef);
-	CASE(kIf);
-	CASE(kIfdef);
-	CASE(kIfndef);
-	CASE(kElif);
-	CASE(kElse);
-	CASE(kEndif);
-	CASE(kError);
-	CASE(kLine);
-	CASE(kPragma);
+	CASE(TokenType::kInclude);
+	CASE(TokenType::kDefine);
+	CASE(TokenType::kUndef);
+	CASE(TokenType::kIf);
+	CASE(TokenType::kIfdef);
+	CASE(TokenType::kIfndef);
+	CASE(TokenType::kElif);
+	CASE(TokenType::kElse);
+	CASE(TokenType::kEndif);
+	CASE(TokenType::kError);
+	CASE(TokenType::kLine);
+	CASE(TokenType::kPragma);
 
-	//CASE(kOpDefined);
-	//CASE(kOpStringize);
-	//CASE(kOpConcat);
+	//CASE(TokenType::kOpDefined);
+	//CASE(TokenType::kOpStringize);
+	//CASE(TokenType::kOpConcat);
 
-	CASE(kPlaceMarker);
+	CASE(TokenType::kPlaceMarker);
 
-	CASE(kNonReplacementTarget);
+	CASE(TokenType::kNonReplacementTarget);
 
-	CASE(kEndOfFile);
+	CASE(TokenType::kEndOfFile);
 
 	default: return "<UNKNOWN>";
 	}

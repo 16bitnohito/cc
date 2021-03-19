@@ -18,22 +18,26 @@ namespace pp {
 //constexpr char kError[] = "整数として正しくない。";
 //constexpr char kError[] = "実数として正しくない。";
 
+
+/**
+ */
+enum class ScannerHint {
+	kInitial,
+	kIncludeDirective,
+};
+
+
 /**
 */
 class Scanner {
 public:
-	enum Hint {
-		kHintInitial,
-		kHintIncludeDirective,
-	};
-
 	Scanner(std::istream* input, bool trigraph, bool newline = true);
     ~Scanner();
 
     Token next_token();
 
     bool is_support_trigraph();
-    void state_hint(Hint hint);
+    void state_hint(ScannerHint hint);
 
 	uint32_t line_number();
 	void line_number(uint32_t value);
@@ -41,64 +45,6 @@ public:
 	std::string buffer();
 
 private:
-	enum State {
-		kStateInitial,
-		kStateHeaderName1,
-		kStateHeaderNameF1,
-		kStateIdentifier1,
-		kStateIdentifier2,
-		kStateIdentifierF1,
-		kStatePpNumber1,
-		kStatePpNumber2,
-		kStatePpNumber3,
-		kStatePpNumberF1,
-		kStatePpNumberF2,
-		kStateCharacterConstant1,
-		kStateCharacterConstant2,
-		kStateCharacterConstant3,
-		kStateCharacterConstant4,
-		kStateCharacterConstant5,
-		kStateCharacterConstant6,
-		kStateCharacterConstant7,
-		kStateCharacterConstant8,
-		kStateCharacterConstant9,
-		kStateCharacterConstantF1,
-		kStateStringLiteral1,
-		kStateStringLiteral2,
-		kStateStringLiteral3,
-		kStateStringLiteral4,
-		kStateStringLiteral5,
-		kStateStringLiteral6,
-		kStateStringLiteral7,
-		kStateStringLiteral8,
-		kStateStringLiteral9,
-		kStateStringLiteralF1,
-		kStateLineComment,
-		kStateBlockComment,
-		kStateWhiteSpaces,
-		kStateLineBreak,
-		kStateEllipsis,
-		kStatePlus,
-		kStateMinus,
-		kStateAsterisk,
-		kStateSlash1,
-		kStatePercent1,
-		kStatePercent2,
-		kStatePercent3,
-		kStateEqual1,
-		kStateLess1,
-		kStateLess2,
-		kStateGreater1,
-		kStateGreater2,
-		kStateCaret1,
-		kStateVerticalBar1,
-		kStateAmpersand1,
-		kStateExclamation1,
-		kStateColon1,
-		kStatePound1,
-		kStateEnd,
-	};
-
 	int get() {
 		if (buf_i_ >= buf_.length()) {
 			if (readline() != 0) {
@@ -129,7 +75,7 @@ private:
 	int c_;
 	//std::string cseq_;
 	//State state_;
-	Hint hint_;
+	ScannerHint hint_;
 	//Token::Type type_;
 	uint32_t buf_i_mark_;
 };

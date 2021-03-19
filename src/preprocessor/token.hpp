@@ -11,53 +11,53 @@
 
 namespace pp {
 
+enum class TokenType {
+	kNull = 256,
+
+	kHeaderName,
+	kIdentifier,
+	kPpNumber,
+	kCharacterConstant,
+	kStringLiteral,
+	kPunctuator,
+	kNonWhiteSpaceCharacter,
+
+	kNewLine,
+	kWhiteSpace,
+	kComment,
+
+	kInclude,
+	kDefine,
+	kUndef,
+	kIf,
+	kIfdef,
+	kIfndef,
+	kElif,
+	kElse,
+	kEndif,
+	kError,
+	kLine,
+	kPragma,
+
+	//kOpDefined,
+	//kOpStringize,
+	//kOpConcat,
+
+	kPlaceMarker,
+
+	kNonReplacementTarget,
+
+	kEndOfFile,
+};
+
 /**
  *  プリプロセッシングトークン
  */
 class Token {
 public:
-	enum Type {
-        kNull = 256,
-
-		kHeaderName,
-		kIdentifier,
-		kPpNumber,
-		kCharacterConstant,
-		kStringLiteral,
-		kPunctuator,
-		kNonWhiteSpaceCharacter,
-
-		kNewLine,
-		kWhiteSpace,
-		kComment,
-
-		kInclude,
-		kDefine,
-		kUndef,
-		kIf,
-		kIfdef,
-		kIfndef,
-		kElif,
-		kElse,
-		kEndif,
-		kError,
-		kLine,
-		kPragma,
-
-		//kOpDefined,
-		//kOpStringize,
-		//kOpConcat,
-
-		kPlaceMarker,
-
-		kNonReplacementTarget,
-
-		kEndOfFile,
-	};
-
 	class TokenValue {
 	public:
-		TokenValue(const std::string& string, Type type)
+		TokenValue(const std::string& string, TokenType type)
 			: string_(string)
 			, type_(type) {
 		}
@@ -66,17 +66,17 @@ public:
 		}
 
 		const std::string& string() const { return string_; }
-		Type type() const { return type_; }
+		TokenType type() const { return type_; }
 
 	private:
 		std::string string_;
-		Type type_;
+		TokenType type_;
 	};
 
 	static const std::shared_ptr<Token::TokenValue> kTokenValueNull;
 	static const std::shared_ptr<Token::TokenValue> kTokenValueASpace;
 
-	static const char* type_to_string(Type type);
+	static const char* type_to_string(TokenType type);
 
 	template <typename Container>
 	static std::string concat_string(const Container& tokens) {
@@ -88,7 +88,7 @@ public:
 		return result;
 	}
 
-	static std::shared_ptr<TokenValue> make_value(const std::string& string, Token::Type type) {
+	static std::shared_ptr<TokenValue> make_value(const std::string& string, TokenType type) {
 		return std::make_shared<TokenValue>(string, type);
 	}
 
@@ -98,13 +98,13 @@ public:
 		, column_() {
 	}
 
-	Token(const std::string& string, Type type)
+	Token(const std::string& string, TokenType type)
 		: value_(Token::make_value(string, type))
 		, line_()
 		, column_() {
 	}
 
-	Token(const std::string& string, Type type, uint32_t line, uint32_t column)
+	Token(const std::string& string, TokenType type, uint32_t line, uint32_t column)
 		: value_(Token::make_value(string, type))
 		, line_(line)
 		, column_(column) {
@@ -137,8 +137,8 @@ public:
 		return value_->string();
 	}
 
-	Type type() const {
-		return static_cast<Type>(value_->type());
+	TokenType type() const {
+		return static_cast<TokenType>(value_->type());
 	}
 
 	uint32_t line() const {
@@ -154,15 +154,15 @@ public:
 	}
 
 	bool is_eol() const {
-		return type() == Token::kNewLine || type() == Token::kEndOfFile;
+		return type() == TokenType::kNewLine || type() == TokenType::kEndOfFile;
 	}
 
 	bool is_ws() const {
-		return type() == Token::kWhiteSpace || type() == Token::kComment;
+		return type() == TokenType::kWhiteSpace || type() == TokenType::kComment;
 	}
 
 	bool is_ws_nl() const {
-		return type() == Token::kWhiteSpace || type() == Token::kComment || type() == Token::kNewLine;
+		return type() == TokenType::kWhiteSpace || type() == TokenType::kComment || type() == TokenType::kNewLine;
 	}
 
 private:

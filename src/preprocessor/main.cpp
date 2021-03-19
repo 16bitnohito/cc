@@ -24,12 +24,10 @@ int main(int argc, char* argv[]) {
 		}
 
 		return pp.run();
-	}
-	catch (std::exception& e) {
+	} catch (std::exception& e) {
 		cerr << "main:" << e.what() << endl;
 		return 1;
-	}
-	catch (...) {
+	} catch (...) {
 		cerr << "main:unknown exception" << endl;
 		return 1;
 	}

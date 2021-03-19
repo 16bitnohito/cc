@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include <preprocessor/config.hpp>
 
@@ -45,12 +46,12 @@ Path path_string(const std::string& s) {
 #endif
 
 std::string trim_string(const std::string& s);
-std::string& to_upper_string(std::string& s, size_t pos = 0);
+std::string& to_upper_string(std::string& s, std::size_t pos = 0);
 
 void last_error();
 
 template <class T>
-size_t size_in_bytes(const std::vector<T>& container) {
+std::size_t size_in_bytes(const std::vector<T>& container) {
 	return container.size() * sizeof(std::vector<T>::value_type);
 }
 
@@ -74,6 +75,13 @@ template <class Iter, class T, class Pred = std::less<T>>
 Iter binary_find(Iter first, Iter last, const T& x, Pred pred = Pred()) {
 	Iter it = std::lower_bound(first, last, x, pred);
 	return ((it != last) && !pred(x, *it)) ? it : last;
+}
+
+/**
+ */
+constexpr
+auto enum_ordinal(auto value) {
+	return static_cast<std::underlying_type_t<decltype(value)>>(value);
 }
 
 }	//  namespace pp

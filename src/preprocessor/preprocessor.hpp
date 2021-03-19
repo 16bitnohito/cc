@@ -29,6 +29,7 @@ constexpr char kNoOptionParameterError[] = "オプション %cの値が指定さ
 constexpr char kNoInputError[] = "入力ファイルが指定されていない。\n";
 constexpr char kNoSuchFileError[] = "ファイルが開けない: %s\n";
 constexpr char kFileOutputError[] = "出力に失敗した。\n";
+constexpr char kErrorFileOutputError[] = "エラー出力に失敗した。\n";
 
 extern const Token kTokenEndOfFile;
 
@@ -289,7 +290,7 @@ private:
 			, i_() {
 		}
 
-		virtual ~TokenStreamFromTokenList() {
+		virtual ~TokenStreamFromTokenList() override {
 		}
 
 		virtual void consume() override {
@@ -320,7 +321,7 @@ private:
 			, lookahead_(scanner_.next_token()) {
 		}
 
-		virtual ~TokenStreamFromString() {
+		virtual ~TokenStreamFromString() override {
 		}
 
 		void consume() override {
@@ -345,6 +346,7 @@ private:
 			: source_(source) {
 			source_->groups.push(group);
 		}
+
 		~GroupScope() {
 			source_->groups.pop();
 		}
@@ -550,6 +552,8 @@ private:
 	int included_files_;
 	int rescan_count_;
 };
+
+void init_preprocessor();
 
 }   //  namespace pp
 

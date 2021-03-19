@@ -31,9 +31,6 @@ std::vector<std::tuple<std::string, TokenType>> directives = {
 	{ "line", TokenType::kLine },
 	{ "pragma", TokenType::kPragma },
 };
-Sorter directives_sorter(directives, [](const auto& lhs, const auto& rhs) {
-	return get<0>(lhs) < get<0>(rhs);
-});
 
 TokenType as_directive(const Token& token) {
 	const string& s = token.string();
@@ -48,7 +45,7 @@ TokenType as_directive(const Token& token) {
 	}
 }
 
-const char* kLevelTag[] = {
+const char* const kLevelTag[] = {
 	"",
 	"致命的エラー",
 	"エラー",
@@ -194,17 +191,65 @@ std::vector<Operator> operators = {
 	{ OperatorId::kNot, "!", 2, 1 },
 	{ OperatorId::kCompl, "~", 2, 1 },
 };
-Sorter operators_sorter(operators,
-		[](const auto& lhs, const auto& rhs) { return lhs.sequence < rhs.sequence; });
+
+struct OperatorLess {
+	bool operator()(const Operator& lhs, const Operator& rhs) const {
+		return lhs.sequence < rhs.sequence;
+	}
+
+	bool operator()(const Operator& lhs, const std::string& rhs) const {
+		return lhs.sequence < rhs;
+	}
+
+	bool operator()(const std::string& lhs, const Operator& rhs) const {
+		return lhs < rhs.sequence;
+	}
+};
 
 const Operator& string_to_op(const std::string& s) {
-	auto it = lower_bound(operators.begin(), operators.end(), s,
-		[](const auto& lhs, const auto& rhs) { return lhs.sequence < rhs; });
+	auto it = lower_bound(operators.begin(), operators.end(), s, OperatorLess());
 	if (it != operators.end() && !(s < it->sequence)) {
 		return *it;
 	} else {
 		return kOperatorUnknown;
 	}
+}
+
+std::string replace_string(const std::string& s, const std::string& old_seq, const std::string& new_seq) {
+	string result = s;
+	string::size_type i = 0;
+
+	while ((i = result.find(old_seq, i)) != string::npos) {
+		result.replace(i, old_seq.length(), new_seq);
+		i += old_seq.length();
+	}
+
+	return result;
+}
+
+//  TODO: std::filesystem、これ以外も。
+std::string normalize_path(const std::string& path) {
+	string result = path;
+	string::size_type i;
+
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+	result = replace_string(result, "/", kPathDelimiter);
+#endif
+	result = replace_string(result, kPathDelimiter + kPathDelimiter, kPathDelimiter);
+
+	i = 0;
+	do {
+		const string cur = "." + kPathDelimiter;
+		i = result.find(cur, i);
+		if (i != string::npos) {
+			if (i == 0 || result[i - 1] != '.') {
+				result.replace(i, cur.length(), "");
+			}
+			i += 2;
+		}
+	} while (i != string::npos);
+
+	return result;
 }
 
 }	//  anonymous namespace
@@ -459,7 +504,6 @@ bool Preprocessor::Options::parse_options(const std::vector<std::string>& args) 
 				break;
 			case 'h':
 				return false;
-				break;
 
 			default:
 				fprintf(stderr, kUnknownOptionError, arg[1]);
@@ -643,22 +687,30 @@ bool Preprocessor::cleanup() {
 	bool e = false;
 
 	if (output_ != nullptr) {
-		fflush(output_);
-		if (ferror(output_) != 0) {
+		if (fflush(output_) != 0) {
 			output_error(kFileOutputError);
 			e = true;
 		}
-
-		clock_end_ = clock() - clock_start_;
-		info(kTokenNull, "elapsed: %ld", clock_end_);
-
-		fclose(output_);
+		if (fclose(output_) != 0) {
+			output_error(kFileOutputError);
+			e = true;
+		}
 		output_ = nullptr;
 	}
 
+	// TODO: いつもの簡易プロファイラー的なものにする。
+	clock_end_ = clock() - clock_start_;
+	info(kTokenNull, "elapsed: %ld", clock_end_);
+
 	if (error_output_ != nullptr) {
-		fflush(error_output_);
-		fclose(error_output_);
+		if (fflush(error_output_) != 0) {
+			output_error(kErrorFileOutputError);
+			e = true;
+		}
+		if (fclose(error_output_) != 0) {
+			output_error(kErrorFileOutputError);
+			e = true;
+		}
 		error_output_ = nullptr;
 	}
 
@@ -730,6 +782,8 @@ void Preprocessor::prepare_predefined_macro() {
 	//  オプション指定のマクロ定義はここから。定義済みマクロの後にしないと失敗する。
 	auto& defs = opts_.macro_defs();
 	for (auto def : defs) {
+		// XXX: defは、もしかして opts_の持つものを上書きするのではないだろうか。
+		//      書き込み時のコピーが行われるだろうか。その動作は保証されているだろうか。
 		auto i = def.find('=');
 		if (i == string::npos) {
 			//  定義が無いか、或いは、コマンドライン引数を引用符で囲って、#defineの様に
@@ -978,9 +1032,9 @@ TokenList Preprocessor::make_constant_expression() {
 			}
 		}
 	}
-	//new_line();
 
 	if (expr.empty() || bad_expr) {
+		expr.clear();
 		expr.push_back(Token("0", TokenType::kPpNumber));
 	}
 
@@ -1410,43 +1464,6 @@ void Preprocessor::endif_line() {
 	match("endif");
 	skip_ws();
 	new_line();
-}
-
-std::string replace_string(const std::string& s, const std::string& old_seq, const std::string& new_seq) {
-	string result = s;
-	string::size_type i = 0;
-
-	while ((i = result.find(old_seq, i)) != string::npos) {
-		result.replace(i, old_seq.length(), new_seq);
-		i += old_seq.length();
-	}
-
-	return result;
-}
-
-//  TODO: std::filesystem、これ以外も。
-std::string normalize_path(const std::string& path) {
-	string result = path;
-	string::size_type i;
-
-#if HOST_PLATFORM == PLATFORM_WINDOWS
-	result = replace_string(result, "/", kPathDelimiter);
-#endif
-	result = replace_string(result, kPathDelimiter + kPathDelimiter, kPathDelimiter);
-
-	i = 0;
-	do {
-		const string cur = "." + kPathDelimiter;
-		i = result.find(cur, i);
-		if (i != string::npos) {
-			if (i == 0 || result[i - 1] != '.') {
-				result.replace(i, cur.length(), "");
-			}
-			i += 2;
-		}
-	} while (i != string::npos);
-
-	return result;
 }
 
 void Preprocessor::control_line(TokenType directive) {
@@ -1978,7 +1995,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 			if (count == 0) {
 				//  空であれば何もしない。
 			} else if (count == 1) {
-				//  TODO: 事前に細かく分けて結合すべきなかもしれない。有り得るのは id+id=id, id+num=id,
+				//  TODO: 事前に細かく分けて結合すべきなのかもしれない。有り得るのは id+id=id, id+num=id,
 				//        num+num=num, punct+punct=punctの 4パターン。punct同士以外については、ここに来たと
 				//        しても、それは結合できたということなので、特に問題は無いだろうか。ただ、numは
 				//        あくまでも pp-numberなのでパーサーがエラーにする可能性は残る。
@@ -3018,6 +3035,13 @@ void Preprocessor::print_macros() {
 		}
 		fprintf(error_output_, "\n");
 	}
+}
+
+
+void init_preprocessor() {
+	sort(operators.begin(), operators.end(), OperatorLess());
+	sort(directives.begin(), directives.end(),
+			[](const auto& lhs, const auto& rhs) { return get<0>(lhs) < get<0>(rhs); });
 }
 
 }   //  namespace pp

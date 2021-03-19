@@ -84,6 +84,16 @@ auto enum_ordinal(auto value) {
 	return static_cast<std::underlying_type_t<decltype(value)>>(value);
 }
 
+/**
+ */
+void setup_console();
+
+/**
+ * @param error std::errcで定義されているエラーに対応するエラー値、errno、或いは EINVAL等を渡します。
+ */
+[[noreturn]]
+void raise_generic_error(const char* message, int error);
+
 }	//  namespace pp
 
 #endif	//  PREPROCESSOR_UTILITY_HPP_

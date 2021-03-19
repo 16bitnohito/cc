@@ -47,7 +47,7 @@ struct Operator {
 	uint8_t arity;
 };
 
-
+void init_calculator();
 bool parse_int(const std::string& s, target_intmax_t* result);
 
 }   //  namespace pp

@@ -34,11 +34,14 @@ std::vector<std::string_view> integer_suffixes = {
 	"ul",
 	"ull",
 };
-Sorter integer_suffixes_sorter(integer_suffixes);
 
 }	//  anonymous namespace
 
 namespace pp {
+
+void init_calculator() {
+	sort(integer_suffixes.begin(), integer_suffixes.end());
+}
 
 bool parse_int(const std::string& s, target_intmax_t* result) {
 	assert(result != nullptr);

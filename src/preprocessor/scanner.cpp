@@ -331,7 +331,7 @@ Token Scanner::next_token() {
 					cseq += to_c(c_);
 					state = ScannerState::kCharacterConstant2;
 				} else {
-					cseq += to_c(c_);;
+					cseq += to_c(c_);
 					state = ScannerState::kIdentifierF1;
 				}
 				break;
@@ -1347,7 +1347,7 @@ Token Scanner::next_token() {
 				state = ScannerState::kPercent2;
 			} else if (k == '=') {
 				//  "%="
-				cseq += (c_ & 0xff);
+				cseq += to_c(c_);
 				state = ScannerState::kEnd;
 				type = TokenType::kPunctuator;
 				c_ = get();

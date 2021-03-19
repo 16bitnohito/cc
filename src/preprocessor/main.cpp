@@ -1,12 +1,12 @@
 #include <algorithm>
 #include <string>
+#include <system_error>
 #include <vector>
 #include <preprocessor/preprocessor.hpp>
 #include <preprocessor/utility.hpp>
 
 using namespace pp;
 using namespace std;
-
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 int wmain(int argc, wchar_t* argv[]) {
@@ -17,6 +17,10 @@ int main(int argc, char* argv[]) {
 		vector<string> args;
 		transform(&argv[0], &argv[argc], back_inserter(args), internal_string);
 
+		setup_console();
+		init_calculator();
+		init_preprocessor();
+
 		Preprocessor pp;
 		if (!pp.parse_options(args)) {
 			pp.print_usage();
@@ -24,11 +28,13 @@ int main(int argc, char* argv[]) {
 		}
 
 		return pp.run();
-	} catch (std::exception& e) {
-		cerr << "main:" << e.what() << endl;
-		return 1;
+	} catch (const system_error& e) {
+		cerr << __func__ << ": " << e.what() << "(" << e.code() << ")" << endl;
+	} catch (const exception& e) {
+		cerr << __func__ << ": " << e.what() << endl;
 	} catch (...) {
-		cerr << "main:unknown exception" << endl;
-		return 1;
+		cerr << __func__ << ": unknown exception" << endl;
 	}
+
+	return EXIT_FAILURE;
 }

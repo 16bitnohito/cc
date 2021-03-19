@@ -1,8 +1,11 @@
 #include <preprocessor/utility.hpp>
 
 #include <cassert>
+#include <system_error>
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 #include <Windows.h>
+#include <fcntl.h>
+#include <io.h>
 #else
 #include <unistd.h>
 #include <sys/stat.h>
@@ -187,6 +190,27 @@ bool file_exists(const Path& path) {
 
 	return (e == 0);
 #endif
+}
+
+void setup_console() {
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+	if (_setmode(_fileno(stdin), _O_BINARY) == -1) {
+		raise_generic_error("_setmode(stdin)", errno);
+	}
+	if (_setmode(_fileno(stdout), _O_BINARY) == -1) {
+		raise_generic_error("_setmode(stdout)", errno);
+	}
+	if (_setmode(_fileno(stderr), _O_TEXT) == -1) {
+		raise_generic_error("_setmode(stderr)", errno);
+	}
+#else
+#endif
+}
+
+[[noreturn]]
+void raise_generic_error(const char* message, int error) {
+	std::error_code ec(error, generic_category());
+	throw std::system_error(ec, message);
 }
 
 }   //  namespace pp

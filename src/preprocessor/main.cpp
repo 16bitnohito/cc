@@ -21,12 +21,13 @@ int main(int argc, char* argv[]) {
 		init_calculator();
 		init_preprocessor();
 
-		Preprocessor pp;
-		if (!pp.parse_options(args)) {
-			pp.print_usage();
-			return 1;
+		Options opts;
+		if (!opts.parse_options(args)) {
+			opts.print_usage();
+			return EXIT_FAILURE;
 		}
 
+		Preprocessor pp(opts);
 		return pp.run();
 	} catch (const system_error& e) {
 		cerr << __func__ << ": " << e.what() << "(" << e.code() << ")" << endl;

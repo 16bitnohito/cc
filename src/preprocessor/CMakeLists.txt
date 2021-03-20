@@ -9,6 +9,7 @@ add_executable(cpp
                "config.h"
                "diagnostics.cpp" "diagnostics.h"
                "main.cpp"
+               "options.cpp" "options.h"
                "preprocessor.cpp" "preprocessor.h"
                "scanner.cpp" "scanner.h"
                "token.cpp" "token.h"

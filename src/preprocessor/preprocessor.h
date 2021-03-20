@@ -18,14 +18,13 @@
 #include <preprocessor/calculator.h>
 #include <preprocessor/config.h>
 #include <preprocessor/diagnostics.h>
+#include <preprocessor/options.h>
 #include <preprocessor/scanner.h>
 #include <preprocessor/utility.h>
 
 
 namespace pp {
 
-constexpr char kUnknownOptionError[] = "不明なオプション %cが指定された。\n";
-constexpr char kNoOptionParameterError[] = "オプション %cの値が指定されていない。\n";
 constexpr char kNoInputError[] = "入力ファイルが指定されていない。\n";
 constexpr char kNoSuchFileError[] = "ファイルが開けない: %s\n";
 constexpr char kFileOutputError[] = "出力に失敗した。\n";
@@ -116,44 +115,10 @@ using MacroSet = std::unordered_map<std::string, MacroPtr>;
  */
 class Preprocessor {
 public:
-	class Options {
-	public:
-		Options();
-		~Options();
-
-		const std::string& input_filepath() const;
-		const std::string& output_filepath() const;
-		const std::string& error_log_filepath() const;
-		bool output_line_directive() const;
-		bool output_comment() const;
-		bool support_trigraphs() const;
-		const std::vector<std::string>& additional_include_dirs() const;
-		const std::vector<std::string>& macro_defs() const;
-		const std::vector<std::string>& macro_undefs() const;
-
-		bool parse_options(const std::vector<std::string>& args);
-		void print_usage();
-
-	private:
-		std::string input_encoding_;
-		std::string input_filepath_;
-		std::string output_encoding_;
-		std::string output_filepath_;
-		std::string error_log_filepath_;
-		bool output_line_directive_;
-		bool output_comment_;
-		bool support_trigraphs_;
-		std::vector<std::string> additional_include_dirs_;
-		std::vector<std::string> macro_defs_;
-		std::vector<std::string> macro_undefs_;
-	};
-
-	Preprocessor();
+	explicit Preprocessor(const Options& opts);
 	~Preprocessor();
 
 	bool has_error();
-	bool parse_options(const std::vector<std::string>& args);
-	void print_usage();
 	int run();
 
 private:
@@ -242,7 +207,7 @@ private:
 			, q_() {
 		}
 
-		explicit TokenStream(const std::string& string, Preprocessor::Options& opts)
+		explicit TokenStream(const std::string& string, const Options& opts)
 			: buffer_(std::make_unique<TokenStreamFromString>(string, opts))
 			, queue_()
 			, q_() {
@@ -315,7 +280,7 @@ private:
 	class TokenStreamFromString
 		: public TokenStream::Buffer {
 	public:
-		explicit TokenStreamFromString(const std::string& string, Preprocessor::Options& opts)
+		explicit TokenStreamFromString(const std::string& string, const Options& opts)
 			: in_(string)
 			, scanner_(&in_, opts.support_trigraphs(), false)
 			, lookahead_(scanner_.next_token()) {
@@ -529,7 +494,7 @@ private:
 
 	static constexpr int kNumLookahead = 2;
 
-	Options opts_;
+	const Options& opts_;
 
 	std::vector<std::string> include_dirs_;
 	DiagLevel diag_level_;

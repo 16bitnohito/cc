@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_UTILITY_HPP_)
-#define PREPROCESSOR_UTILITY_HPP_
+#ifndef PREPROCESSOR_UTILITY_H_
+#define PREPROCESSOR_UTILITY_H_
 
 #include <algorithm>
 #include <array>
@@ -96,4 +96,4 @@ void raise_generic_error(const char* message, int error);
 
 }	//  namespace pp
 
-#endif	//  PREPROCESSOR_UTILITY_HPP_
+#endif	//  PREPROCESSOR_UTILITY_H_

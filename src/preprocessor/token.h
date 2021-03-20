@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_TOKEN_HPP_)
-#define PREPROCESSOR_TOKEN_HPP_
+#ifndef PREPROCESSOR_TOKEN_H_
+#define PREPROCESSOR_TOKEN_H_
 
 #include <cstdint>
 #include <list>
@@ -176,4 +176,4 @@ using TokenList = std::vector<Token>;
 
 }   //  namespace pp
 
-#endif	//  PREPROCESSOR_TOKEN_HPP_
+#endif	//  PREPROCESSOR_TOKEN_H_

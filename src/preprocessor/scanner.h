@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_SCANNER_HPP_)
-#define PREPROCESSOR_SCANNER_HPP_
+#ifndef PREPROCESSOR_SCANNER_H_
+#define PREPROCESSOR_SCANNER_H_
 
 #include <cstdint>
 #include <iostream>
@@ -82,4 +82,4 @@ private:
 
 }   //  namespace pp
 
-#endif	//  PREPROCESSOR_SCANNER_HPP_
+#endif	//  PREPROCESSOR_SCANNER_H_

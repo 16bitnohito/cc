@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_CONFIG_HPP_)
-#define PREPROCESSOR_CONFIG_HPP_
+#ifndef PREPROCESSOR_CONFIG_H_
+#define PREPROCESSOR_CONFIG_H_
 
 //  HOST
 #define PLATFORM_UNKNOWN		0
@@ -26,4 +26,4 @@ using target_uintmax_t = uint32_t;
 
 }   //  namespace pp
 
-#endif	//	PREPROCESSOR_CONFIG_HPP_
+#endif	//	PREPROCESSOR_CONFIG_H_

@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_CALCULATOR_HPP_)
-#define PREPROCESSOR_CALCULATOR_HPP_
+#ifndef PREPROCESSOR_CALCULATOR_H_
+#define PREPROCESSOR_CALCULATOR_H_
 
 #include <cstdint>
 #include <string>
@@ -52,4 +52,4 @@ bool parse_int(const std::string& s, target_intmax_t* result);
 
 }   //  namespace pp
 
-#endif	//  PREPROCESSOR_CALCULATOR_HPP_
+#endif	//  PREPROCESSOR_CALCULATOR_H_

@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_DIAGNOSTICS_HPP_)
-#define PREPROCESSOR_DIAGNOSTICS_HPP_
+#ifndef PREPROCESSOR_DIAGNOSTICS_H_
+#define PREPROCESSOR_DIAGNOSTICS_H_
 
 #include <cinttypes>
 #include <cstdio>
@@ -93,4 +93,4 @@ private:
 
 }   //  namespace pp
 
-#endif	//  PREPROCESSOR_DIAGNOSTICS_HPP_
+#endif	//  PREPROCESSOR_DIAGNOSTICS_H_

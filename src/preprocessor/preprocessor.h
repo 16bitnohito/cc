@@ -1,5 +1,5 @@
-#if !defined(PREPROCESSOR_PREPROCESSOR_HPP_)
-#define PREPROCESSOR_PREPROCESSOR_HPP_
+#ifndef PREPROCESSOR_PREPROCESSOR_H_
+#define PREPROCESSOR_PREPROCESSOR_H_
 
 #include <algorithm>
 #include <cassert>
@@ -557,4 +557,4 @@ void init_preprocessor();
 
 }   //  namespace pp
 
-#endif  //  PREPROCESSOR_PREPROCESSOR_HPP_
+#endif  //  PREPROCESSOR_PREPROCESSOR_H_

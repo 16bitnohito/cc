@@ -1,8 +1,8 @@
-#include <preprocessor/calculator.hpp>
+#include <preprocessor/calculator.h>
 
 #include <cassert>
 #include <vector>
-#include <preprocessor/utility.hpp>
+#include <preprocessor/utility.h>
 
 using namespace std;
 

@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <preprocessor/config.hpp>
+#include <preprocessor/config.h>
 
 
 namespace pp {

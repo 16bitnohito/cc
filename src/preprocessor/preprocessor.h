@@ -15,11 +15,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <preprocessor/calculator.hpp>
-#include <preprocessor/config.hpp>
-#include <preprocessor/diagnostics.hpp>
-#include <preprocessor/scanner.hpp>
-#include <preprocessor/utility.hpp>
+#include <preprocessor/calculator.h>
+#include <preprocessor/config.h>
+#include <preprocessor/diagnostics.h>
+#include <preprocessor/scanner.h>
+#include <preprocessor/utility.h>
 
 
 namespace pp {

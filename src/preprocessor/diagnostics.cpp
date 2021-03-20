@@ -1,4 +1,4 @@
-#include <preprocessor/diagnostics.hpp>
+#include <preprocessor/diagnostics.h>
 
 using namespace std;
 

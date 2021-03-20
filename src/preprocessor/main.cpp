@@ -2,8 +2,8 @@
 #include <string>
 #include <system_error>
 #include <vector>
-#include <preprocessor/preprocessor.hpp>
-#include <preprocessor/utility.hpp>
+#include <preprocessor/preprocessor.h>
+#include <preprocessor/utility.h>
 
 using namespace pp;
 using namespace std;

@@ -1,9 +1,9 @@
-#include <preprocessor/scanner.hpp>
+#include <preprocessor/scanner.h>
 
 #include <algorithm>
 #include <cassert>
-#include <preprocessor/diagnostics.hpp>
-#include <preprocessor/utility.hpp>
+#include <preprocessor/diagnostics.h>
+#include <preprocessor/utility.h>
 
 using namespace std;
 

@@ -1,4 +1,4 @@
-#include <preprocessor/preprocessor.hpp>
+#include <preprocessor/preprocessor.h>
 
 #include <array>
 #include <cstdarg>
@@ -9,7 +9,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
-#include <preprocessor/utility.hpp>
+#include <preprocessor/utility.h>
 
 using namespace std;
 

@@ -6,8 +6,8 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <preprocessor/config.hpp>
-#include <preprocessor/token.hpp>
+#include <preprocessor/config.h>
+#include <preprocessor/token.h>
 
 
 namespace pp {

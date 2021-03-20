@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include <preprocessor/config.hpp>
+#include <preprocessor/config.h>
 
 
 namespace pp {

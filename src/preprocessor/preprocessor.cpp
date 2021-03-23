@@ -55,12 +55,6 @@ const char* const kLevelTag[] = {
 	"デバッグ",
 };
 
-#if HOST_PLATFORM == PLATFORM_WINDOWS
-const std::string kPathDelimiter = "\\";
-#else
-const std::string kPathDelimiter = "/";
-#endif
-
 std::string escape_string(const std::string& s) {
 	string result;
 	result.reserve(s.length());
@@ -256,8 +250,6 @@ std::string normalize_path(const std::string& path) {
 
 namespace pp {
 
-const Token kTokenNull("", TokenType::kNull);
-const Token kTokenEndOfFile("", TokenType::kEndOfFile);
 const Token kTokenASpace(" ", TokenType::kWhiteSpace);
 const Token kTokenOpenParen("(", TokenType::kPunctuator);
 const Token kTokenCloseParen(")", TokenType::kPunctuator);
@@ -340,49 +332,6 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
 		}
 		return directly ? MacroExpantionMethod::kDirectlyCopyable : MacroExpantionMethod::kNormal;
 	}
-}
-
-
-Preprocessor::Source::Source(const std::string& filepath, Scanner* src_scanner, Preprocessor* preprocessor) {
-	path = filepath;
-	line = 1;
-	pp = preprocessor;
-	scanner = src_scanner;
-	p = 0;
-	lookahead.resize(kNumLookahead);
-	condition_level = 0;
-	//queue;
-	q = 0;
-
-	for (int i = 0; i < kNumLookahead; ++i) {
-		consume();
-	}
-}
-
-Preprocessor::Source::~Source() {
-	assert(q == queue.size());
-}
-
-std::string Preprocessor::Source::parent_dir() {
-	string::size_type i = path.rfind(kPathDelimiter);
-	if (i == string::npos) {
-		return "";
-	} else {
-		return path.substr(0, (i - 0));
-	}
-}
-
-void Preprocessor::Source::reset_line_number(uint32_t new_line_number) {
-	for (int i = 0; i < kNumLookahead; i++) {
-		Token& t = lookahead[(p + i) % kNumLookahead];
-		t.line(new_line_number);
-
-		if (t.type() == TokenType::kNewLine) {
-			new_line_number++;
-		}
-	}
-	scanner->line_number(new_line_number);
-	line = new_line_number;
 }
 
 
@@ -617,8 +566,8 @@ void Preprocessor::prepare_predefined_macro() {
 
 void Preprocessor::preprocessing_file(std::istream* input, const std::string& path) {
 	Scanner scanner(input, opts_.support_trigraphs());
-	Source source(path, &scanner, this);
-	Group root(true, source.line, TokenType::kNull);
+	Source source(path, &scanner);
+	Group root(true, TokenType::kNull);
 
 	if constexpr (false) {
 		Token t = scanner.next_token();
@@ -646,8 +595,8 @@ void Preprocessor::group(Source& source, Group& group) {
 
 	GroupScope scope(&source, &group);
 
-	if (source.groups.size() >= kMinSpecConditionalInclusion) {
-		info(peek(1), kMinSpecConditionalInclusionWarning, kMinSpecConditionalInclusion, source.groups.size());
+	if (source.num_groups() >= kMinSpecConditionalInclusion) {
+		info(peek(1), kMinSpecConditionalInclusionWarning, kMinSpecConditionalInclusion, source.num_groups());
 	}
 
 	do {
@@ -668,7 +617,7 @@ bool Preprocessor::group_part() {
 		Source& src = *sources_.top();
 		Token dir_token = peek(1);
 		TokenType dir = as_directive(dir_token);
-		TokenType cur_group = src.groups.top()->type;
+		TokenType cur_group = src.current_group()->type;
 
 		if (((cur_group == TokenType::kIf)     && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
 			((cur_group == TokenType::kIfdef)  && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
@@ -692,7 +641,7 @@ bool Preprocessor::group_part() {
 			dir == TokenType::kNewLine) {
 			control_line(dir);
 		} else {
-			if (src.condition_level == 0) {
+			if (src.condition_level() == 0) {
 				if (dir == TokenType::kElif) {
 					error(dir_token, kElifWithoutIfError);
 				} else if (dir == TokenType::kElse) {
@@ -718,9 +667,8 @@ void Preprocessor::if_section() {
 	skip_ws();
 
 	Source& src = *sources_.top();
+	auto condition_scope = src.enter_condition_scope();
 	bool processed = false;
-
-	src.condition_level++;
 
 	Token if_token = peek(1);
 	TokenType dir = as_directive(if_token);
@@ -754,8 +702,6 @@ void Preprocessor::if_section() {
 	} else {
 		error(if_token, kUnterminatedIfError, if_token.line());
 	}
-
-	src.condition_level--;
 }
 
 TokenList Preprocessor::make_constant_expression() {
@@ -1151,7 +1097,7 @@ bool Preprocessor::if_group() {
 	Source& src = *sources_.top();
 	Token dir_token = peek(1);
 	TokenType dir = as_directive(dir_token);
-	Group* parent = src.groups.top();
+	Group* parent = src.current_group();
 
 	if (!parent->processing) {
 		skip_directive_line();
@@ -1204,7 +1150,7 @@ bool Preprocessor::if_group() {
 		new_line();
 	}
 
-	Group g((result != 0) && parent->processing, src.line, dir);
+	Group g((result != 0) && parent->processing, dir);
 	group(src, g);
 
 	return g.processing;
@@ -1232,7 +1178,7 @@ bool Preprocessor::elif_group(bool processed) {
 	skip_ws();
 
 	Source& src = *sources_.top();
-	Group* parent = src.groups.top();
+	Group* parent = src.current_group();
 	target_intmax_t result;
 	if (!parent->processing || processed) {
 		skip_directive_line();
@@ -1242,7 +1188,7 @@ bool Preprocessor::elif_group(bool processed) {
 	}
 	new_line();
 
-	Group g(parent->processing && !processed && (result != 0), src.line, TokenType::kElif);
+	Group g(parent->processing && !processed && (result != 0), TokenType::kElif);
 	group(src, g);
 
 	return g.processing;
@@ -1256,8 +1202,8 @@ void Preprocessor::else_group(bool processed) {
 	new_line();
 
 	Source& src = *sources_.top();
-	Group* parent = src.groups.top();
-	Group g(parent->processing && !processed, src.line, TokenType::kElse);
+	Group* parent = src.current_group();
+	Group g(parent->processing && !processed, TokenType::kElse);
 	group(src, g);
 }
 
@@ -1304,7 +1250,7 @@ void Preprocessor::control_line(TokenType directive) {
 	//"#" new_line();
 
 	Source& src = *sources_.top();
-	Group* cur_group = src.groups.top();
+	Group* cur_group = src.current_group();
 
 	if (!cur_group->processing) {
 		skip_directive_line();
@@ -1315,9 +1261,9 @@ void Preprocessor::control_line(TokenType directive) {
 
 	switch (directive) {
 	case TokenType::kInclude: {
-		src.scanner->state_hint(ScannerHint::kIncludeDirective);
+		src.scanner_hint(ScannerHint::kIncludeDirective);
 		match("include");
-		src.scanner->state_hint(ScannerHint::kInitial);
+		src.scanner_hint(ScannerHint::kInitial);
 		skip_ws();
 
 		Token header_name_token = peek(1);
@@ -1531,7 +1477,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 	//  pp_tokens()* new_line()
 
 	Source& src = *sources_.top();
-	Group* cur_group = src.groups.top();
+	Group* cur_group = src.current_group();
 	//bool output = cur_group->processing;
 
 	//while (peek(1).type() != TokenType::kNewLine) {
@@ -2566,8 +2512,8 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const char* f
 	} else {
 		if (!sources_.empty()) {
 			Source& src = *sources_.top();
-			l = src.line;
-			c = src.scanner->column();
+			l = src.line();
+			c = src.column();
 		} else {
 			l = 0;
 			c = 0;
@@ -2654,20 +2600,20 @@ std::string Preprocessor::current_source_path() {
 	if (sources_.empty()) {
 		return "<init>";
 	} else {
-		return (*sources_.top()).path;
+		return (*sources_.top()).source_path();
 	}
 }
 
 void Preprocessor::current_source_path(const std::string& value) {
 	assert(!sources_.empty());
-	(*sources_.top()).path = value;
+	(*sources_.top()).source_path(value);
 }
 
 uint32_t Preprocessor::current_source_line_number() {
 	if (sources_.empty()) {
 		return 0;
 	} else {
-		return (*sources_.top()).line;
+		return (*sources_.top()).line();
 	}
 }
 

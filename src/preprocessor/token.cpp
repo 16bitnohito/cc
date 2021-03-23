@@ -52,4 +52,7 @@ const char* Token::type_to_string(TokenType type) {
 #undef CASE
 }
 
+const Token kTokenNull("", TokenType::kNull);
+const Token kTokenEndOfFile("", TokenType::kEndOfFile);
+
 }   //  namespace pp

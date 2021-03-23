@@ -18,6 +18,7 @@
 #include <preprocessor/calculator.h>
 #include <preprocessor/config.h>
 #include <preprocessor/diagnostics.h>
+#include <preprocessor/input.h>
 #include <preprocessor/options.h>
 #include <preprocessor/scanner.h>
 #include <preprocessor/utility.h>
@@ -29,8 +30,6 @@ constexpr char kNoInputError[] = "入力ファイルが指定されていない�
 constexpr char kNoSuchFileError[] = "ファイルが開けない: %s\n";
 constexpr char kFileOutputError[] = "出力に失敗した。\n";
 constexpr char kErrorFileOutputError[] = "エラー出力に失敗した。\n";
-
-extern const Token kTokenEndOfFile;
 
 /**
  */
@@ -110,7 +109,6 @@ private:
 using MacroPtr = std::shared_ptr<Macro>;
 using MacroSet = std::unordered_map<std::string, MacroPtr>;
 
-
 /**
  */
 class Preprocessor {
@@ -122,205 +120,6 @@ public:
 	int run();
 
 private:
-	struct Group {
-		bool processing;
-		uint32_t start_line_number;
-		TokenType type;
-
-		Group(bool p, uint32_t l, TokenType t) {
-			processing = p;
-			start_line_number = l;
-			type = t;
-		}
-		~Group() {
-		}
-	};
-
-
-	struct Source {
-		std::string path;
-		uint32_t line;
-		Preprocessor* pp;
-		Scanner* scanner;
-		int p;
-		std::vector<Token> lookahead;
-		int condition_level;
-		std::stack<Group*> groups;
-
-		TokenList queue;
-		TokenList::size_type q;
-
-		Source(const std::string& filepath, Scanner* src_scanner, Preprocessor* preprocessor);
-		Source(const Source&) = delete;
-		Source(Source&&) = delete;
-		~Source();
-
-		Source& operator=(const Source&) = delete;
-		Source& operator=(Source&&) = delete;
-
-		std::string parent_dir();
-
-		void consume() {
-			if (q < queue.size()) {
-				q++;
-			} else {
-				lookahead[p] = scanner->next_token();
-				p = (p + 1) % kNumLookahead;
-
-				const Token& t = lookahead[p];
-				if (line != t.line()) {
-					line = t.line();
-				}
-			}
-		}
-
-		void insert(TokenList&& tokens) {
-			queue = move(tokens);
-			q = 0;
-		}
-
-		const Token& peek(int i) {
-			if (q < queue.size()) {
-				// XXX: q + (i - 1) >= queue.size()の場合
-				return queue[q + (i - 1)];
-			} else {
-				return lookahead[(p + i - 1) % kNumLookahead];
-			}
-		}
-
-		void reset_line_number(uint32_t new_line_number);
-	};
-
-
-	class TokenStream {
-	public:
-		class Buffer {
-		public:
-			virtual ~Buffer() {}
-			virtual void consume() = 0;
-			virtual const Token& peek(int i) const = 0;
-		};
-
-		explicit TokenStream(const TokenList& tokens)
-			: buffer_(std::make_unique<TokenStreamFromTokenList>(tokens))
-			, queue_()
-			, q_() {
-		}
-
-		explicit TokenStream(const std::string& string, const Options& opts)
-			: buffer_(std::make_unique<TokenStreamFromString>(string, opts))
-			, queue_()
-			, q_() {
-		}
-
-		~TokenStream() {
-		}
-
-		void consume() {
-			if (q_ < queue_.size()) {
-				++q_;
-			} else {
-				buffer_->consume();
-			}
-		}
-
-		void insert(TokenList&& tokens) {
-			queue_ = move(tokens);
-			q_ = 0;
-		}
-
-		const Token& peek(int i) const {
-			if (q_ < queue_.size()) {
-				// XXX: q_ + (i - 1) >= queue_.size()の場合
-				return queue_[q_ + (i - 1)];
-			} else {
-				return buffer_->peek(i);
-			}
-		}
-
-	private:
-		std::unique_ptr<Buffer> buffer_;
-		TokenList queue_;
-		TokenList::size_type q_;
-	};
-
-	using TokenStreamPtr = std::shared_ptr<TokenStream>;
-
-
-	class TokenStreamFromTokenList
-		: public TokenStream::Buffer {
-	public:
-		explicit TokenStreamFromTokenList(const TokenList& tokens)
-			: tokens_ref_(tokens)
-			, i_() {
-		}
-
-		virtual ~TokenStreamFromTokenList() override {
-		}
-
-		virtual void consume() override {
-			++i_;
-		}
-
-		virtual const Token& peek(int i) const override {
-			auto x = i_ + (i - 1);
-			if (x >= tokens_ref_.size()) {
-				return kTokenEndOfFile;
-			} else {
-				return tokens_ref_[x];
-			}
-		}
-
-	private:
-		const TokenList& tokens_ref_;
-		uint32_t i_;
-	};
-
-
-	class TokenStreamFromString
-		: public TokenStream::Buffer {
-	public:
-		explicit TokenStreamFromString(const std::string& string, const Options& opts)
-			: in_(string)
-			, scanner_(&in_, opts.support_trigraphs(), false)
-			, lookahead_(scanner_.next_token()) {
-		}
-
-		virtual ~TokenStreamFromString() override {
-		}
-
-		void consume() override {
-			lookahead_ = scanner_.next_token();
-		}
-
-		const Token& peek(int /*i*/) const override {
-			return lookahead_;
-		}
-
-	private:
-		std::istringstream in_;
-		Scanner scanner_;
-		//  XXX: 現状 1つしか先読みしないので、Sourceでやっているのと同じではない。別の方法にした方が良い。
-		Token lookahead_;
-	};
-
-
-	class GroupScope {
-	public:
-		GroupScope(Source* source, Group* group)
-			: source_(source) {
-			source_->groups.push(group);
-		}
-
-		~GroupScope() {
-			source_->groups.pop();
-		}
-
-	private:
-		Source* source_;
-	};
-
-
 	bool cleanup();
 	void prepare_predefined_macro();
 	void preprocessing_file(std::istream* input, const std::string& path);
@@ -491,8 +290,6 @@ private:
 	void remove_macro(const Token& name);
 	const MacroPtr find_macro(const std::string& name);
 	void print_macros();
-
-	static constexpr int kNumLookahead = 2;
 
 	const Options& opts_;
 

@@ -173,6 +173,8 @@ private:
 
 using TokenList = std::vector<Token>;
 
+extern const Token kTokenNull;
+extern const Token kTokenEndOfFile;
 
 }   //  namespace pp
 

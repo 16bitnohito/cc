@@ -104,13 +104,13 @@ public:
 		, column_() {
 	}
 
-	Token(const std::string& string, TokenType type, uint32_t line, uint32_t column)
+	Token(const std::string& string, TokenType type, std::uint32_t line, std::uint32_t column)
 		: value_(Token::make_value(string, type))
 		, line_(line)
 		, column_(column) {
 	}
 
-	Token(std::shared_ptr<TokenValue> value, uint32_t line, uint32_t column)
+	Token(std::shared_ptr<TokenValue> value, std::uint32_t line, std::uint32_t column)
 		: value_(value)
 		, line_(line)
 		, column_(column) {
@@ -141,15 +141,15 @@ public:
 		return static_cast<TokenType>(value_->type());
 	}
 
-	uint32_t line() const {
+	std::uint32_t line() const {
 		return line_;
 	}
 
-	void line(uint32_t value) {
+	void line(std::uint32_t value) {
 		line_ = value;
 	}
 
-	uint32_t column() const {
+	std::uint32_t column() const {
 		return column_;
 	}
 
@@ -167,8 +167,8 @@ public:
 
 private:
 	std::shared_ptr<TokenValue> value_;
-	uint32_t line_;
-	uint32_t column_;
+	std::uint32_t line_;
+	std::uint32_t column_;
 };
 
 using TokenList = std::vector<Token>;

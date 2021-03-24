@@ -42,9 +42,9 @@ public:
     bool is_support_trigraph();
     void state_hint(ScannerHint hint);
 
-	uint32_t line_number();
-	void line_number(uint32_t value);
-	uint32_t column();
+	std::uint32_t line_number();
+	void line_number(std::uint32_t value);
+	std::uint32_t column();
 	std::string buffer();
 
 private:
@@ -71,8 +71,8 @@ private:
 
 	std::reference_wrapper<std::istream> input_;
     std::string buf_;
-	uint32_t buf_i_;
-	uint32_t line_number_;
+	std::uint32_t buf_i_;
+	std::uint32_t line_number_;
     bool trigraph_;
 	bool newline_;
 	int c_;
@@ -80,7 +80,7 @@ private:
 	//State state_;
 	ScannerHint hint_;
 	//Token::Type type_;
-	uint32_t buf_i_mark_;
+	std::uint32_t buf_i_mark_;
 };
 
 }   //  namespace pp

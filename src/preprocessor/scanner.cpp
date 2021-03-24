@@ -151,7 +151,7 @@ constexpr uint32_t ucn_initial_disallowed[][3] = {
 	{ 0xFE20, 0xFE2F, 1 },
 };
 
-bool binary_range_search(uint32_t n, const uint32_t table[][3], size_t size) {
+bool binary_range_search(std::uint32_t n, const std::uint32_t table[][3], size_t size) {
 	int l = 0;
 	int h = static_cast<int>(size);
 	int m = 0;
@@ -169,17 +169,17 @@ bool binary_range_search(uint32_t n, const uint32_t table[][3], size_t size) {
 }
 
 inline
-bool is_valid_ucn_for_identifier(uint32_t n) {
+bool is_valid_ucn_for_identifier(std::uint32_t n) {
 	return binary_range_search(n, ucn_allowed, size(ucn_allowed));
 }
 
 inline
-bool is_valid_ucn_for_identifier_initially(uint32_t n) {
+bool is_valid_ucn_for_identifier_initially(std::uint32_t n) {
 	return !binary_range_search(n, ucn_initial_disallowed, size(ucn_initial_disallowed));
 }
 
 inline
-bool is_valid_ucn(uint32_t n) {
+bool is_valid_ucn(std::uint32_t n) {
 	if ((n < 0xA0) && (n != 0x24 && n != 0x40 && n != 0x60)) {
 		return false;
 	}
@@ -1658,15 +1658,15 @@ void Scanner::state_hint(ScannerHint hint) {
 	hint_ = hint;
 }
 
-uint32_t Scanner::line_number() {
+std::uint32_t Scanner::line_number() {
 	return line_number_;
 }
 
-void Scanner::line_number(uint32_t value) {
+void Scanner::line_number(std::uint32_t value) {
 	line_number_ = value;
 }
 
-uint32_t Scanner::column() {
+std::uint32_t Scanner::column() {
 	return buf_i_;
 }
 

@@ -43,8 +43,8 @@ enum class OperatorId {
 struct Operator {
 	OperatorId id;
 	std::string sequence;
-	uint8_t precedence;
-	uint8_t arity;
+	std::uint8_t precedence;
+	std::uint8_t arity;
 };
 
 void init_calculator();

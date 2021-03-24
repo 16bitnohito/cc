@@ -2617,7 +2617,7 @@ void Preprocessor::current_source_path(const std::string& value) {
 	current_source().source_path(value);
 }
 
-uint32_t Preprocessor::current_source_line_number() {
+std::uint32_t Preprocessor::current_source_line_number() {
 	if (sources_.empty()) {
 		return 0;
 	} else {
@@ -2625,7 +2625,7 @@ uint32_t Preprocessor::current_source_line_number() {
 	}
 }
 
-void Preprocessor::current_source_line_number(uint32_t value) {
+void Preprocessor::current_source_line_number(std::uint32_t value) {
 	SourceFile& source = current_source();
 	source.reset_line_number(value);
 

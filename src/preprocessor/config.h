@@ -14,8 +14,8 @@
 namespace pp {
 
 //  TARGET
-using target_intmax_t = int32_t;
-using target_uintmax_t = uint32_t;
+using target_intmax_t = std::int32_t;
+using target_uintmax_t = std::uint32_t;
 
 //  BUILD
 //#if USE_STD_FILESYSTEM

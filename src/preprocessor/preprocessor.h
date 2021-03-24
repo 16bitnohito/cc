@@ -82,8 +82,8 @@ public:
 	//bool needs_concat() const { return needs_concat_; }
 	//bool needs_stringize() const { return needs_stringize_; }
 	const std::string& source() const { return source_; }
-	uint32_t line() const { return line_; }
-	uint32_t column() const { return column_; }
+	std::uint32_t line() const { return line_; }
+	std::uint32_t column() const { return column_; }
 
 	std::size_t param_index_of(const std::string& param_name) const;
 	void reset(const TokenList& replist, const std::string& source, const Token& name_token);
@@ -102,8 +102,8 @@ private:
 	//bool needs_concat_;
 	//bool needs_stringize_;
 	std::string source_;
-	uint32_t line_;
-	uint32_t column_;
+	std::uint32_t line_;
+	std::uint32_t column_;
 };
 
 using MacroPtr = std::shared_ptr<Macro>;
@@ -263,8 +263,8 @@ private:
 	SourceFile& current_source();
 	std::string current_source_path();
 	void current_source_path(const std::string& value);
-	uint32_t current_source_line_number();
-	void current_source_line_number(uint32_t value);
+	std::uint32_t current_source_line_number();
+	void current_source_line_number(std::uint32_t value);
 
 	void add_predefined_macro(const std::string& name, const std::string& value, const TokenType type);
 	bool is_predefined_macro_name(const std::string& name) {
@@ -296,8 +296,8 @@ private:
 	std::unordered_set<std::string> used_macro_names_;
 	Token error_location_;
 
-	int32_t warning_count_;
-	int32_t error_count_;
+	std::int32_t warning_count_;
+	std::int32_t error_count_;
 
 	int included_files_;
 	int rescan_count_;

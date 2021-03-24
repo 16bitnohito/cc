@@ -123,7 +123,7 @@ private:
 	bool cleanup();
 	void prepare_predefined_macro();
 	void preprocessing_file(std::istream* input, const std::string& path);
-	void group(Source& source, Group& group);
+	void group(SourceFile& source, Group& group);
 	bool group_part();
 	void if_section();
 	TokenList make_constant_expression();
@@ -207,47 +207,34 @@ private:
 	void match(const char* seq);
 
 	void consume() {
-		if (!stream_stack_.empty()) {
-			auto ts = stream_stack_.back();
-			ts->consume();
-		} else {
-			Source& src = *sources_.top();
-			src.consume();
-		}
+		assert(!stream_stack_.empty());
+
+		TokenStream& s = stream_stack_.back();
+		s.consume();
 	}
 
 	const Token& peek(int i) {
-		if (!stream_stack_.empty()) {
-			TokenStream& str = *stream_stack_.back();
-			return str.peek(i);
-		} else {
-			Source& src = *sources_.top();
-			return src.peek(i);
-		}
+		assert(!stream_stack_.empty());
+
+		TokenStream& s = stream_stack_.back();
+		return s.peek(i);
 	}
 
-	void push_stream(const TokenList& tokens) {
-		auto s = std::make_shared<TokenStream>(tokens);
-		stream_stack_.push_back(s);
-	}
-
-	void push_stream(const std::string& string) {
-		auto s = std::make_shared<TokenStream>(string, opts_);
-		stream_stack_.push_back(s);
+	void push_stream(TokenStream& stream) {
+		stream_stack_.push_back(stream);
 	}
 
 	void pop_stream() {
+		assert(!stream_stack_.empty());
+
 		stream_stack_.pop_back();
 	}
 
 	void replace_stream(TokenList&& tokens) {
-		if (!stream_stack_.empty()) {
-			auto s = stream_stack_.back();
-			s->insert(move(tokens));
-		} else {
-			Source& src = *sources_.top();
-			src.insert(move(tokens));
-		}
+		assert(!stream_stack_.empty());
+
+		TokenStream& s = stream_stack_.back();
+		s.insert(move(tokens));
 	}
 
 	std::string execute_stringize(const Macro::ArgList& args, Macro::ArgList::size_type first, Macro::ArgList::size_type last);
@@ -273,6 +260,7 @@ private:
 	[[noreturn]] void fatal_error(const Token& token, const char* format, ...);
 	[[noreturn]] void fatal_error(const Token& token, const std::string& message);
 
+	SourceFile& current_source();
 	std::string current_source_path();
 	void current_source_path(const std::string& value);
 	uint32_t current_source_line_number();
@@ -297,12 +285,12 @@ private:
 	DiagLevel diag_level_;
 	clock_t clock_start_;
 	clock_t clock_end_;
-	std::vector<TokenStreamPtr> stream_stack_;
+	std::vector<std::reference_wrapper<TokenStream>> stream_stack_;
 
 	FILE* output_;
 	//std::vector<char> output_buf_;
 	FILE* error_output_;
-	std::stack<Source*> sources_;
+	std::stack<SourceFile*> sources_;
 	MacroSet macros_;
 	std::vector<std::string> predef_macro_names_;
 	std::unordered_set<std::string> used_macro_names_;

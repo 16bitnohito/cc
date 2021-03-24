@@ -257,7 +257,7 @@ enum class ScannerState {
 
 namespace pp {
 
-Scanner::Scanner(std::istream* input, bool trigraph, bool newline /* = true */)
+Scanner::Scanner(std::istream& input, bool trigraph, bool newline /* = true */)
     : input_(input)
 	, buf_()
 	, buf_i_()
@@ -273,12 +273,12 @@ Scanner::Scanner(std::istream* input, bool trigraph, bool newline /* = true */)
 	//  申し訳程度
 	static constexpr char kUtf8Bom[] = "\xef\xbb\xbf";
 	for (auto b : kUtf8Bom) {
-		int p = input->peek();
+		int p = input.peek();
 		int q = (b & 0xff);
 		if (p != q) {
 			break;
 		}
-		input->get();
+		input.get();
 	}
 
 	c_ = get();
@@ -1675,7 +1675,9 @@ std::string Scanner::buffer() {
 }
 
 int Scanner::readline() {
-	if (input_->eof()) {
+	istream& input = input_.get();
+
+	if (input.eof()) {
 		return EOF;
 	}
 
@@ -1683,8 +1685,8 @@ int Scanner::readline() {
 	string s;
 	buf_.clear();
 	do {
-		getline(*input_, s);
-		if (input_->bad()) {
+		getline(input, s);
+		if (input.bad()) {
 			//  XXX
 			return EOF;
 		}

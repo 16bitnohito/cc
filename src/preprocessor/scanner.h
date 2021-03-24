@@ -31,8 +31,11 @@ enum class ScannerHint {
 */
 class Scanner {
 public:
-	Scanner(std::istream* input, bool trigraph, bool newline = true);
+	explicit Scanner(std::istream& input, bool trigraph, bool newline = true);
+	Scanner(const Scanner&) = delete;
     ~Scanner();
+
+	Scanner& operator=(const Scanner&) = delete;
 
     Token next_token();
 
@@ -66,7 +69,7 @@ private:
 	void reset(std::string& cseq);
 	void clear_mark();
 
-	std::istream* input_;
+	std::reference_wrapper<std::istream> input_;
     std::string buf_;
 	uint32_t buf_i_;
 	uint32_t line_number_;

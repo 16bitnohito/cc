@@ -549,7 +549,9 @@ void Preprocessor::prepare_predefined_macro() {
 		}
 
 		//  トークンのマッチングの都合上、改行を加えてから定義を実行している。
-		push_stream(def);
+		SourceString source(def, opts_);
+		TokenStream stream(source);
+		push_stream(stream);
 		execute_define();
 		pop_stream();
 	}
@@ -558,42 +560,36 @@ void Preprocessor::prepare_predefined_macro() {
 	//  そうでなければ、何を定義解除するのか不明である。
 	auto& undefs = opts_.macro_undefs();
 	for (const auto& name : undefs) {
-		push_stream(name);
+		SourceString source(name, opts_);
+		TokenStream stream(source);
+		push_stream(stream);
 		execute_undef();
 		pop_stream();
 	}
 }
 
 void Preprocessor::preprocessing_file(std::istream* input, const std::string& path) {
-	Scanner scanner(input, opts_.support_trigraphs());
-	Source source(path, &scanner);
-	Group root(true, TokenType::kNull);
+	SourceFile source(*input, path, opts_);
+	TokenStream stream(source);
+	push_stream(stream);
 
-	if constexpr (false) {
-		Token t = scanner.next_token();
-		while (t.type() != TokenType::kEndOfFile) {
-			t = scanner.next_token();
-			if (t.type() == TokenType::kNewLine) {
-				output_text("[kNewLine]\n");
-			} else {
-				output_text(quote_string(t.string()) + "(" + Token::type_to_string(t.type()) + ")");
-			}
-		}
-	} else {
-		//group()?;
-		sources_.push(&source);
-		while (peek(1).type() != TokenType::kEndOfFile) {
-			group(*sources_.top(), root);
-		}
-		sources_.pop();
+	Group root(true, TokenType::kNull);
+	sources_.push(&source);
+
+	//group()?;
+	while (peek(1).type() != TokenType::kEndOfFile) {
+		group(current_source(), root);
 	}
+
+	sources_.pop();
+	pop_stream();
 }
 
-void Preprocessor::group(Source& source, Group& group) {
+void Preprocessor::group(SourceFile& source, Group& group) {
 	//group_part();
 	//group(); group_part();
 
-	GroupScope scope(&source, &group);
+	GroupScope scope(source, group);
 
 	if (source.num_groups() >= kMinSpecConditionalInclusion) {
 		info(peek(1), kMinSpecConditionalInclusionWarning, kMinSpecConditionalInclusion, source.num_groups());
@@ -614,7 +610,7 @@ bool Preprocessor::group_part() {
 		match(TokenType::kPunctuator);
 		skip_ws();
 
-		Source& src = *sources_.top();
+		SourceFile& src = current_source();
 		Token dir_token = peek(1);
 		TokenType dir = as_directive(dir_token);
 		TokenType cur_group = src.current_group()->type;
@@ -666,8 +662,8 @@ bool Preprocessor::group_part() {
 void Preprocessor::if_section() {
 	skip_ws();
 
-	Source& src = *sources_.top();
-	auto condition_scope = src.enter_condition_scope();
+	SourceFile& src = current_source();
+	ConditionScope condition_scope(src);
 	bool processed = false;
 
 	Token if_token = peek(1);
@@ -797,7 +793,10 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 	string expr_string = Token::concat_string(expr_tokens);
 #endif
 
-	push_stream(expr_tokens);
+	SourceTokenList source(expr_tokens);
+	TokenStream stream(source);
+	push_stream(stream);
+
 	stack<Operator> ops;
 	stack<target_intmax_t> nums;
 	bool bad_expr = false;
@@ -1094,7 +1093,7 @@ bool Preprocessor::if_group() {
 	//"#" "ifdef" match(TokenType::kIdentifier); match(TokenType::kNewLine); group() ? ;
 	//"#" "ifndef" match(TokenType::kIdentifier); match(TokenType::kNewLine); group() ? ;
 	target_intmax_t result;
-	Source& src = *sources_.top();
+	SourceFile& src = current_source();
 	Token dir_token = peek(1);
 	TokenType dir = as_directive(dir_token);
 	Group* parent = src.current_group();
@@ -1177,7 +1176,7 @@ bool Preprocessor::elif_group(bool processed) {
 	match("elif");
 	skip_ws();
 
-	Source& src = *sources_.top();
+	SourceFile& src = current_source();
 	Group* parent = src.current_group();
 	target_intmax_t result;
 	if (!parent->processing || processed) {
@@ -1201,7 +1200,7 @@ void Preprocessor::else_group(bool processed) {
 	skip_ws();
 	new_line();
 
-	Source& src = *sources_.top();
+	SourceFile& src = current_source();
 	Group* parent = src.current_group();
 	Group g(parent->processing && !processed, TokenType::kElse);
 	group(src, g);
@@ -1249,7 +1248,7 @@ void Preprocessor::control_line(TokenType directive) {
 	//"#" "pragma" pp_tokens() ? ; new_line();
 	//"#" new_line();
 
-	Source& src = *sources_.top();
+	SourceFile& src = current_source();
 	Group* cur_group = src.current_group();
 
 	if (!cur_group->processing) {
@@ -1476,7 +1475,7 @@ void Preprocessor::control_line(TokenType directive) {
 void Preprocessor::text_line(const TokenList& ws_tokens) {
 	//  pp_tokens()* new_line()
 
-	Source& src = *sources_.top();
+	SourceFile& src = current_source();
 	Group* cur_group = src.current_group();
 	//bool output = cur_group->processing;
 
@@ -1584,7 +1583,9 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 
 const TokenList& Preprocessor::get_expanded_arg(size_t n, const TokenList& arg, Macro::ArgList& cache) {
 	if (!arg.empty() && cache[n].empty()) {
-		push_stream(arg);
+		SourceTokenList source(arg);
+		TokenStream stream(source);
+		push_stream(stream);
 		scan(cache[n]);
 		pop_stream();
 
@@ -1732,7 +1733,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 
 			//
 			istringstream in(l.string() + r.string());
-			Scanner scanner(&in, opts_.support_trigraphs(), false);
+			Scanner scanner(in, opts_.support_trigraphs(), false);
 			Token t = scanner.next_token();
 			int count = 0;
 			while (!t.is_eol()) {
@@ -1776,7 +1777,10 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 	} else {
 		rescan_count_++;
 		used_macro_names_.insert(macro.name());
-		push_stream(substituted);
+
+		SourceTokenList source(substituted);
+		TokenStream stream(source);
+		push_stream(stream);
 
 		//  rescan
 		scan(result_expanded);
@@ -1808,7 +1812,7 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 	string pragma = destringize(pragma_text.string());
 
 	istringstream in(pragma);
-	Scanner scanner(&in, opts_.support_trigraphs(), false);
+	Scanner scanner(in, opts_.support_trigraphs(), false);
 	TokenList pragma_tokens;
 	Token t = scanner.next_token();
 	while (!t.is_eol()) {
@@ -2340,7 +2344,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 	//
 	//string cd = ::get_current_dir();
 	string path;
-	string source_dir = (*sources_.top()).parent_dir();
+	string source_dir = current_source().parent_dir();
 	ifstream next_input;
 
 	if (include_source_dir) {
@@ -2511,7 +2515,7 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const char* f
 		c = token.column();
 	} else {
 		if (!sources_.empty()) {
-			Source& src = *sources_.top();
+			SourceFile& src = current_source();
 			l = src.line();
 			c = src.column();
 		} else {
@@ -2596,30 +2600,45 @@ void Preprocessor::fatal_error(const Token& token, const std::string& message) {
 	fatal_error(token, "%s", message.c_str());
 }
 
+SourceFile& Preprocessor::current_source() {
+	assert(!sources_.empty());
+	return *sources_.top();
+}
+
 std::string Preprocessor::current_source_path() {
 	if (sources_.empty()) {
 		return "<init>";
 	} else {
-		return (*sources_.top()).source_path();
+		return current_source().source_path();
 	}
 }
 
 void Preprocessor::current_source_path(const std::string& value) {
-	assert(!sources_.empty());
-	(*sources_.top()).source_path(value);
+	current_source().source_path(value);
 }
 
 uint32_t Preprocessor::current_source_line_number() {
 	if (sources_.empty()) {
 		return 0;
 	} else {
-		return (*sources_.top()).line();
+		return current_source().line();
 	}
 }
 
 void Preprocessor::current_source_line_number(uint32_t value) {
-	assert(!sources_.empty());
-	(*sources_.top()).reset_line_number(value);
+	SourceFile& source = current_source();
+	source.reset_line_number(value);
+
+	// XXX: 従来の処理が Sourceに対するものであって、TokenStreamに対するものではなかったので、不格好な
+	//      形での暫定対応。恐らく、TokenStreamに対して行うようにしても問題は無い気がする。
+	auto it = find_if(stream_stack_.rbegin(), stream_stack_.rend(),
+			[&source](TokenStream& stream) {
+				return stream.input_source() == &source;
+			});
+	if (it != stream_stack_.rend()) {
+		throw runtime_error(__func__);
+	}
+	(*it).get().reset_line_number(value);
 }
 
 void Preprocessor::add_predefined_macro(const std::string& name, const std::string& value, const TokenType type) {

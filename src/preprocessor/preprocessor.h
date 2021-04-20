@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cinttypes>
 #include <ctime>
+#include <cstdarg>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -26,10 +27,10 @@
 
 namespace pp {
 
-constexpr char kNoInputError[] = "入力ファイルが指定されていない。\n";
-constexpr char kNoSuchFileError[] = "ファイルが開けない: %s\n";
-constexpr char kFileOutputError[] = "出力に失敗した。\n";
-constexpr char kErrorFileOutputError[] = "エラー出力に失敗した。\n";
+extern const Char* const kNoInputError;
+extern const Char* const kNoSuchFileError;
+extern const Char* const kFileOutputError ;
+extern const Char* const kErrorFileOutputError;
 
 /**
  */
@@ -50,19 +51,31 @@ enum class MacroExpantionMethod {
 
 constexpr auto kNumOfMacroExpantionMethod = enum_ordinal(MacroExpantionMethod::kNumElements);
 
+class Macro;
+using MacroPtr = std::shared_ptr<Macro>;
+using MacroSet = std::unordered_map<std::string, MacroPtr>;
+
 /**
  */
-struct Macro {
+class Macro {
 public:
 	using ParamList = std::vector<std::string>;
 	using ArgList = std::vector<TokenList>;
 
+	static MacroPtr create_macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token);
+	static MacroPtr create_macro(const std::string& name, const Macro::ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
+	static MacroPtr create_macro(const std::string& name, const std::string& value, const TokenType type);
+
 	static inline const ParamList kNoParams = {};
 	static inline const ArgList kNoArgs = {};
 
-	Macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token);
-	Macro(const std::string& name, const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
-	Macro(const std::string& name, const std::string& value, const TokenType type);
+	template<typename Base>
+	struct CreateHelper : Base {
+		template<typename... Args>
+		explicit CreateHelper(Args&&... args) : Base(std::forward<Args>(args)...) {
+		}
+	};
+
 	Macro(const Macro&) = delete;
 	Macro(Macro&&) = delete;
 	~Macro();
@@ -90,6 +103,10 @@ public:
 	void reset(const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
 
 private:
+	Macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token);
+	Macro(const std::string& name, const ParamList& params, const TokenList& replist, const std::string& source, const Token& name_token);
+	Macro(const std::string& name, const std::string& value, const TokenType type);
+
 	MacroExpantionMethod get_expantion_method(MacroForm form, const std::string& name, const TokenList& replist);
 
 	std::string name_;
@@ -106,9 +123,6 @@ private:
 	std::uint32_t column_;
 };
 
-using MacroPtr = std::shared_ptr<Macro>;
-using MacroSet = std::unordered_map<std::string, MacroPtr>;
-
 /**
  */
 class Preprocessor {
@@ -122,7 +136,7 @@ public:
 private:
 	bool cleanup();
 	void prepare_predefined_macro();
-	void preprocessing_file(std::istream* input, const std::string& path);
+	void preprocessing_file(std::istream* input, const String& path);
 	void group(SourceFile& source, Group& group);
 	bool group_part();
 	void if_section();
@@ -247,22 +261,22 @@ private:
 		output_text(text.c_str());
 	}
 	void output_text(const char* text);
-	void output_error(const char* format, ...);
-	void output_log(DiagLevel level, const Token& token, const char* message, va_list args);
-	void debug(const Token& token, const char* format, ...);
-	void debug(const Token& token, const std::string& message);
-	void info(const Token& token, const char* format, ...);
-	void info(const Token& token, const std::string& message);
-	void warning(const Token& token, const char* format, ...);
-	void warning(const Token& token, const std::string& message);
-	void error(const Token& token, const char* format, ...);
-	void error(const Token& token, const std::string& message);
-	[[noreturn]] void fatal_error(const Token& token, const char* format, ...);
-	[[noreturn]] void fatal_error(const Token& token, const std::string& message);
+	void output_error(const Char* format, ...);
+	void output_log(DiagLevel level, const Token& token, const Char* message, va_list args);
+	void debug(const Token& token, const Char* format, ...);
+	void debug(const Token& token, const String& message);
+	void info(const Token& token, const Char* format, ...);
+	void info(const Token& token, const String& message);
+	void warning(const Token& token, const Char* format, ...);
+	void warning(const Token& token, const String& message);
+	void error(const Token& token, const Char* format, ...);
+	void error(const Token& token, const String& message);
+	[[noreturn]] void fatal_error(const Token& token, const Char* format, ...);
+	[[noreturn]] void fatal_error(const Token& token, const String& message);
 
 	SourceFile& current_source();
-	std::string current_source_path();
-	void current_source_path(const std::string& value);
+	String current_source_path();
+	void current_source_path(const String& value);
 	std::uint32_t current_source_line_number();
 	void current_source_line_number(std::uint32_t value);
 
@@ -281,7 +295,7 @@ private:
 
 	const Options& opts_;
 
-	std::vector<std::string> include_dirs_;
+	std::vector<String> include_dirs_;
 	DiagLevel diag_level_;
 	clock_t clock_start_;
 	clock_t clock_end_;

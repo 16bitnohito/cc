@@ -17,6 +17,8 @@ add_executable(cpp
                "utility.cpp" "utility.h")
 	
 target_include_directories(cpp PRIVATE "../../src")
-# target_link_libraries (cpp PRIVATE util win32util)
+if (WIN32)
+target_link_libraries (cpp PRIVATE win32util)
+endif()
 
 # TODO: テストを追加し、必要な場合は、ターゲットをインストールします。

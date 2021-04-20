@@ -9,13 +9,13 @@ using namespace std;
 namespace pp {
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-const std::string kPathDelimiter = "\\";
+const String kPathDelimiter = T_("\\");
 #else
-const std::string kPathDelimiter = "/";
+const String kPathDelimiter = T_("/");
 #endif
 
 
-SourceFile::SourceFile(std::istream& input, const std::string& filepath, const Options& opts)
+SourceFile::SourceFile(std::istream& input, const String& filepath, const Options& opts)
     : scanner_(input, opts.support_trigraphs())
     , path_(filepath)
     , condition_level_()
@@ -38,10 +38,10 @@ void SourceFile::scanner_hint(ScannerHint hint) {
     return scanner_.state_hint(hint);
 }
 
-std::string SourceFile::parent_dir() {
-	string::size_type i = path_.rfind(kPathDelimiter);
+String SourceFile::parent_dir() {
+    String::size_type i = path_.rfind(kPathDelimiter);
 	if (i == string::npos) {
-		return "";
+		return T_("");
 	} else {
 		return path_.substr(0, (i - 0));
 	}

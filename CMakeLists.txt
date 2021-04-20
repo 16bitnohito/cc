@@ -23,20 +23,42 @@ set(CMAKE_CXX_EXTENSIONS off)
 
 # 共通設定
 if (MSVC)
-    string(REGEX REPLACE "/W[0-3]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/W[0-3]" "/Wall" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    add_compile_options(
+                        /wd4061     # switch 中の列挙子 '' ('' の) は case ラベルによって明示的にハンドルされません。
+                        #/wd4245     # '' から '' に変換しました。signed/unsigned が一致しません。
+                        #/wd4365     # '' から '' に変換しました。signed/unsigned が一致しません。
+                        /wd4514     # 参照されていないインライン関数は削除されました。
+                        /wd4625     # コピー コンストラクターは暗黙的に削除済みとして定義されました
+                        /wd4626     # 代入演算子は暗黙的に削除済みとして定義されました
+                        /wd4710     # インライン関数ではありません。
+                        /wd4820     # '' バイトのパディングを データ メンバー '' の後に追加しました。
+                        /wd5026     # 移動コンストラクターが暗黙的に削除済みとして定義されました
+                        /wd5027     # 移動代入演算子が暗黙的に削除済みとして定義されました
+                        /wd5045)    # spectre
     add_compile_options(/permissive- /Zc:__cplusplus /Zc:throwingNew /Zc:referenceBinding /utf-8)
-    add_compile_options(/w44189 /w44388 /w44800)
-    # add_compile_options(/wd4061 /wd4514 /wd4711 /wd4820)
     add_compile_options($<$<CONFIG:Debug>:>
                         $<$<CONFIG:Release>:/Gy>
                         $<$<CONFIG:MinSizeRel>:/Gy>
-                        $<$<CONFIG:RelWithDebgInfo>:/Gy>)
+                        $<$<CONFIG:RelWithDebInfo>:/Gy>)
 else ()
     # 手付かず
     add_compile_options(-Wall -Wextra -pedantic)
+
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        add_compile_options(-Weverything
+                            -Wno-c++98-compat
+                            -Wno-c++98-compat-pedantic
+                            -Wno-exit-time-destructors
+                            -Wno-switch-enum
+                            -Wno-global-constructors)
+    endif()
 endif ()
 
+# ターゲット
 if (WIN32)
+    # add_compile_definitions(WIN32UTIL_STRICT_CHAR_TYPE)
+
     # Unicode版、内部文字列は WCHAR
     add_compile_definitions (_UNICODE UNICODE)
     # Unicode版、内部文字列の UTF-8 (charで扱う)に変換する。
@@ -58,12 +80,13 @@ if (WIN32)
 
     add_compile_definitions(_CONSOLE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>
-                            $<$<CONFIG:Release>:NDEBUG>
-                            $<$<CONFIG:MinSizeRel>:NDEBUG>
-                            $<$<CONFIG:RelWithDebgInfo>:NDEBUG>)
+                            $<$<CONFIG:Release>:>
+                            $<$<CONFIG:MinSizeRel>:>
+                            $<$<CONFIG:RelWithDebInfo>:>)
 
     if (NOT MSVC)
         add_compile_options(-municode)
+        add_link_options(-municode)
     endif ()
 endif ()
 

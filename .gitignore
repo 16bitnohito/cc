@@ -2,5 +2,5 @@
 .vscode/
 **/Debug/
 **/Release/
-build/
-out/
+/build*/
+/out/

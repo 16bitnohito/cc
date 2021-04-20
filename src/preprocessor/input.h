@@ -6,10 +6,11 @@
 #include <preprocessor/options.h>
 #include <preprocessor/scanner.h>
 #include <preprocessor/token.h>
+#include <preprocessor/utility.h>
 
 namespace pp {
 
-extern const std::string kPathDelimiter;
+extern const String kPathDelimiter;
 
 /**
  */
@@ -46,21 +47,21 @@ class SourceFile
 public:
 	friend class ConditionScope;
 
-    explicit SourceFile(std::istream& input, const std::string& filepath, const Options& opts);
+    explicit SourceFile(std::istream& input, const String& filepath, const Options& opts);
     virtual ~SourceFile() override;
 
     virtual Token next_token() override;
 
     void scanner_hint(ScannerHint hint);
 
-	const std::string& source_path() const { return path_; }
-	void source_path(const std::string& value) { path_ = value; }
+	const String& source_path() const { return path_; }
+	void source_path(const String& value) { path_ = value; }
 
 	int condition_level() const { return condition_level_; }
 	void inc_condition_level() { ++condition_level_; }
 	void dec_condition_level() { --condition_level_; }
 
-	std::string parent_dir();
+    String parent_dir();
 	std::size_t num_groups() const { return groups_.size(); }
 	Group* current_group() const { return groups_.top(); }
 
@@ -74,7 +75,7 @@ public:
 
 private:
     Scanner scanner_;
-	std::string path_;
+    String path_;
 	int condition_level_;
 	std::stack<Group*> groups_;
     std::uint32_t line_;

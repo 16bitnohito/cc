@@ -53,12 +53,12 @@ int char_kind(int c) {
 
 inline
 bool is_hex(int c) {
-	return isxdigit(c);
+	return isxdigit(c) != 0;
 }
 
 inline
 bool is_dec(int c) {
-	return isdigit(c);
+	return isdigit(c) != 0;
 }
 
 inline
@@ -252,6 +252,15 @@ enum class ScannerState {
 	kPound1,
 	kEnd,
 };
+
+std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
+	for (size_t i = pos; i < s.length(); i++) {
+		if ('a' <= s[i] && s[i] <= 'z') {
+			s[i] = 'A' + (s[i] - 'a');
+		}
+	}
+	return s;
+}
 
 }	//  anonymous namespace
 
@@ -543,7 +552,7 @@ Token Scanner::next_token() {
 		case ScannerState::kHeaderName1: {
 			c_ = get();
 			const int k = char_kind(c_);
-			const char close_char = (cseq[0] == '<') ? '>' : '"';
+			int close_char = (cseq[0] == '<') ? '>' : '"';
 			if (k == close_char) {
 				cseq += to_c(c_);
 				state = ScannerState::kHeaderNameF1;
@@ -863,7 +872,7 @@ Token Scanner::next_token() {
 			//  UCN
 			c_ = get();
 			if (isxdigit(c_)) {
-				const size_t d = (cseq[1] == 'u') ? 6 : 10;
+				const size_t d = (cseq[1] == 'u') ? 6U : 10U;
 				cseq += to_c(c_);
 				if (cseq.length() < d) {
 					state = ScannerState::kCharacterConstant6;
@@ -1670,10 +1679,6 @@ std::uint32_t Scanner::column() {
 	return buf_i_;
 }
 
-std::string Scanner::buffer() {
-	return buf_;
-}
-
 int Scanner::readline() {
 	istream& input = input_.get();
 
@@ -1744,7 +1749,7 @@ std::string Scanner::replace_trigraphs(std::string& s) {
             w++;
         } else {
             char t2 = s[r + 2];
-            char c;
+			char c;
             switch (t2) {
             case '=':
                 c = '#';

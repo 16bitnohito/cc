@@ -12,9 +12,9 @@ constexpr char kNoOptionParameterError[] = "オプション %cの値が指定さ
 namespace pp {
 
 Options::Options() {
-	input_encoding_ = "utf-8";	//  今は気分的なもの。
+	input_encoding_ = T_("utf-8");	//  今は気分的なもの。
 	//input_filepath_;
-	output_encoding_ = "utf-8";	//  今は気分的なもの。
+	output_encoding_ = T_("utf-8");	//  今は気分的なもの。
 	//output_filepath_;
 	output_line_directive_ = true;
 	output_comment_ = false;
@@ -25,15 +25,15 @@ Options::Options() {
 Options::~Options() {
 }
 
-const std::string& Options::input_filepath() const {
+const String& Options::input_filepath() const {
 	return input_filepath_;
 }
 
-const std::string& Options::output_filepath() const {
+const String& Options::output_filepath() const {
 	return output_filepath_;
 }
 
-const std::string& Options::error_log_filepath() const {
+const String& Options::error_log_filepath() const {
 	return error_log_filepath_;
 }
 
@@ -49,34 +49,37 @@ bool Options::support_trigraphs() const {
 	return support_trigraphs_;
 }
 
-const std::vector<std::string>& Options::additional_include_dirs() const {
+const std::vector<String>& Options::additional_include_dirs() const {
 	return additional_include_dirs_;
 }
 
-const std::vector<std::string>& Options::macro_defs() const {
+const std::vector<String>& Options::macro_defs() const {
 	return macro_defs_;
 }
 
-const std::vector<std::string>& Options::macro_undefs() const {
+const std::vector<String>& Options::macro_undefs() const {
 	return macro_undefs_;
 }
 
-bool Options::parse_options(const std::vector<std::string>& args) {
-	int argc = static_cast<int>(args.size());
+bool Options::parse_options(const std::vector<String>& args) {
+	if (ssize(args) > numeric_limits<int>::max()) {
+		return false;	// too many options
+	}
 
+	int argc = static_cast<int>(ssize(args));
 	for (int i = 1; i < argc; i++) {
-		const string& arg = args[i];
+		const String& arg = args[i];
 
-		if (arg[0] == '-') {
+		if (arg[0] == T_('-')) {
 			switch (arg[1]) {
-			case '\0':
+			case T_('\0'):
 				if (input_filepath_.empty()) {
 					input_filepath_ = arg;
 				}
 				break;
-			case 'I': {
-				string path;
-				if (arg[2] != '\0') {
+			case T_('I'): {
+				String path;
+				if (arg[2] != T_('\0')) {
 					path = &arg[2];
 				} else {
 					if ((i + 1) < argc) {
@@ -90,9 +93,9 @@ bool Options::parse_options(const std::vector<std::string>& args) {
 				additional_include_dirs_.push_back(path);
 				break;
 			}
-			case 'D': {
-				string macro;
-				if (arg[2] != '\0') {
+			case T_('D'): {
+				String macro;
+				if (arg[2] != T_('\0')) {
 					macro = &arg[2];
 				} else {
 					if ((i + 1) < argc) {
@@ -106,9 +109,9 @@ bool Options::parse_options(const std::vector<std::string>& args) {
 				macro_defs_.push_back(macro);
 				break;
 			}
-			case 'U': {
-				string name;
-				if (arg[2] != '\0') {
+			case T_('U'): {
+				String name;
+				if (arg[2] != T_('\0')) {
 					name = &arg[2];
 				} else {
 					if ((i + 1) < argc) {
@@ -131,9 +134,9 @@ bool Options::parse_options(const std::vector<std::string>& args) {
 			//	output_comment_ = true;
 			//	break;
 			//}
-			case 'o': {
-				string path;
-				if (arg[2] != '\0') {
+			case T_('o'): {
+				String path;
+				if (arg[2] != T_('\0')) {
 					path = &arg[2];
 				} else {
 					if ((i + 1) < argc) {
@@ -149,9 +152,9 @@ bool Options::parse_options(const std::vector<std::string>& args) {
 				}
 				break;
 			}
-			case 'e': {
-				string path;
-				if (arg[2] != '\0') {
+			case T_('e'): {
+				String path;
+				if (arg[2] != T_('\0')) {
 					path = &arg[2];
 				} else {
 					if ((i + 1) < argc) {
@@ -165,12 +168,12 @@ bool Options::parse_options(const std::vector<std::string>& args) {
 				error_log_filepath_ = path;
 				break;
 			}
-			case 't':
-				if (arg == "-trigraphs") {
+			case T_('t'):
+				if (arg == T_("-trigraphs")) {
 					support_trigraphs_ = true;
 				}
 				break;
-			case 'h':
+			case T_('h'):
 				return false;
 
 			default:

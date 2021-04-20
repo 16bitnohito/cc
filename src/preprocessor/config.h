@@ -5,7 +5,7 @@
 #define PLATFORM_UNKNOWN		0
 #define PLATFORM_WINDOWS		1
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #define HOST_PLATFORM		PLATFORM_WINDOWS
 #else
 #define HOST_PLATFORM		PLATFORM_UNKNOWN

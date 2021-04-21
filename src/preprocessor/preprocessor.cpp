@@ -564,40 +564,40 @@ void Preprocessor::prepare_predefined_macro() {
 	//        その際は、predef_macro_names_とは別にリストを用意して、warning扱い
 	//        すると良いかも？
 
-	//  オプション指定のマクロ定義はここから。定義済みマクロの後にしないと失敗する。
-	auto& defs = opts_.macro_defs();
-	for (auto def : defs) {
-		// XXX: defは、もしかして opts_の持つものを上書きするのではないだろうか。
-		//      書き込み時のコピーが行われるだろうか。その動作は保証されているだろうか。
-		auto i = def.find(T_('='));
-		if (i == String::npos) {
-			//  定義が無いか、或いは、コマンドライン引数を引用符で囲って、#defineの様に
-			//  空白で区切っているかもしれない。後者の場合、明確にサポートするものでは
-			//  ないが、そのまま通している。
-		} else {
-			//  #defineでの処理を使えるようにするため、空白に置き換える。
-			//  名前と置換リストが空白で区切られており、置換リストに '='が含まれる場合を
-			//  考慮していない。
-			def[i] = T_(' ');
+	for (const auto& op : opts_.macro_operations()) {
+		switch (op.operation()) {
+		case MacroDefinitionOperationType::kDefine: {
+			auto def{op.operand()};
+			auto i = def.find(T_('='));
+			if (i == decltype(def)::npos) {
+				//  定義が無いか、或いは、コマンドライン引数を引用符で囲って、#defineの様に
+				//  空白で区切っているかもしれない。後者の場合、明確にサポートするものでは
+				//  ないが、そのまま通している。
+			} else {
+				//  #defineでの処理を使えるようにするため、空白に置き換える。
+				//  名前と置換リストが空白で区切られており、置換リストに '='が含まれる場合を
+				//  考慮していない。
+				def[i] = T_(' ');
+			}
+
+			//  トークンのマッチングの都合上、改行を加えてから定義を実行している。
+			SourceString source(source_string(def), opts_);
+			TokenStream stream(source);
+			push_stream(stream);
+			execute_define();
+			pop_stream();
+			break;
 		}
-
-		//  トークンのマッチングの都合上、改行を加えてから定義を実行している。
-		SourceString source(source_string(def), opts_);
-		TokenStream stream(source);
-		push_stream(stream);
-		execute_define();
-		pop_stream();
-	}
-
-	//  事前に定義できるものを定義した上で、オプション指定の定義削除を実行する。
-	//  そうでなければ、何を定義解除するのか不明である。
-	auto& undefs = opts_.macro_undefs();
-	for (const auto& name : undefs) {
-		SourceString source(source_string(name), opts_);
-		TokenStream stream(source);
-		push_stream(stream);
-		execute_undef();
-		pop_stream();
+		case MacroDefinitionOperationType::kUndefine: {
+			const auto& name = op.operand();
+			SourceString source(source_string(name), opts_);
+			TokenStream stream(source);
+			push_stream(stream);
+			execute_undef();
+			pop_stream();
+			break;
+		}
+		}
 	}
 }
 
@@ -2059,7 +2059,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
 
 	//  __VA_ARGS__を使えない場合にそれが見つかればエラーとする。
 	if ((macro_form == MacroForm::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kTokenEllipsis.string()))) ||
-			macro_form == MacroForm::kObjectLike) {
+		macro_form == MacroForm::kObjectLike) {
 		Token va_args;
 		auto it = find_if(result.begin(), result.end(),
 				[&va_args](const auto& t) {

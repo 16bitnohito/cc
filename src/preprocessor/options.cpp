@@ -20,6 +20,7 @@ Options::Options() {
 	output_comment_ = false;
 	support_trigraphs_ = false;
 	//additional_include_dirs_;
+	//macro_operations_;
 }
 
 Options::~Options() {
@@ -53,12 +54,8 @@ const std::vector<String>& Options::additional_include_dirs() const {
 	return additional_include_dirs_;
 }
 
-const std::vector<String>& Options::macro_defs() const {
-	return macro_defs_;
-}
-
-const std::vector<String>& Options::macro_undefs() const {
-	return macro_undefs_;
+const std::vector<MacroDefinitionOperation>& Options::macro_operations() const {
+	return macro_operations_;
 }
 
 bool Options::parse_options(const std::vector<String>& args) {
@@ -106,7 +103,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						return false;
 					}
 				}
-				macro_defs_.push_back(macro);
+				macro_operations_.push_back({MacroDefinitionOperationType::kDefine, macro});
 				break;
 			}
 			case T_('U'): {
@@ -122,7 +119,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						return false;
 					}
 				}
-				macro_undefs_.push_back(name);
+				macro_operations_.push_back({ MacroDefinitionOperationType::kUndefine, name });
 				break;
 			}
 			//  TODO: 将来的には。

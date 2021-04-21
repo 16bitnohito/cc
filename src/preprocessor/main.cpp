@@ -36,7 +36,8 @@ int main(int argc, char* argv[]) {
 	} catch (const system_error& e) {
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 		// 挙動が異なると分かっているものだけ特別扱い。
-		cerr << __func__ << ": " << lib::win32util::mbs_to_u8s(e.what()) << "(" << e.code() << ")" << endl;
+		auto message = lib::win32util::mbs_to_u8s(e.what());
+		cerr << __func__ << ": " << lib::win32util::as_native(message.c_str()) << "(" << e.code() << ")" << endl;
 #else
 		cerr << __func__ << ": " << e.what() << "(" << e.code() << ")" << endl;
 #endif

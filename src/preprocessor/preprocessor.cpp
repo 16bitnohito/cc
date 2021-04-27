@@ -378,11 +378,11 @@ Preprocessor::Preprocessor(const Options& opts)
 }
 
 Preprocessor::~Preprocessor() {
-	cleanup();
-
-	// TODO: いつもの簡易プロファイラー的なものにする。
-	clock_end_ = clock() - clock_start_;
-	info(kTokenNull, T_("elapsed: %ld"), clock_end_);
+	try {
+		cleanup();
+	} catch (...) {
+		// IGNORE
+	}
 }
 
 bool Preprocessor::has_error() {
@@ -454,6 +454,10 @@ int Preprocessor::run() {
 	preprocessing_file(in, in_path);
 
 	//output_error("%d errors, %d warnings.\n", error_count_, warning_count_);
+
+	// TODO: いつもの簡易プロファイラー的なものにする。
+	clock_end_ = clock() - clock_start_;
+	info(kTokenNull, T_("elapsed: %ld"), clock_end_);
 
 	if (!cleanup()) {
 		return 1;
@@ -644,9 +648,9 @@ bool Preprocessor::group_part() {
 		skip_ws();
 
 		SourceFile& src = current_source();
+		TokenType cur_group = src.current_group()->type;
 		Token dir_token = peek(1);
 		TokenType dir = as_directive(dir_token);
-		TokenType cur_group = src.current_group()->type;
 
 		if (((cur_group == TokenType::kIf)     && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
 			((cur_group == TokenType::kIfdef)  && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
@@ -1197,8 +1201,8 @@ bool Preprocessor::elif_groups(bool /*processed*/) {
 	//} while (peek(1).string() == "#" && as_directive(peek(2)) == TokenType::kElif);
 
 	//return processed;
-	assert(false && "elif_groupsは展開されている。");
-	return false;
+
+	fatal_error(kTokenNull, "elif_groupsは if_sectionにおいて展開されている。");
 }
 
 bool Preprocessor::elif_group(bool processed) {
@@ -1660,7 +1664,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 					substituted.push_back(t);
 				} else {
 					if (macro.has_va_args() && t == kTokenVaArgs) {
-						const auto i0 = macro.params().size() - 1;
+						const auto i0 = macro.params().size() - 1;	// マクロの仮引数の数 - 1、即ち、"..."のオフセット
 						const auto end = macro_args.size();
 						if (i0 < end) {
 							const auto& a0 = get_expanded_arg(i0, macro_args[i0], expanded_args);
@@ -2169,13 +2173,11 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 		TokenList arg;
 
 		if (!macro.has_va_args() ||
-				(macro.has_va_args() && args.size() < macro.params().size() - 1)) {
-			//  
+            (macro.has_va_args() && args.size() < macro.params().size() - 1)) {
+            //
 			while (nest > 0 || (t != kTokenComma && t != kTokenCloseParen)) {
 				if (t.type() == TokenType::kEndOfFile) {
-					if (stream_stack_.empty()) {
-						error(t, kBadMacroArgumentError);
-					}
+					error(t, kBadMacroArgumentError);
 					return nullopt;
 				}
 

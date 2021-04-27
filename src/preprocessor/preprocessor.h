@@ -317,6 +317,8 @@ private:
 	int rescan_count_;
 };
 
+/**
+ */
 void init_preprocessor();
 
 }   //  namespace pp

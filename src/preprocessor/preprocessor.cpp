@@ -2570,8 +2570,8 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const Char* f
 	}
 	string s = source_from_internal(current_source_path());
 
-	auto i = static_cast<underlying_type_t<decltype(level)>>(level);
-	fprintf(error_output_, "%s:%s:%" PRIu32 ":%zu:", s.c_str(), kLevelTag[i], l, c);
+	auto i = enum_ordinal(level);
+	fprintf(error_output_, "%s:%" PRIu32 ":%zu: %s: ", s.c_str(), l, c, kLevelTag[i]);
 	vfprintf(error_output_, as_narrow(format), args);
 	fprintf(error_output_, "\n");
 #if !defined(NDEBUG)

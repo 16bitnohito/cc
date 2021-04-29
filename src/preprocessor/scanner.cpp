@@ -266,13 +266,12 @@ std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
 
 namespace pp {
 
-Scanner::Scanner(std::istream& input, bool trigraph, bool newline /* = true */)
+Scanner::Scanner(std::istream& input, bool trigraph)
     : input_(input)
 	, buf_()
 	, buf_i_()
 	, line_number_()
 	, trigraph_(trigraph)
-	, newline_(newline)
 	, c_()
 	//, cseq_()
     //, state_(ScannerState::kInitial)
@@ -557,7 +556,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kHeaderNameF1;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					//  行末まで読み取ったので、ヘッダー名としては不正で、このままエラーで返す。
 					error = true;
 				} else {
@@ -765,7 +764,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kCharacterConstant4;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					reset(cseq);
 					error = true;
 				} else {
@@ -814,7 +813,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kCharacterConstant4;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -859,7 +858,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kCharacterConstant8;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -925,7 +924,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kCharacterConstant3;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -947,7 +946,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kCharacterConstant9;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -973,7 +972,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kStringLiteral3;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					reset(cseq);
 					error = true;
 				} else {
@@ -1052,7 +1051,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kStringLiteral8;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -1117,7 +1116,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kStringLiteral1;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -1139,7 +1138,7 @@ Token Scanner::next_token() {
 				cseq += to_c(c_);
 				state = ScannerState::kStringLiteral9;
 			} else {
-				if (k == '\n') {
+				if (is_nl(c_)) {
 					error = true;
 				} else {
 					cseq += to_c(c_);
@@ -1157,7 +1156,7 @@ Token Scanner::next_token() {
 		}
 		case ScannerState::kLineComment: {
 			c_ = get();
-			while (c_ != '\n' && c_ != EOF) {
+			while (!is_nl(c_) && c_ != EOF) {
 				cseq += to_c(c_);
 				c_ = get();
 			}
@@ -1212,9 +1211,9 @@ Token Scanner::next_token() {
 			c_ = get();
 
 			if (c_ == '\n') {
+				cseq += to_c(c_);
 				c_ = get();
 			}
-			cseq = '\n';
 			type = TokenType::kNewLine;
 			state = ScannerState::kEnd;
 			break;
@@ -1679,6 +1678,49 @@ std::uint32_t Scanner::column() {
 	return buf_i_;
 }
 
+int Scanner::getline(std::string& result) {
+	istream& input = input_.get();
+
+	int c = input.get();
+	if (c == EOF) {
+		return -1;
+	}
+
+	result.clear();
+	do {
+		result += static_cast<char>(c);
+
+		if (c == '\r') {
+			int c2 = input.get();
+
+			if (c2 == EOF) {
+				if (input.eof()) {
+					// 一旦、ここまでに読み取れた分を呼び出し元に返す。
+					break;
+				} else {
+					// でなければエラー。
+					return -1;
+				}
+			} else if (c2 == '\n') {
+				result += static_cast<char>(c2);
+			} else {
+				input.putback(c2);
+			}
+			break;
+		}
+		if (c == '\n') {
+			break;
+		}
+
+		c = input.get();
+		if (c == EOF && !input.eof()) {
+			return -1;
+		}
+	} while (c != EOF);
+
+	return 0;
+}
+
 int Scanner::readline() {
 	istream& input = input_.get();
 
@@ -1686,18 +1728,23 @@ int Scanner::readline() {
 		return EOF;
 	}
 
-	int concat = 0;
+	bool more_splicing = false;
 	string s;
 	buf_.clear();
 	do {
-		getline(input, s);
-		if (input.bad()) {
+		if (buf_.length() >= numeric_limits<decltype(buf_i_)>::max() ||
+			line_number_ >= numeric_limits<decltype(line_number_)>::max()) {
 			//  XXX
 			return EOF;
 		}
-		if (buf_.length() >= numeric_limits<decltype(buf_i_)>::max()) {
-			//  XXX
-			return EOF;
+
+		if (getline(s) != 0) {
+			if (more_splicing) {
+				// TODO: 次の行が全く無かった警告。
+				break;
+			} else {
+				return EOF;
+			}
 		}
 
 		//  1.
@@ -1706,29 +1753,12 @@ int Scanner::readline() {
 		}
 
 		//  2.
-		if (concat > 0) {
-			buf_.pop_back();	//  pop '\\'
-		}
+		more_splicing = splice_source_line(buf_, s);
 
-		//  TODO: こういう優しさが必要かもしれない。
-		//auto found = find_if(s.rbegin(), s.rend(), [](auto c) {
-		//	return !is_ws(c);
-		//});
-		//if (found != s.rend()) {
-		//	if (found != s.rbegin() && *found == '\\') {
-		//		s.erase(found.base(), s.end());
-		//	}
-		//}
-
-		buf_ += s;
-		concat++;
 		line_number_++;
-	} while (!buf_.empty() && buf_[buf_.length() - 1] == '\\');
+	} while (more_splicing);
 
 	buf_i_ = 0;
-	if (newline_) {
-		buf_ += "\n";
-	}
 
 	return 0;
 }
@@ -1802,6 +1832,30 @@ std::string Scanner::replace_trigraphs(std::string& s) {
     return s;
 }
 
+bool Scanner::splice_source_line(std::string& logical_line, std::string& physical_line) {
+	bool more_splicing = false;
+
+	auto not_nl = find_if(physical_line.rbegin(), physical_line.rend(), [](const auto& c) { return !is_nl(c); });
+	if (not_nl == physical_line.rend()) {
+		// TODO: 改行で終わらないのでエラー。尚、空のファイルは初回の getlineで弾かれる。
+	}
+	if (not_nl != physical_line.rend()) {
+		auto last_c = find_if(not_nl, physical_line.rend(), [](const auto& c) { return !is_ws(c); });
+		if (not_nl == last_c && *last_c == '\\') {
+			auto back_slash = prev(last_c.base());
+			physical_line.erase(back_slash, physical_line.end());
+			more_splicing = true;
+		}
+		if (not_nl != last_c && last_c != physical_line.rend() && *last_c != '\\') {
+			// TODO: バックスラッシュと改行までの間に空白が有るという警告かエラー。連結しない。
+		}
+	}
+
+	logical_line += physical_line;
+
+	return more_splicing;
+}
+
 //void Scanner::transit(int c, State to_state) {
 //	cseq_ += static_cast<char>(c);
 //	state_ = to_state;
@@ -1818,8 +1872,12 @@ void Scanner::mark() {
 }
 
 void Scanner::reset(std::string& cseq) {
-	assert(buf_i_mark_ != 0);
-	assert(buf_i_ > buf_i_mark_);
+	if (buf_i_mark_ == 0) {
+		throw std::runtime_error(__func__);
+	}
+	if (buf_i_ <= buf_i_mark_) {
+		throw std::runtime_error(__func__);
+	}
 
 	uint32_t n = (buf_i_ - buf_i_mark_) - 1;
 	cseq.erase(cseq.length() - n);

@@ -25,12 +25,11 @@ enum class ScannerHint {
 	kIncludeDirective,
 };
 
-
 /**
-*/
+ */
 class Scanner {
 public:
-	explicit Scanner(std::istream& input, bool trigraph, bool newline = true);
+	explicit Scanner(std::istream& input, bool trigraph);
 	Scanner(const Scanner&) = delete;
     ~Scanner();
 
@@ -60,6 +59,8 @@ private:
 	}
 
 	std::string replace_trigraphs(std::string& s);
+	bool splice_source_line(std::string& logical_line, std::string& physical_line);
+	int getline(std::string& result);
 	int readline();
 	//void transit(int c, State to_state);
 	//void finish(Token::Type token_type);
@@ -72,7 +73,6 @@ private:
 	std::uint32_t buf_i_;
 	std::uint32_t line_number_;
     bool trigraph_;
-	bool newline_;
 	int c_;
 	//std::string cseq_;
 	//State state_;

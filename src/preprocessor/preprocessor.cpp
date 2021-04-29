@@ -420,9 +420,9 @@ int Preprocessor::run() {
 		output_ = stdout;
 	} else {
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-		errno_t e = _wfopen_s(&output_, path_string(out_path).c_str(), L"w");
+		errno_t e = _wfopen_s(&output_, path_string(out_path).c_str(), L"wb");
 #else
-		output_ = fopen(path_string(out_path).c_str(), "w");
+		output_ = fopen(path_string(out_path).c_str(), "wb");
 		int e = output_ ? 0 : errno;
 #endif
 		if (e != 0) {
@@ -441,7 +441,7 @@ int Preprocessor::run() {
 	istream* in = &cin;
 	ifstream in_file;
 	if (in_path != T_("-")) {
-		in_file.open(path_string(in_path));
+		in_file.open(path_string(in_path), ios_base::binary);
 		if (!in_file.is_open()) {
 			output_error(kNoSuchFileError, in_path.c_str());
 			return 1;
@@ -1614,8 +1614,12 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 			}
 		}
 	}
+
+	auto nl = peek(1);
 	new_line();
-	output_text("\n");
+	if (nl.type() == TokenType::kNewLine) {
+		output_text(nl.string());
+	}
 }
 
 const TokenList& Preprocessor::get_expanded_arg(size_t n, const TokenList& arg, Macro::ArgList& cache) {
@@ -1769,8 +1773,8 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 			}
 
 			//
-			istringstream in(l.string() + r.string());
-			Scanner scanner(in, opts_.support_trigraphs(), false);
+			istringstream in(l.string() + r.string(), ios_base::binary);
+			Scanner scanner(in, opts_.support_trigraphs());
 			Token t = scanner.next_token();
 			int count = 0;
 			while (!t.is_eol()) {
@@ -1848,8 +1852,8 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 	Token pragma_text = expanded_args[0][0];
 	auto pragma = destringize(pragma_text.string());
 
-	istringstream in(pragma);
-	Scanner scanner(in, opts_.support_trigraphs(), false);
+	istringstream in(pragma, ios_base::binary);
+	Scanner scanner(in, opts_.support_trigraphs());
 	TokenList pragma_tokens;
 	Token t = scanner.next_token();
 	while (!t.is_eol()) {
@@ -2309,7 +2313,10 @@ void Preprocessor::skip_ws_and_nl(TokenList* read_tokens, bool* broken) {
 
 	const Token* t = &peek(1);
 	while (t->is_ws_nl()) {
-		if (read_tokens && t->type() == TokenType::kWhiteSpace) {
+		// read_tokensで返すトークンはエラーの時だけ使われるので、改行が
+		// 入っても問題無い。それはコメントも同様だが、今のところ、コメント
+		// 自体は出力しないので、それだけは除外している。
+		if (read_tokens && t->type() != TokenType::kComment) {
 			read_tokens->push_back(*t);
 		}
 		if (t->type() == TokenType::kNewLine) {
@@ -2401,7 +2408,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 
 			if (file_exists(input_path)) {
 				DEBUG(header_name_token, T_("Try open <") + path + T_(">"));
-				next_input.open(input_path);
+				next_input.open(input_path, ios_base::binary);
 				break;
 			}
 		}

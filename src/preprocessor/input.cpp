@@ -71,8 +71,8 @@ void SourceFile::reset_line_number(std::uint32_t new_line_number) {
 
 
 SourceString::SourceString(const std::string& string, const Options& opts)
-    : in_(string)
-    , scanner_(in_, opts.support_trigraphs(), false) {
+    : in_(string, ios_base::binary)
+    , scanner_(in_, opts.support_trigraphs()) {
 }
 
 SourceString::~SourceString() {

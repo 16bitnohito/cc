@@ -136,18 +136,21 @@ private:
 
 class ConditionScope {
 public:
-    explicit ConditionScope(SourceFile& source)
+    explicit
+    ConditionScope(SourceFile& source)
         : source_(source) {
         source_.inc_condition_level();
     }
 
     ConditionScope(const ConditionScope&) = delete;
+    ConditionScope(ConditionScope&&) = delete;
 
     ~ConditionScope() {
         source_.dec_condition_level();
     }
 
     ConditionScope& operator=(const ConditionScope&) = delete;
+    ConditionScope& operator=(ConditionScope&&) = delete;
 
 private:
     SourceFile& source_;

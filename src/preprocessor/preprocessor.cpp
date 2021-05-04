@@ -340,6 +340,8 @@ Macro::Macro(const std::string& name, const std::string& value, const TokenType 
 MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::string& name, const TokenList& replist) {
 	if (name == kTokenOpPragma.string()) {
 		return MacroExpantionMethod::kOpPragma;
+	} else if (name == kTokenVaOpt.string()) {
+		return MacroExpantionMethod::kVaOpt;
 	} else {
 		bool directly = true;
 		for (const auto& t : replist) {
@@ -555,13 +557,27 @@ void Preprocessor::prepare_predefined_macro() {
 
 	//  _Pragma演算子はマクロとして扱う。definedと違って括弧が必要なので、所々で特別扱いしないで済む。
 	//  実際の処理は独自のメソッドで行われるので置換リストは適当に。
-	auto op_pragma = Macro::create_macro(
+	{
+		auto op_pragma = Macro::create_macro(
 			kTokenOpPragma.string(),
 			Macro::ParamList{ "content" },
 			TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
-	auto result = macros_.insert({ op_pragma->name(), op_pragma });
-	if (!result.second) {
-		fatal_error(kTokenNull, as_internal(__func__) /* ロジックエラーかメモリーが足りないか？ */);
+		auto result = macros_.insert({ op_pragma->name(), op_pragma });
+		if (!result.second) {
+			fatal_error(kTokenNull, as_internal(__func__) /* ロジックエラーかメモリーが足りないか？ */);
+		}
+	}
+
+	//  __VA_OPT__は特別なマクロとして扱う。
+	{
+		auto op_va_opt = Macro::create_macro(
+			kTokenVaOpt.string(),
+			Macro::ParamList{ "content" },
+			TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
+		auto result = macros_.insert({ op_va_opt->name(), op_va_opt });
+		if (!result.second) {
+			fatal_error(kTokenNull, as_internal(__func__));
+		}
 	}
 
 	//  NOTE: 処理系定義のマクロが必要になった時には、ここで追加する。
@@ -1636,8 +1652,18 @@ const TokenList& Preprocessor::get_expanded_arg(size_t n, const TokenList& arg, 
 	return cache[n];
 }
 
-//bool Preprocessor::expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
-//}
+bool Preprocessor::expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+#if !defined(NDEBUG)
+	Indent indent;
+#endif
+
+	macro_invocation_stack_.push_back({ &macro, &macro_args });
+	auto ord = enum_ordinal(macro.expantion_method());
+	bool dont_rescan = (this->*expantion_methods_[ord])(macro, macro_args, result_expanded);
+	macro_invocation_stack_.pop_back();
+
+	return dont_rescan;
+}
 
 bool Preprocessor::expand_directly_copyable(const Macro& macro, const Macro::ArgList& /*macro_args*/, TokenList& result_expanded) {
 	result_expanded = macro.replist();
@@ -1673,26 +1699,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 						if (i0 < end) {
 							const auto& a0 = get_expanded_arg(i0, macro_args[i0], expanded_args);
 							substituted.insert(substituted.end(), a0.begin(), a0.end());
-
-							for (auto i = macro.params().size(); i < end; ++i) {
-								assert(false && "可変引数は 1つにまとめるようにしたので、このループには入らない。");
-								substituted.push_back(kTokenComma);
-								substituted.push_back(kTokenASpace);
-
-								const auto& a = get_expanded_arg(i, macro_args[i], expanded_args);
-								substituted.insert(substituted.end(), a.begin(), a.end());
-							}
 						}
-					//  TODO: 実装してみたい。
-					//} else if (macro.has_va_args() && t == kTokenVaOpt) {
-						//  マクロ解析時に、
-						//  __VA_OPT__の次が括弧であるかどうか、括弧が閉じているか、を確認しておき、失敗すれば
-						//  マクロ定義を失敗(エラーを出力)させる。
-						//
-						//  その上で、ここでの置換は、
-						//  if (i0 < end) { 括弧内のトークンを substituted.insertする。}
-						//  else { 何もしない。 }
-						//  という感じに。
 					} else {
 						size_t i = macro.param_index_of(t.string());
 						if (i == macro.params().size()) {
@@ -1867,6 +1874,37 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 	return true;
 }
 
+bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+	if (macro_invocation_stack_.size() < 2) {
+		fatal_error(kTokenNull, __func__);
+	}
+
+	auto& parent_macro_call = macro_invocation_stack_[macro_invocation_stack_.size() - 2];
+	if (parent_macro_call.macro->params().empty()) {
+		fatal_error(kTokenNull, __func__);
+	}
+
+	// 可変引数が指定されていなければ、結果は空にする(何もしない)。
+	const auto parent_i0 = parent_macro_call.macro->params().size() - 1;
+	const auto parent_end = parent_macro_call.args->size();
+	if (parent_i0 >= parent_end) {
+		return true;
+	}
+
+	// 可変引数が有っても、空リストの場合も可変引数は指定されていないものとする。
+	const Macro::ArgList* parent_args = parent_macro_call.args;
+	if (parent_args->empty() || (*parent_args)[parent_i0].empty()) {
+		return true;
+	}
+
+	// __VA_OPT__に指定された内容で置き換える。
+	if (!macro_args.empty()) {
+		result_expanded.insert(result_expanded.end(), macro_args[0].begin(), macro_args[0].end());
+	}
+
+	return false;
+}
+
 TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token) {
 	if (token.type() != TokenType::kIdentifier) {
 		//result.push_back(token);
@@ -1884,17 +1922,6 @@ TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macr
 			//} else {
 			result.insert(result.end(), a0.begin(), a0.end());
 			//}
-			for (auto i = macro.params().size(); i < end; ++i) {
-				result.push_back(kTokenComma);
-				result.push_back(kTokenASpace);
-
-				const TokenList& a = macro_args[i];
-				//if (a.empty()) {
-				//	result.push_back(kTokenPlaceMarker);
-				//} else {
-				result.insert(result.end(), a.begin(), a.end());
-				//}
-			}
 		}
 	} else {
 		auto i = macro.param_index_of(token.string());
@@ -1925,12 +1952,25 @@ void Preprocessor::scan(TokenList& result_expanded) {
 			continue;
 		}
 		if (t == kTokenVaArgs) {
+			// expandで展開されるはずなので、ここで見つかるのはエラーとする。
+			error(t, kVaArgsIdentifierUsageError);
 			result_expanded.push_back(t);
 			continue;
 		}
 		if (t == kTokenVaOpt) {
-			result_expanded.push_back(t);
-			continue;
+			// 可変引数を持つマクロの展開中でなければエラーとする。
+			bool context_error = true;
+			if (!macro_invocation_stack_.empty()) {
+				const Macro* current_invocation = macro_invocation_stack_.back().macro;
+				if (current_invocation->has_va_args()) {
+					context_error = false;
+				}
+			}
+			if (context_error) {
+				error(t, kVaOptIdentifierUsageError);
+				result_expanded.push_back(t);
+				continue;
+			}
 		}
 		if (used_macro_names_.find(t.string()) != used_macro_names_.end()) {
 			DEBUG(t, T_("%s[USED]: %s"), Indent::tab().c_str(), t.string().c_str());
@@ -2065,21 +2105,24 @@ std::optional<TokenList> Preprocessor::replacement_list(
 		}
 	}
 
-	//  __VA_ARGS__を使えない場合にそれが見つかればエラーとする。
+	// 可変引数絡みの識別子を使えない場合に、それが見つかればエラーとする。
 	if ((macro_form == MacroForm::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kTokenEllipsis.string()))) ||
 		macro_form == MacroForm::kObjectLike) {
 		Token va_args;
-		auto it = find_if(result.begin(), result.end(),
-				[&va_args](const auto& t) {
+		Token va_opt;
+		for_each(result.begin(), result.end(),
+				[&va_args, &va_opt](const auto& t) {
 					if (t == kTokenVaArgs) {
 						va_args = t;
-						return true;
-					} else {
-						return false;
+					} else if (t == kTokenVaOpt) {
+						va_opt = t;
 					}
 				});
-		if (it != result.end()) {
+		if (va_args != kTokenNull) {
 			error(va_args, kVaArgsIdentifierUsageError);
+		}
+		if (va_opt != kTokenNull) {
+			error(va_opt, kVaOptIdentifierUsageError);
 		}
 	}
 
@@ -2155,6 +2198,51 @@ std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
 	return params;
 }
 
+template <class Funcion>
+Token Preprocessor::read_macro_arg_loop(TokenList* read_tokens, TokenList& result_arg, Funcion end_condition) {
+	bool succeeded = true;
+	int nest = 0;
+	Token t = peek(1);
+	while (nest > 0 || !end_condition(t)) {
+		if (t.type() == TokenType::kEndOfFile) {
+			error(t, kBadMacroArgumentError);
+			succeeded = false;
+			break;
+		}
+
+		if (t == kTokenOpenParen) {
+			nest++;
+		} else if (t == kTokenCloseParen) {
+			nest--;
+		}
+
+		result_arg.push_back(t);
+
+		consume();
+		t = peek(1);
+	}
+
+	if (read_tokens) {
+		read_tokens->insert(read_tokens->end(), result_arg.begin(), result_arg.end());
+	}
+
+	return succeeded ? t : kTokenNull;
+}
+
+Token Preprocessor::read_macro_arg(TokenList* read_tokens, TokenList& result_arg) {
+	return read_macro_arg_loop(read_tokens, result_arg,
+			[](const Token& t) {
+				return t == kTokenComma || t == kTokenCloseParen;
+			});
+}
+
+Token Preprocessor::read_macro_arg_at_ellipsis(TokenList* read_tokens, TokenList& result_arg) {
+	return read_macro_arg_loop(read_tokens, result_arg,
+			[](const Token& t) {
+				return t == kTokenCloseParen;
+			});
+}
+
 std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, TokenList* read_tokens) {
 	Token open_paren = peek(1);
 	if (open_paren != kTokenOpenParen) {
@@ -2168,70 +2256,60 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 	match("(");
 
 	Macro::ArgList args;
-	args.reserve(macro.params().size());
 	size_t comma = 0;
 
-	Token t = peek(1);
-	while (t != kTokenCloseParen) {
-		int nest = 0;
+	if (macro.name() == kTokenVaOpt.string()) {
+		args.reserve(1);
+
 		TokenList arg;
+		if (read_macro_arg_at_ellipsis(read_tokens, arg) == kTokenNull) {
+			return nullopt;
+		}
 
-		if (!macro.has_va_args() ||
-            (macro.has_va_args() && args.size() < macro.params().size() - 1)) {
-            //
-			while (nest > 0 || (t != kTokenComma && t != kTokenCloseParen)) {
-				if (t.type() == TokenType::kEndOfFile) {
-					error(t, kBadMacroArgumentError);
-					return nullopt;
-				}
+		args.push_back(shrink_ws_tokens(arg));
+	} else {
+		// 正しく引数が指定されていれば、
+		// 可変引数を持たない場合: 仮引数の数で領域を予約し、その全ての領域を使う。
+		//                        MACRO(a, b, c)が有って、MACRO(a, b, )と使う場合、最後は空リストになる。
+		// 可変引数を持つ場合: 仮引数の数で領域を予約するが、可変引数が 1つも無い場合は、コンマが有るか
+		//                    どうかで、空リストになるか、空リストではなく要素自体が無いかの 2通りになる。
+		//                    MACRO(a, b, ...)が有って、MACRO(a, b, )と使う場合、最後は空リストになるが、
+		//                    MACRO(a, b)と使う場合は、可変引数に対応する要素自体が無く、予約領域の最後は
+		//                    使われない。
+		args.reserve(macro.params().size());
 
-				if (t == kTokenOpenParen) {
-					nest++;
-				} else if (t == kTokenCloseParen) {
-					nest--;
-				}
+		Token t = peek(1);
+		while (t != kTokenCloseParen) {
+			const auto ellipsis_pos = macro.params().size() - 1;
+			int nest = 0;
+			TokenList arg;
 
-				if (read_tokens) {
-					read_tokens->push_back(t);
-				}
-				arg.push_back(t);
-
-				consume();
-				t = peek(1);
+			if (!macro.has_va_args() ||
+				(macro.has_va_args() && args.size() < ellipsis_pos)) {
+				t = read_macro_arg(read_tokens, arg);
+			} else {
+				t = read_macro_arg_at_ellipsis(read_tokens, arg);
 			}
-		} else {
-			//  
-			while (nest > 0 || t != kTokenCloseParen) {
-				if (t.type() == TokenType::kEndOfFile) {
-					error(t, kBadMacroArgumentError);
-					return nullopt;
-				}
+			if (t == kTokenNull) {
+				return nullopt;
+			}
 
-				if (t == kTokenOpenParen) {
-					nest++;
-				} else if (t == kTokenCloseParen) {
-					nest--;
-				}
+			args.push_back(shrink_ws_tokens(arg));
 
+			if (t == kTokenComma) {
 				if (read_tokens) {
 					read_tokens->push_back(t);
 				}
-				arg.push_back(t);
-
-				consume();
+				match(",");
 				t = peek(1);
+
+				++comma;
 			}
 		}
-		args.push_back(shrink_ws_tokens(arg));
 
-		if (t == kTokenComma) {
-			if (read_tokens) {
-				read_tokens->push_back(t);
-			}
-			match(",");
-			t = peek(1);
-
-			++comma;
+		//  最後の引数が空の場合には上のループで追加されないので、ここで空を追加する。
+		if (!macro.params().empty() && (args.size() == comma) && (args.size() == macro.params().size() - 1)) {
+			args.push_back({});
 		}
 	}
 
@@ -2241,22 +2319,13 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 	}
 	match(")");
 
-	//  最後の引数が空の場合には上のループで追加されないので、ここで空を追加する。
-	if (!macro.params().empty() && (args.size() == comma) && (args.size() == macro.params().size() - 1)) {
-		args.push_back({});
-	}
-
 	if (args.size() > kMinSpecMacroArguments) {
 		info(close_paren, kMinSpecMacroArgumentsWarning, kMinSpecMacroArguments, args.size());
 	}
 
 	if (macro.has_va_args()) {
 		const auto must_params = macro.params().size() - 1;
-
-		if (args.size() == must_params) {
-			//  これに関する記述がどこか分からない。
-			warning(close_paren, kVaArgsRequiresAtLeastOneArgument);
-		} else if (args.size() < must_params) {
+		if (args.size() < must_params) {
 			error(close_paren, kUnmatchedNumberOfArguments, args.size(), macro.params().size());
 			return nullopt;
 		}

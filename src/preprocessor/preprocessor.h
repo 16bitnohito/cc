@@ -45,6 +45,7 @@ enum class MacroExpantionMethod {
 	kDirectlyCopyable,
 	kNormal,
 	kOpPragma,
+	kVaOpt,
 
 	kNumElements,
 };
@@ -180,23 +181,18 @@ private:
 	};
 #endif
 
-	bool expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
-#if !defined(NDEBUG)
-		Indent indent;
-#endif
-
-		auto ord = enum_ordinal(macro.expantion_method());
-		return (this->*expantion_methods_[ord])(macro, macro_args, result_expanded);
-	}
+	bool expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 	bool expand_directly_copyable(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 	bool expand_normal(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 	bool expand_op_pragma(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+	bool expand_va_opt(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
 	using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
 	static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {
 		&Preprocessor::expand_directly_copyable,
 		&Preprocessor::expand_normal,
 		&Preprocessor::expand_op_pragma,
+		&Preprocessor::expand_va_opt,
 	};
 
 	TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);
@@ -206,6 +202,10 @@ private:
 	//void lparen();
 	std::optional<TokenList> replacement_list(MacroForm macro_form, const Macro::ParamList& macro_params);
 	std::optional<Macro::ParamList> read_macro_params();
+	template <class Funcion>
+	Token read_macro_arg_loop(TokenList* read_tokens, TokenList& result, Funcion end_condition);
+	Token read_macro_arg(TokenList* read_tokens, TokenList& result);
+	Token read_macro_arg_at_ellipsis(TokenList* read_tokens, TokenList& result);
 	std::optional<Macro::ArgList> read_macro_args(const Macro& macro, TokenList* read_tokens);
 
 	//void pp_tokens(bool output);
@@ -315,6 +315,12 @@ private:
 
 	int included_files_;
 	int rescan_count_;
+
+	struct MacroInvocation {
+		const Macro* macro;
+		const Macro::ArgList* args;
+	};
+	std::vector<MacroInvocation> macro_invocation_stack_;
 };
 
 /**

@@ -2281,7 +2281,6 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
 		Token t = peek(1);
 		while (t != kTokenCloseParen) {
 			const auto ellipsis_pos = macro.params().size() - 1;
-			int nest = 0;
 			TokenList arg;
 
 			if (!macro.has_va_args() ||

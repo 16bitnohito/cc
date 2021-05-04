@@ -1688,7 +1688,7 @@ int Scanner::getline(std::string& result) {
 
 	result.clear();
 	do {
-		result += static_cast<char>(c);
+		result += to_c(c);
 
 		if (c == '\r') {
 			int c2 = input.get();
@@ -1702,9 +1702,9 @@ int Scanner::getline(std::string& result) {
 					return -1;
 				}
 			} else if (c2 == '\n') {
-				result += static_cast<char>(c2);
+				result += to_c(c2);
 			} else {
-				input.putback(c2);
+				input.putback(to_c(c2));
 			}
 			break;
 		}

@@ -48,16 +48,14 @@ String get_current_dir() {
 }
 
 String trim_string(const String& s) {
-	const String blank = T_("\x09\x0b\x0c\x20");
+	static const String blank = T_("\x09\x0b\x0c\x20");
 
-	String result;
-	String::size_type l = s.find_first_not_of(blank);
-	if (l != String::npos) {
-		String::size_type r = s.find_last_not_of(blank);
-		result = s.substr(l, r - l + 1);
+	const auto l = s.find_first_not_of(blank);
+	if (l == String::npos) {
+		return String();
 	}
-
-	return result;
+	const auto r = s.find_last_not_of(blank);
+	return s.substr(l, (r - l) + 1);
 }
 
 bool file_exists(const Path& path) {
@@ -87,6 +85,9 @@ void setup_console() {
 	}
 #else
 #endif
+
+	ios_base::sync_with_stdio(false);
+	cin.tie(nullptr);
 }
 
 void raise_generic_error(const char* message, int error) {

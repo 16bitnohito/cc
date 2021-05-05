@@ -1879,20 +1879,20 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
 		fatal_error(kTokenNull, __func__);
 	}
 
-	auto& parent_macro_call = macro_invocation_stack_[macro_invocation_stack_.size() - 2];
-	if (parent_macro_call.macro->params().empty()) {
+	const auto& parent_invocation = macro_invocation_stack_[macro_invocation_stack_.size() - 2];
+	if (parent_invocation.macro->params().empty()) {
 		fatal_error(kTokenNull, __func__);
 	}
 
 	// 可変引数が指定されていなければ、結果は空にする(何もしない)。
-	const auto parent_i0 = parent_macro_call.macro->params().size() - 1;
-	const auto parent_end = parent_macro_call.args->size();
+	const auto parent_i0 = parent_invocation.macro->params().size() - 1;
+	const auto parent_end = parent_invocation.args->size();
 	if (parent_i0 >= parent_end) {
 		return true;
 	}
 
 	// 可変引数が有っても、空リストの場合も可変引数は指定されていないものとする。
-	const Macro::ArgList* parent_args = parent_macro_call.args;
+	const Macro::ArgList* parent_args = parent_invocation.args;
 	if (parent_args->empty() || (*parent_args)[parent_i0].empty()) {
 		return true;
 	}

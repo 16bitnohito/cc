@@ -88,6 +88,7 @@ void setup_console() {
 
 	ios_base::sync_with_stdio(false);
 	cin.tie(nullptr);
+	cerr.tie(nullptr);
 }
 
 void raise_generic_error(const char* message, int error) {

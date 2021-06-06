@@ -27,10 +27,10 @@
 
 namespace pp {
 
-extern const Char* const kNoInputError;
-extern const Char* const kNoSuchFileError;
-extern const Char* const kFileOutputError ;
-extern const Char* const kErrorFileOutputError;
+extern const StringView kNoInputError;
+extern const StringView kNoSuchFileError;
+extern const StringView kFileOutputError;
+extern const StringView kErrorFileOutputError;
 
 /**
  */
@@ -261,18 +261,59 @@ private:
 		output_text(text.c_str());
 	}
 	void output_text(const char* text);
-	void output_error(const Char* format, ...);
-	void output_log(DiagLevel level, const Token& token, const Char* message, va_list args);
-	void debug(const Token& token, const Char* format, ...);
-	void debug(const Token& token, const String& message);
-	void info(const Token& token, const Char* format, ...);
-	void info(const Token& token, const String& message);
-	void warning(const Token& token, const Char* format, ...);
-	void warning(const Token& token, const String& message);
-	void error(const Token& token, const Char* format, ...);
-	void error(const Token& token, const String& message);
-	[[noreturn]] void fatal_error(const Token& token, const Char* format, ...);
-	[[noreturn]] void fatal_error(const Token& token, const String& message);
+
+	using ErrorOutputIteratorType = std::ostreambuf_iterator<char>;
+
+	void output_error_with_args(
+			StringView format,
+			const std::format_args_t<ErrorOutputIteratorType, char>& args);
+			//const std::format_args& args);
+
+	template <class... Ts>
+	void output_error(StringView format, Ts... args) {
+		using Context = std::basic_format_context<ErrorOutputIteratorType, char>;
+		output_error_with_args(format, std::make_format_args<Context>(args...));
+		//output_error_with_args(level, token, format, std::make_format_args(args...));
+	}
+
+	void output_log_with_args(
+			DiagLevel level, const Token& token, StringView format,
+			const std::format_args_t<ErrorOutputIteratorType, char>& args);
+			//const std::format_args& args);
+
+	template <class... Ts>
+	void output_log(DiagLevel level, const Token& token, StringView format, Ts... args) {
+		using Context = std::basic_format_context<ErrorOutputIteratorType, char>;
+		output_log_with_args(level, token, format, std::make_format_args<Context>(args...));
+		//output_log_with_args(level, token, format, std::make_format_args(args...));
+	}
+
+	template <class... Ts>
+	void debug(const Token& token, StringView format, Ts... args) {
+		output_log(DiagLevel::kDebug, token, format, args...);
+	}
+
+	template <class... Ts>
+	void info(const Token& token, StringView format, Ts... args) {
+		output_log(DiagLevel::kInfo, token, format, args...);
+	}
+
+	template <class... Ts>
+	void warning(const Token& token, StringView format, Ts... args) {
+		output_log(DiagLevel::kWarning, token, format, args...);
+		warning_count_++;
+	}
+
+	template <class... Ts>
+	void error(const Token& token, StringView format, Ts... args) {
+		output_log(DiagLevel::kError, token, format, args...);
+		error_count_++;
+	}
+
+	template <class... Ts>
+	[[noreturn]] void fatal_error(const Token& token, StringView format, Ts... args) {
+		output_log(DiagLevel::kFatalError, token, format, args...);
+	}
 
 	SourceFile& current_source();
 	String current_source_path();
@@ -301,9 +342,10 @@ private:
 	clock_t clock_end_;
 	std::vector<std::reference_wrapper<TokenStream>> stream_stack_;
 
-	FILE* output_;
-	//std::vector<char> output_buf_;
-	FILE* error_output_;
+	std::ostream* output_;
+	std::vector<char> output_buffer_;
+	std::ostream* error_output_;
+	std::vector<char> error_output_buffer_;
 	std::stack<SourceFile*> sources_;
 	MacroSet macros_;
 	std::vector<std::string> predef_macro_names_;

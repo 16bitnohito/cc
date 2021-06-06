@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdarg>
 #include <cstring>
+#include <format>
 #include <fstream>
 #include <iomanip>
 #include <numeric>
@@ -250,10 +251,10 @@ String normalize_path(const String& path) {
 
 namespace pp {
 
-const Char* const kNoInputError = T_("入力ファイルが指定されていない。\n");
-const Char* const kNoSuchFileError = T_("ファイルが開けない: %s\n");
-const Char* const kFileOutputError = T_("出力に失敗した。\n");
-const Char* const kErrorFileOutputError = T_("エラー出力に失敗した。\n");
+const StringView kNoInputError = T_("入力ファイルが指定されていない。\n");
+const StringView kNoSuchFileError = T_("ファイルが開けない: %s\n");
+const StringView kFileOutputError = T_("出力に失敗した。\n");
+const StringView kErrorFileOutputError = T_("エラー出力に失敗した。\n");
 
 const Token kTokenASpace(" ", TokenType::kWhiteSpace);
 const Token kTokenOpenParen("(", TokenType::kPunctuator);
@@ -360,12 +361,12 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
 Preprocessor::Preprocessor(const Options& opts)
 	: opts_(opts)
 	, include_dirs_()
-	, diag_level_(DiagLevel::kWarning)
+	, diag_level_(DiagLevel::kInfo)
 	, clock_start_()
 	, clock_end_()
 	, stream_stack_()
-	, output_(stdout)
-	, error_output_(stderr)
+	, output_(&cout)
+	, error_output_(&cerr)
 	, sources_()
 	, macros_()
 	, predef_macro_names_()
@@ -397,40 +398,36 @@ int Preprocessor::run() {
 	const vector<String>& dirs = opts_.additional_include_dirs();
 	include_dirs_.insert(include_dirs_.end(), dirs.begin(), dirs.end());
 
-	// TODO: 入出力周りを整理して、iostreamにした方が良いかも。
+	//
 	String err_path = opts_.error_log_filepath();
+	ofstream err_file;
 	if (err_path.empty()) {
-		error_output_ = stderr;
+		error_output_buffer_.resize(4 * 1024);
+		cerr.rdbuf()->pubsetbuf(error_output_buffer_.data(), error_output_buffer_.size());
+		error_output_ = &cerr;
 	} else {
-#if HOST_PLATFORM == PLATFORM_WINDOWS
-		errno_t e = _wfopen_s(&error_output_, path_string(err_path).c_str(), L"w");
-#else
-		error_output_ = fopen(path_string(err_path).c_str(), "w");
-		int e = error_output_ ? 0 : errno;
-#endif
-		if (e != 0) {
-			error_output_ = stderr;
+		err_file.open(path_string(err_path), ios_base::binary);
+		if (!err_file) {
 			output_error(kNoSuchFileError, err_path.c_str());
 			return 1;
 		}
+		error_output_ = &err_file;
 	}
-	Diagnostics::setup(error_output_);
 
 	//
 	String out_path = opts_.output_filepath();
+	ofstream out_file;
 	if (out_path.empty()) {
-		output_ = stdout;
+		//output_buffer_.resize(64 * 1024);
+		//cout.rdbuf()->pubsetbuf(output_buffer_.data(), output_buffer_.size());
+		output_ = &cout;
 	} else {
-#if HOST_PLATFORM == PLATFORM_WINDOWS
-		errno_t e = _wfopen_s(&output_, path_string(out_path).c_str(), L"wb");
-#else
-		output_ = fopen(path_string(out_path).c_str(), "wb");
-		int e = output_ ? 0 : errno;
-#endif
-		if (e != 0) {
+		out_file.open(path_string(out_path), ios_base::binary);
+		if (!out_file) {
 			output_error(kNoSuchFileError, out_path.c_str());
 			return 1;
 		}
+		output_ = &out_file;
 	}
 
 	//
@@ -459,7 +456,7 @@ int Preprocessor::run() {
 
 	// TODO: いつもの簡易プロファイラー的なものにする。
 	clock_end_ = clock() - clock_start_;
-	info(kTokenNull, T_("elapsed: %ld"), clock_end_);
+	info(kTokenNull, T_("elapsed: {}"), clock_end_);
 
 	if (!cleanup()) {
 		return 1;
@@ -469,33 +466,17 @@ int Preprocessor::run() {
 }
 
 bool Preprocessor::cleanup() {
-	bool e = false;
-
-	if (output_ != nullptr) {
-		if (fflush(output_) != 0) {
-			output_error(kFileOutputError);
-			e = true;
-		}
-		if (fclose(output_) != 0) {
-			output_error(kFileOutputError);
-			e = true;
-		}
+	if (output_) {
+		output_->flush();
 		output_ = nullptr;
 	}
 
-	if (error_output_ != nullptr) {
-		if (fflush(error_output_) != 0) {
-			output_error(kErrorFileOutputError);
-			e = true;
-		}
-		if (fclose(error_output_) != 0) {
-			output_error(kErrorFileOutputError);
-			e = true;
-		}
+	if (error_output_) {
+		error_output_->flush();
 		error_output_ = nullptr;
 	}
 
-	return !e;
+	return true;
 }
 
 void Preprocessor::prepare_predefined_macro() {
@@ -807,7 +788,7 @@ TokenList Preprocessor::make_constant_expression() {
 			} else {
 				TokenList replaced;
 				if (!m->is_function()) {
-					DEBUG(t, T_("[START]: %s"), m->name().c_str());
+					DEBUG(t, T_("[START]: {}"), m->name());
 					expand(*m, Macro::kNoArgs, replaced);
 				} else {
 					skip_ws();
@@ -820,7 +801,7 @@ TokenList Preprocessor::make_constant_expression() {
 						if (!args.has_value()) {
 							bad_expr = true;
 						} else {
-							DEBUG(t, T_("[START]: %s"), m->name().c_str());
+							DEBUG(t, T_("[START]: {}"), m->name());
 							expand(*m, *args, replaced);
 						}
 					}
@@ -867,7 +848,7 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 
 			target_intmax_t n = 0;
 			if (!parse_int(s, &n)) {
-				error(t, kConstantNumberIsNotAIntegerError, s.c_str());
+				error(t, kConstantNumberIsNotAIntegerError, s);
 				bad_expr = true;
 			}
 			nums.push(n);
@@ -920,7 +901,7 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
 				}
 			}
 			if (op.id == OperatorId::kUnknown) {
-				error(dir_token, kInvalidOperatorError, opstr.c_str());
+				error(dir_token, kInvalidOperatorError, opstr);
 				bad_expr = true;
 			}
 
@@ -1497,7 +1478,7 @@ void Preprocessor::control_line(TokenType directive) {
 		ts = shrink_ws_tokens(ts);
 		new_line();
 
-		error(t, T_("#error ") + internal_from_source(Token::concat_string(ts)));
+		error(t, T_("#error {}"), internal_from_source(Token::concat_string(ts)));
 		break;
 	}
 	case TokenType::kPragma: {
@@ -1584,7 +1565,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 		bool dont_rescan = false;
 		TokenList expanded;
 		if (!m->is_function()) {
-			DEBUG(t, T_("[START]: %s"), m->name().c_str());
+			DEBUG(t, T_("[START]: {}"), m->name());
 			dont_rescan = expand(*m, Macro::kNoArgs, expanded);
 		} else {
 			bool broken = false;
@@ -1609,7 +1590,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
 					move(read_tokens.begin(), read_tokens.end(), back_inserter(expanded));
 					dont_replace = true;
 				} else {
-					DEBUG(t, T_("[START]: %s"), m->name().c_str());
+					DEBUG(t, T_("[START]: {}"), m->name());
 					dont_rescan = expand(*m, *args, expanded);
 				}
 			}
@@ -1646,7 +1627,7 @@ const TokenList& Preprocessor::get_expanded_arg(size_t n, const TokenList& arg, 
 		scan(cache[n]);
 		pop_stream();
 
-		DEBUG(kTokenNull, T_("%s%d: %s --> %s"), Indent::tab().c_str(), n, Token::concat_string(arg).c_str(), Token::concat_string(cache[n]).c_str());
+		DEBUG(kTokenNull, T_("{}{}: {} --> {}"), Indent::tab(), n, Token::concat_string(arg), Token::concat_string(cache[n]));
 	}
 
 	return cache[n];
@@ -1799,12 +1780,12 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 				//        あくまでも pp-numberなのでパーサーがエラーにする可能性は残る。
 				Token t2 = concat_result.front();
 				if (t2 == kTokenOpConcat || t2.is_ws()) {
-					error(r, kGeneratedInvalidPpTokenError2, l.string().c_str(), r.string().c_str());
+					error(r, kGeneratedInvalidPpTokenError2, l.string(), r.string());
 					concat_result.pop_back();
 					concat_result.push_back(Token(t2.string(), TokenType::kNonReplacementTarget));
 				}
 			} else {
-				error(r, kGeneratedInvalidPpTokenError2, l.string().c_str(), r.string().c_str());
+				error(r, kGeneratedInvalidPpTokenError2, l.string(), r.string());
 			}
 
 			//
@@ -1818,7 +1799,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 		}
 	}
 
-	DEBUG(kTokenNull, T_("%s--> %s"), Indent::tab().c_str(), Token::concat_string(substituted).c_str());
+	DEBUG(kTokenNull, T_("{} --> {}"), Indent::tab(), Token::concat_string(substituted));
 
 	if (substituted.empty()) {
 		result_expanded.clear();
@@ -1973,7 +1954,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
 			}
 		}
 		if (used_macro_names_.find(t.string()) != used_macro_names_.end()) {
-			DEBUG(t, T_("%s[USED]: %s"), Indent::tab().c_str(), t.string().c_str());
+			DEBUG(t, T_("{}[USED]: {}"), Indent::tab(), t.string());
 			result_expanded.push_back(Token(t.string(), TokenType::kNonReplacementTarget));
 			continue;
 		}
@@ -2464,7 +2445,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 		auto input_path = path_string(path);
 
 		if (file_exists(input_path)) {
-			DEBUG(header_name_token, T_("Try open \"") + path + T_("\""));
+			DEBUG(header_name_token, T_("Try open \"{}\""), path);
 			next_input.open(input_path, ios_base::binary);
 		}
 	}
@@ -2475,7 +2456,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 			auto input_path = path_string(path);
 
 			if (file_exists(input_path)) {
-				DEBUG(header_name_token, T_("Try open <") + path + T_(">"));
+				DEBUG(header_name_token, T_("Try open <{}>"), path);
 				next_input.open(input_path, ios_base::binary);
 				break;
 			}
@@ -2487,7 +2468,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 		return false;
 	}
 
-	DEBUG(header_name_token, T_("Open file ") + path);
+	DEBUG(header_name_token, T_("Open file {}"), path);
 	included_files_++;
 	if (included_files_ > kMinSpecSourceFileInclusion) {
 		info(header_name_token, kMinSpecSourceFileInclusionWarning, kMinSpecSourceFileInclusion, included_files_);
@@ -2581,7 +2562,7 @@ bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location
 	//    "CX_LIMITED_RANGE"
 	//    "ON" "OFF" "DEFAULT"
 	} else {
-		info(location, kPragmaIsIgnoredWarning, Token::concat_string(tokens).c_str());
+		info(location, kPragmaIsIgnoredWarning, Token::concat_string(tokens));
 		return false;
 	}
 }
@@ -2591,28 +2572,35 @@ bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location
 //}
 
 void Preprocessor::output_text(const char* text) {
-	fprintf(output_, "%s", text);
+	output_->write(text, strlen(text));
 #if !defined(NDEBUG)
-	fflush(output_);
+	output_->flush();
+#endif
+
+}
+
+void Preprocessor::output_error_with_args(
+		StringView format,
+		const std::format_args_t<ErrorOutputIteratorType, char>& args) {
+		//const std::format_args& args) {
+	if (!error_output_) {
+		return ;
+	}
+
+	vformat_to(ErrorOutputIteratorType(*error_output_), format, args);
+#if !defined(NDEBUG)
+	error_output_->flush();
 #endif
 }
 
-void Preprocessor::output_error(const Char* format, ...) {
-	va_list args;
+void Preprocessor::output_log_with_args(
+		DiagLevel level, const Token& token, StringView format,
+		const std::format_args_t<Preprocessor::ErrorOutputIteratorType, char>& args) {
+		//const std::format_args& args) {
+	if (!error_output_) {
+		return ;
+	}
 
-	va_start(args, format);
-#if HOST_PLATFORM == PLATFORM_WINDOWS
-	vfprintf_s(error_output_, as_narrow(format), args);
-#else
-	vfprintf(error_output_, as_narrow(format), args);
-#endif
-	va_end(args);
-#if !defined(NDEBUG)
-	fflush(error_output_);
-#endif
-}
-
-void Preprocessor::output_log(DiagLevel level, const Token& token, const Char* format, va_list args) {
 	if (level < kMinDiagLevel || level > kMaxDiagLevel) {
 		throw invalid_argument("level");
 	}
@@ -2639,78 +2627,13 @@ void Preprocessor::output_log(DiagLevel level, const Token& token, const Char* f
 	string s = source_from_internal(current_source_path());
 
 	auto i = enum_ordinal(level);
-	fprintf(error_output_, "%s:%" PRIu32 ":%zu: %s: ", s.c_str(), l, c, kLevelTag[i]);
-	vfprintf(error_output_, as_narrow(format), args);
-	fprintf(error_output_, "\n");
+	ErrorOutputIteratorType it(*error_output_);
+	format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
+	vformat_to(it, format, args);
+	format_to(it, "\n");
 #if !defined(NDEBUG)
-	fflush(error_output_);
+	error_output_->flush();
 #endif
-}
-
-void Preprocessor::debug(const Token& token, const Char* format, ...) {
-	va_list args;
-
-	va_start(args, format);
-	output_log(DiagLevel::kDebug, token, format, args);
-	va_end(args);
-}
-
-void Preprocessor::debug(const Token& token, const String& message) {
-	debug(token, T_("%s"), message.c_str());
-}
-
-void Preprocessor::info(const Token& token, const Char* format, ...) {
-	va_list args;
-
-	va_start(args, format);
-	output_log(DiagLevel::kInfo, token, format, args);
-	va_end(args);
-}
-
-void Preprocessor::info(const Token& token, const String& message) {
-	info(token, T_("%s"), message.c_str());
-}
-
-void Preprocessor::warning(const Token& token, const Char* format, ...) {
-	va_list args;
-
-	va_start(args, format);
-	output_log(DiagLevel::kWarning, token, format, args);
-	va_end(args);
-
-	warning_count_++;
-}
-
-void Preprocessor::warning(const Token& token, const String& message) {
-	warning(token, T_("%s"), message.c_str());
-}
-
-void Preprocessor::error(const Token& token, const Char* format, ...) {
-	va_list args;
-
-	va_start(args, format);
-	output_log(DiagLevel::kError, token, format, args);
-	va_end(args);
-
-	error_count_++;
-}
-
-void Preprocessor::error(const Token& token, const String& message) {
-	error(token, T_("%s"), message.c_str());
-}
-
-void Preprocessor::fatal_error(const Token& token, const Char* format, ...) {
-	va_list args;
-
-	va_start(args, format);
-	output_log(DiagLevel::kFatalError, token, format, args);
-	va_end(args);
-
-	exit(EXIT_FAILURE);
-}
-
-void Preprocessor::fatal_error(const Token& token, const String& message) {
-	fatal_error(token, T_("%s"), message.c_str());
 }
 
 SourceFile& Preprocessor::current_source() {
@@ -2761,7 +2684,7 @@ void Preprocessor::add_predefined_macro(const std::string& name, const std::stri
 
 bool Preprocessor::is_valid_macro_name(const Token& name) {
 	if (is_predefined_macro_name(name.string())) {
-		error(name, kPredefinedMacroNameError, name.string().c_str());
+		error(name, kPredefinedMacroNameError, name.string());
 		return false;
 	}
 	if (name == kTokenOpPragma) {
@@ -2793,10 +2716,10 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 	if (it != macros_.end()) {
 		auto m = it->second;
 		if (m->is_function() || (m->replist() != replist)) {
-			warning(name, kMacroRedefinitionWarning, name.string().c_str(), m->source().c_str(), m->line(), m->column());
+			warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
 		}
 		m->reset(replist, source_from_internal(current_source_path()), name);
-		DEBUG(name, T_("[REDEF] %s"), macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist).c_str());
+		DEBUG(name, T_("[REDEF] {}"), macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist));
 
 		return m;
 	} else {
@@ -2805,7 +2728,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 		if (!result.second) {
 			fatal_error(name, as_internal(__func__) /* ロジックエラーかメモリーが足りないか？ */);
 		}
-		DEBUG(name, T_("[DEF] %s"), macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist).c_str());
+		DEBUG(name, T_("[DEF] {}"), macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist));
 
 		auto inserted = *result.first;
 		return inserted.second;
@@ -2821,10 +2744,10 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 	if (it != macros_.end()) {
 		auto m = it->second;
 		if (m->is_object() || (m->params() != params) || (m->replist() != replist)) {
-			warning(name, kMacroRedefinitionWarning, name.string().c_str(), m->source().c_str(), m->line(), m->column());
+			warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
 		}
 		m->reset(params, replist, source_from_internal(current_source_path()), name);
-		DEBUG(name, T_("[REDEF] %s"), macro_def_string(MacroForm::kFunctionLike, name, params, replist).c_str());
+		DEBUG(name, T_("[REDEF] {}"), macro_def_string(MacroForm::kFunctionLike, name, params, replist));
 
 		return m;
 	} else {
@@ -2833,7 +2756,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 		if (!result.second) {
 			fatal_error(name, as_internal(__func__) /* ロジックエラー */);
 		}
-		DEBUG(name, T_("[DEF] %s"), macro_def_string(MacroForm::kFunctionLike, name, params, replist).c_str());
+		DEBUG(name, T_("[DEF] {}"), macro_def_string(MacroForm::kFunctionLike, name, params, replist));
 
 		auto inserted = *result.first;
 		return inserted.second;
@@ -2872,10 +2795,10 @@ void Preprocessor::remove_macro(const Token& name) {
 
 	auto it = macros_.find(name.string());
 	if (it == macros_.end()) {
-		warning(name, kUndefineNondefinedMacroWarning, name.string().c_str());
+		warning(name, kUndefineNondefinedMacroWarning, name.string());
 	} else {
 		macros_.erase(it);
-		DEBUG(name, T_("[UNDEF] %s"), name.string().c_str());
+		DEBUG(name, T_("[UNDEF] {}"), name.string());
 	}
 }
 
@@ -2896,25 +2819,27 @@ const MacroPtr Preprocessor::find_macro(const std::string& name) {
 
 void Preprocessor::print_macros() {
 	for (const auto& kv : macros_) {
-		auto m = kv.second;
-		fprintf(error_output_, "%s", m->name().c_str());
-		if (m->is_object()) {
-			fprintf(error_output_, ": ");
-		} else {
-			fprintf(error_output_, "%s", kTokenOpenParen.string().c_str());
-			for (auto it = m->params().begin(); it != m->params().end(); ++it) {
-				if (it != m->params().begin()) {
-					fprintf(error_output_, "%s", kTokenComma.string().c_str());
+		auto& m = kv.second;
+		output_error("{}", m->name());
+		if (m->is_function()) {
+			output_error("(");
+			if (!m->params().empty()) {
+				auto it = m->params().begin();
+				output_error("{}", (*it));
+				++it;
+				for (; it != m->params().end(); ++it) {
+					output_error(", {}", (*it));
 				}
-				fprintf(error_output_, "%s", it->c_str());
 			}
-			fprintf(error_output_, "%s: ", kTokenCloseParen.string().c_str());
+			output_error(")");
 		}
+		output_error(": ");
 
 		for (const auto& r : m->replist()) {
-			fprintf(error_output_, "%s", r.string().c_str());
+			output_error("{}", r.string());
 		}
-		fprintf(error_output_, "\n");
+
+		output_error("\n");
 	}
 }
 

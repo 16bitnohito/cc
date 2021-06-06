@@ -20,62 +20,63 @@ enum class DiagLevel {
 constexpr auto kMinDiagLevel = DiagLevel::kNoLog;
 constexpr auto kMaxDiagLevel = DiagLevel::kDebug;
 
-extern const Char* const kPredefinedMacroNameError;
-extern const Char* const kMacroRedefinitionWarning;
-extern const Char* const kFuncTypeMacroUsageWarning;
-extern const Char* const kMustBeMacroName;
-extern const Char* const kRedundantTokens;
-extern const Char* const kUndefineNondefinedMacroWarning;
-extern const Char* const kOpPragmaUsedAsMacroName;
-extern const Char* const kOpPragmaParameterTypeMismatch;
-extern const Char* const kVaArgsIdentifierUsageError;
-extern const Char* const kVaOptIdentifierUsageError;
-extern const Char* const kStdcReservedMacroName;
-extern const Char* const kStdcReservedIdentifierDoubleUnderscore;
-extern const Char* const kStdcReservedIdentifierUnderscoreAndUppercase;
-extern const Char* const kStdcReservedIdentifierUnderscore;
-extern const Char* const kStdcReservedIdentifierE;
-extern const Char* const kStdcReservedIdentifierFe;
-extern const Char* const kStdcReservedIdentifierPriScn;
-extern const Char* const kStdcReservedIdentifierLc;
-extern const Char* const kStdcReservedIdentifierSig;
-extern const Char* const kStdcReservedIdentifierAtomic;
-extern const Char* const kStdcReservedIdentifierIntMax;
-extern const Char* const kStdcReservedIdentifierTime;
-extern const Char* const kOpStringizeNeedsParameterError;
-extern const Char* const kOpConcatNeedsParameterError;
-extern const Char* const kGeneratedInvalidPpTokenError;
-extern const Char* const kGeneratedInvalidPpTokenError2;
-extern const Char* const kBadElipsisError;
-extern const Char* const kBadMacroParameterFormError;
-extern const Char* const kSameMacroParameterIdError;
-extern const Char* const kBadMacroArgumentError;
-extern const Char* const kUnmatchedNumberOfArguments;
-extern const Char* const kVaArgsRequiresAtLeastOneArgument;
+extern const StringView kPredefinedMacroNameError;
+extern const StringView kMacroRedefinitionWarning;
+extern const StringView kFuncTypeMacroUsageWarning;
+extern const StringView kMustBeMacroName;
+extern const StringView kRedundantTokens;
+extern const StringView kUndefineNondefinedMacroWarning;
+extern const StringView kOpPragmaUsedAsMacroName;
+extern const StringView kOpPragmaParameterTypeMismatch;
+extern const StringView kVaArgsIdentifierUsageError;
+extern const StringView kVaOptIdentifierUsageError;
+extern const StringView kStdcReservedMacroName;
+extern const StringView kStdcReservedIdentifierDoubleUnderscore;
+extern const StringView kStdcReservedIdentifierUnderscoreAndUppercase;
+extern const StringView kStdcReservedIdentifierUnderscore;
+extern const StringView kStdcReservedIdentifierE;
+extern const StringView kStdcReservedIdentifierFe;
+extern const StringView kStdcReservedIdentifierPriScn;
+extern const StringView kStdcReservedIdentifierLc;
+extern const StringView kStdcReservedIdentifierSig;
+extern const StringView kStdcReservedIdentifierAtomic;
+extern const StringView kStdcReservedIdentifierIntMax;
+extern const StringView kStdcReservedIdentifierTime;
+extern const StringView kOpStringizeNeedsParameterError;
+extern const StringView kOpConcatNeedsParameterError;
+extern const StringView kGeneratedInvalidPpTokenError;
+extern const StringView kGeneratedInvalidPpTokenError2;
+extern const StringView kBadElipsisError;
+extern const StringView kBadMacroParameterFormError;
+extern const StringView kSameMacroParameterIdError;
+extern const StringView kBadMacroArgumentError;
+extern const StringView kUnmatchedNumberOfArguments;
+extern const StringView kVaArgsRequiresAtLeastOneArgument;
 
-extern const Char* const kInvalidConstantExpressionError;
-extern const Char* const kConstantNumberIsNotAIntegerError;
-extern const Char* const kInvalidOperatorError;
+extern const StringView kInvalidConstantExpressionError;
+extern const StringView kConstantNumberIsNotAIntegerError;
+extern const StringView kInvalidOperatorError;
 
-extern const Char* const kElifWithoutIfError;
-extern const Char* const kElseWithoutIfError;
-extern const Char* const kEndifWithoutIfError;
-extern const Char* const kUnterminatedIfError;
-extern const Char* const kElifAfterElseError;
-extern const Char* const kIdsAreEvaluatedToZero;
-extern const Char* const kInvalidMacroName;
-extern const Char* const kInvalidHeaderName;
-extern const Char* const kPragmaIsIgnoredWarning;
+extern const StringView kElifWithoutIfError;
+extern const StringView kElseWithoutIfError;
+extern const StringView kEndifWithoutIfError;
+extern const StringView kUnterminatedIfError;
+extern const StringView kElifAfterElseError;
+extern const StringView kIdsAreEvaluatedToZero;
+extern const StringView kInvalidMacroName;
+extern const StringView kInvalidHeaderName;
+extern const StringView kPragmaIsIgnoredWarning;
+extern const StringView kPragmaIsIgnoredWarningF;
 
 constexpr int kMinSpecSourceFileInclusion = 15;
 constexpr int kMinSpecConditionalInclusion = 63;
 constexpr int kMinSpecMacroParameters = 127;
 constexpr int kMinSpecMacroArguments = 127;
 
-extern const Char* const kMinSpecSourceFileInclusionWarning;
-extern const Char* const kMinSpecConditionalInclusionWarning;
-extern const Char* const kMinSpecMacroParametersWarning;
-extern const Char* const kMinSpecMacroArgumentsWarning;
+extern const StringView kMinSpecSourceFileInclusionWarning;
+extern const StringView kMinSpecConditionalInclusionWarning;
+extern const StringView kMinSpecMacroParametersWarning;
+extern const StringView kMinSpecMacroArgumentsWarning;
 
 
 #if defined(NDEBUG)
@@ -89,17 +90,6 @@ extern const Char* const kMinSpecMacroArgumentsWarning;
 
 //  TODO: 出力先を合わせるためだけのものから脱却させる or die。
 class Diagnostics {
-public:
-	static void setup(FILE* error_output) {
-		error_output_ = error_output;
-	}
-
-	static FILE* error_output_file() {
-		return error_output_;
-	}
-
-private:
-	static inline FILE* error_output_ = nullptr;
 };
 
 }   //  namespace pp

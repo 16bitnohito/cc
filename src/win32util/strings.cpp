@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <stdexcept>
+#include <tchar.h>
 
 using namespace std;
 
@@ -97,10 +98,21 @@ WideString u8s_to_wcs(Utf8StringView from) {
 
 
 void LocalHeapString::dispose() {
-    message_.close();
+    if (std::holds_alternative<LocalHandle>(message_)) {
+        auto& m = std::get<LocalHandle>(message_);
+        m.close();
+    } else {
+        auto& m = std::get<const Win32Char*>(message_);
+        m = nullptr;
+    }
     length_ = 0;
 }
 
+namespace detail {
+
+std::array<Win32Char, kMaxFormatErrorMessageSize> format_error_message_buffer;
+
+}
 
 LocalHeapString last_error_string(DWORD error_code) noexcept {
     try {
@@ -119,8 +131,11 @@ LocalHeapString last_error_string(DWORD error_code) noexcept {
                 nullptr);
         if (formatted == 0) {
             const auto code = GetLastError();
-            fprintf(stderr, "FormatMessage: 0x%lx\n", code);
-            return LocalHeapString();
+            const auto ptr = as_native(detail::format_error_message_buffer.data());
+            const auto written = _stprintf_s(
+                    ptr, detail::format_error_message_buffer.size(),
+                    WIN32TEXT("FormatMessage: 0x%lx"), code);
+            return LocalHeapString(detail::format_error_message_buffer.data(), written);
         }
 
         return LocalHeapString(LocalHandle(message), formatted);

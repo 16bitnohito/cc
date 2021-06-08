@@ -3,6 +3,7 @@
 
 #include <cinttypes>
 #include <cstdio>
+#include <preprocessor/config.h>
 #include <preprocessor/utility.h>
 
 namespace pp {

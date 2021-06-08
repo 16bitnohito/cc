@@ -10,6 +10,7 @@ add_executable(cpp
                "diagnostics.cpp" "diagnostics.h"
                "main.cpp"
                "input.cpp" "input.h"
+               "logger.cpp" "logger.h"
                "options.cpp" "options.h"
                "preprocessor.cpp" "preprocessor.h"
                "scanner.cpp" "scanner.h"

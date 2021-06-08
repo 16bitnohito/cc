@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <stack>
+#include <preprocessor/config.h>
 #include <preprocessor/options.h>
 #include <preprocessor/scanner.h>
 #include <preprocessor/token.h>

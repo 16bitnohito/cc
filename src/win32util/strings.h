@@ -1,8 +1,10 @@
 #ifndef CC_WIN32UTIL_STRINGS_H_
 #define CC_WIN32UTIL_STRINGS_H_
 
+#include <array>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <Windows.h>
 #include <win32util/error.h>
 #include <win32util/heap.h>
@@ -498,6 +500,11 @@ public:
         , length_(length) {
     }
 
+    explicit LocalHeapString(const Win32Char* message, DWORD length) noexcept
+        : message_(message)
+        , length_(length) {
+    }
+
     LocalHeapString(const LocalHeapString&) = delete;
 
     LocalHeapString(LocalHeapString&& other) noexcept
@@ -531,7 +538,13 @@ public:
     }
 
     const Win32Char* c_str() const noexcept {
-        return message_.handle() ? static_cast<const Win32Char*>(message_.handle()) : WIN32TEXT("");
+        if (std::holds_alternative<LocalHandle>(message_)) {
+            const auto& m = std::get<LocalHandle>(message_);
+            return m.handle() ? static_cast<const Win32Char*>(m.handle()) : WIN32TEXT("");
+        } else {
+            const auto& m = std::get<const Win32Char*>(message_);
+            return m ? static_cast<const Win32Char*>(m) : WIN32TEXT("");
+        }
     }
 
     DWORD length() const noexcept {
@@ -545,13 +558,21 @@ public:
     void dispose();
 
 private:
-    LocalHandle message_;
+    std::variant<LocalHandle, const Win32Char*> message_;
     DWORD length_;
 };
+
 
 /**
  */
 LocalHeapString last_error_string(DWORD code) noexcept;
+
+namespace detail {
+
+constexpr std::size_t kMaxFormatErrorMessageSize = 256;
+extern std::array<Win32Char, kMaxFormatErrorMessageSize> format_error_message_buffer;
+
+}
 
 }   // namespace lib::win32util
 

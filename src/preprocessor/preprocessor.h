@@ -262,56 +262,56 @@ private:
 	}
 	void output_text(const char* text);
 
-	using ErrorOutputIteratorType = std::ostreambuf_iterator<char>;
+	using ErrorOutputIterator = std::ostreambuf_iterator<char>;
 
 	void output_error_with_args(
 			StringView format,
-			const std::format_args_t<ErrorOutputIteratorType, char>& args);
+			const std::format_args_t<ErrorOutputIterator, char>& args);
 			//const std::format_args& args);
 
 	template <class... Ts>
 	void output_error(StringView format, Ts... args) {
-		using Context = std::basic_format_context<ErrorOutputIteratorType, char>;
+		using Context = std::basic_format_context<ErrorOutputIterator, char>;
 		output_error_with_args(format, std::make_format_args<Context>(args...));
 		//output_error_with_args(level, token, format, std::make_format_args(args...));
 	}
 
 	void output_log_with_args(
-			DiagLevel level, const Token& token, StringView format,
-			const std::format_args_t<ErrorOutputIteratorType, char>& args);
+			DiagLevel level, const Token& token, const StringView& format,
+			const std::format_args_t<ErrorOutputIterator, char>& args);
 			//const std::format_args& args);
 
 	template <class... Ts>
-	void output_log(DiagLevel level, const Token& token, StringView format, Ts... args) {
-		using Context = std::basic_format_context<ErrorOutputIteratorType, char>;
+	void output_log(DiagLevel level, const Token& token, const StringView& format, const Ts&... args) {
+		using Context = std::basic_format_context<ErrorOutputIterator, char>;
 		output_log_with_args(level, token, format, std::make_format_args<Context>(args...));
 		//output_log_with_args(level, token, format, std::make_format_args(args...));
 	}
 
 	template <class... Ts>
-	void debug(const Token& token, StringView format, Ts... args) {
+	void debug(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kDebug, token, format, args...);
 	}
 
 	template <class... Ts>
-	void info(const Token& token, StringView format, Ts... args) {
+	void info(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kInfo, token, format, args...);
 	}
 
 	template <class... Ts>
-	void warning(const Token& token, StringView format, Ts... args) {
+	void warning(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kWarning, token, format, args...);
 		warning_count_++;
 	}
 
 	template <class... Ts>
-	void error(const Token& token, StringView format, Ts... args) {
+	void error(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kError, token, format, args...);
 		error_count_++;
 	}
 
 	template <class... Ts>
-	[[noreturn]] void fatal_error(const Token& token, StringView format, Ts... args) {
+	[[noreturn]] void fatal_error(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kFatalError, token, format, args...);
 	}
 

@@ -3,6 +3,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <preprocessor/logger.h>
 #include <preprocessor/preprocessor.h>
 #include <preprocessor/utility.h>
 
@@ -34,17 +35,25 @@ int main(int argc, char* argv[]) {
 		Preprocessor pp(opts);
 		return pp.run();
 	} catch (const system_error& e) {
+		auto& ec = e.code();
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-		// 挙動が異なると分かっているものだけ特別扱い。
-		auto message = lib::win32util::mbs_to_u8s(e.what());
-		cerr << __func__ << ": " << lib::win32util::as_native(message.c_str()) << "(" << e.code() << ")" << endl;
+		if (ec.category() == system_category() ||
+			ec.category() == lib::win32util::win32_category()) {
+			// 挙動が異なると分かっているものだけ特別扱い。
+			auto message = lib::win32util::mbs_to_u8s(e.what());
+			log_error(T_("{}: {}({}:{:#x})"),
+					__func__, lib::win32util::as_native(message.c_str()),
+					ec.category().name(), ec.value());
+		} else {
+			log_error("{}: {}({}:{})", __func__, e.what(), ec.category().name(), ec.value());
+		}
 #else
-		cerr << __func__ << ": " << e.what() << "(" << e.code() << ")" << endl;
+		log_error("{}: {}({}{:x})", __func__, e.what(), ec.category().name(), ec.value());
 #endif
 	} catch (const exception& e) {
-		cerr << __func__ << ": " << e.what() << endl;
+		log_error(T_("{}: {}"), __func__, e.what());
 	} catch (...) {
-		cerr << __func__ << ": unknown exception" << endl;
+		log_error(T_("{}: {}"), __func__, "unknown exception");
 	}
 
 	return EXIT_FAILURE;

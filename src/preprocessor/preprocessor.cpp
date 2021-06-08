@@ -498,10 +498,8 @@ void Preprocessor::prepare_predefined_macro() {
 		raise_generic_error("localtime_r", errno);
 	}
 #endif
-	char date[14];
-	char time[11];
-	snprintf(date, sizeof(date), "%.3s %2d %4d", month[t.tm_mon], t.tm_mday, kTmBaseYear + t.tm_year);
-	snprintf(time, sizeof(time), "%.2d:%.2d:%.2d", t.tm_hour, t.tm_min, t.tm_sec);
+	const auto date = format("{:3} {:2} {:4}", month[t.tm_mon], t.tm_mday, kTmBaseYear + t.tm_year);
+	const auto time = format("{:02}:{:02}:{:02}", t.tm_hour, t.tm_min, t.tm_sec);
 
 	//  定義済みマクロをここで追加する。
 	predef_macro_names_.clear();
@@ -2576,26 +2574,25 @@ void Preprocessor::output_text(const char* text) {
 #if !defined(NDEBUG)
 	output_->flush();
 #endif
-
 }
 
 void Preprocessor::output_error_with_args(
 		StringView format,
-		const std::format_args_t<ErrorOutputIteratorType, char>& args) {
+		const std::format_args_t<ErrorOutputIterator, char>& args) {
 		//const std::format_args& args) {
 	if (!error_output_) {
 		return ;
 	}
 
-	vformat_to(ErrorOutputIteratorType(*error_output_), format, args);
+	vformat_to(ErrorOutputIterator(*error_output_), format, args);
 #if !defined(NDEBUG)
 	error_output_->flush();
 #endif
 }
 
 void Preprocessor::output_log_with_args(
-		DiagLevel level, const Token& token, StringView format,
-		const std::format_args_t<Preprocessor::ErrorOutputIteratorType, char>& args) {
+		DiagLevel level, const Token& token, const StringView& format,
+		const std::format_args_t<Preprocessor::ErrorOutputIterator, char>& args) {
 		//const std::format_args& args) {
 	if (!error_output_) {
 		return ;
@@ -2627,7 +2624,7 @@ void Preprocessor::output_log_with_args(
 	string s = source_from_internal(current_source_path());
 
 	auto i = enum_ordinal(level);
-	ErrorOutputIteratorType it(*error_output_);
+	ErrorOutputIterator it(*error_output_);
 	format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
 	vformat_to(it, format, args);
 	format_to(it, "\n");

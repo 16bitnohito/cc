@@ -1,11 +1,13 @@
 #include <preprocessor/options.h>
 
+#include <preprocessor/logger.h>
+
 using namespace std;
 
 namespace {
 
-constexpr char kUnknownOptionError[] = "不明なオプション %cが指定された。\n";
-constexpr char kNoOptionParameterError[] = "オプション %cの値が指定されていない。\n";
+const pp::StringView kUnknownOptionError = T_("不明なオプション {}が指定された。\n");
+const pp::StringView kNoOptionParameterError = T_("オプション {}の値が指定されていない。\n");
 
 }   // anonymous namespace
 
@@ -83,7 +85,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						path = args[i + 1];
 						i++;
 					} else {
-						fprintf(stderr, kNoOptionParameterError, arg[1]);
+						log_error(kNoOptionParameterError, arg[1]);
 						return false;
 					}
 				}
@@ -99,7 +101,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						macro = args[i + 1];
 						i++;
 					} else {
-						fprintf(stderr, kNoOptionParameterError, arg[1]);
+						log_error(kNoOptionParameterError, arg[1]);
 						return false;
 					}
 				}
@@ -115,7 +117,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						name = args[i + 1];
 						i++;
 					} else {
-						fprintf(stderr, kNoOptionParameterError, arg[1]);
+						log_error(kNoOptionParameterError, arg[1]);
 						return false;
 					}
 				}
@@ -140,7 +142,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						path = args[i + 1];
 						i++;
 					} else {
-						fprintf(stderr, kNoOptionParameterError, arg[1]);
+						log_error(kNoOptionParameterError, arg[1]);
 						return false;
 					}
 				}
@@ -158,7 +160,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 						path = args[i + 1];
 						i++;
 					} else {
-						fprintf(stderr, kNoOptionParameterError, arg[1]);
+						log_error(kNoOptionParameterError, arg[1]);
 						return false;
 					}
 				}
@@ -174,7 +176,7 @@ bool Options::parse_options(const std::vector<String>& args) {
 				return false;
 
 			default:
-				fprintf(stderr, kUnknownOptionError, arg[1]);
+				log_error(kUnknownOptionError, arg[1]);
 				return false;
 			}
 		} else {

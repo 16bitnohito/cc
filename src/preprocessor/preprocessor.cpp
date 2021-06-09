@@ -252,7 +252,7 @@ String normalize_path(const String& path) {
 namespace pp {
 
 const StringView kNoInputError = T_("入力ファイルが指定されていない。\n");
-const StringView kNoSuchFileError = T_("ファイルが開けない: %s\n");
+const StringView kNoSuchFileError = T_("ファイルが開けない: {}\n");
 const StringView kFileOutputError = T_("出力に失敗した。\n");
 const StringView kErrorFileOutputError = T_("エラー出力に失敗した。\n");
 
@@ -366,7 +366,11 @@ Preprocessor::Preprocessor(const Options& opts)
 	, clock_end_()
 	, stream_stack_()
 	, output_(&cout)
+	, output_buffer_()
+	, output_file_()
 	, error_output_(&cerr)
+	, error_output_buffer_()
+	, error_file_()
 	, sources_()
 	, macros_()
 	, predef_macro_names_()
@@ -400,34 +404,32 @@ int Preprocessor::run() {
 
 	//
 	String err_path = opts_.error_log_filepath();
-	ofstream err_file;
 	if (err_path.empty()) {
 		error_output_buffer_.resize(4 * 1024);
 		cerr.rdbuf()->pubsetbuf(error_output_buffer_.data(), error_output_buffer_.size());
 		error_output_ = &cerr;
 	} else {
-		err_file.open(path_string(err_path), ios_base::binary);
-		if (!err_file) {
+		error_file_.open(path_string(err_path), ios_base::binary);
+		if (!error_file_) {
 			output_error(kNoSuchFileError, err_path.c_str());
 			return 1;
 		}
-		error_output_ = &err_file;
+		error_output_ = &error_file_;
 	}
 
 	//
 	String out_path = opts_.output_filepath();
-	ofstream out_file;
 	if (out_path.empty()) {
 		//output_buffer_.resize(64 * 1024);
 		//cout.rdbuf()->pubsetbuf(output_buffer_.data(), output_buffer_.size());
 		output_ = &cout;
 	} else {
-		out_file.open(path_string(out_path), ios_base::binary);
-		if (!out_file) {
+		output_file_.open(path_string(out_path), ios_base::binary);
+		if (!output_file_) {
 			output_error(kNoSuchFileError, out_path.c_str());
 			return 1;
 		}
-		output_ = &out_file;
+		output_ = &output_file_;
 	}
 
 	//
@@ -451,8 +453,7 @@ int Preprocessor::run() {
 
 	prepare_predefined_macro();
 	preprocessing_file(in, in_path);
-
-	//output_error("%d errors, %d warnings.\n", error_count_, warning_count_);
+	//output_error("{} errors, {} warnings.\n", error_count_, warning_count_);
 
 	// TODO: いつもの簡易プロファイラー的なものにする。
 	clock_end_ = clock() - clock_start_;
@@ -470,10 +471,16 @@ bool Preprocessor::cleanup() {
 		output_->flush();
 		output_ = nullptr;
 	}
+	if (output_file_.is_open()) {
+		output_file_.close();
+	}
 
 	if (error_output_) {
 		error_output_->flush();
 		error_output_ = nullptr;
+	}
+	if (error_file_.is_open()) {
+		error_file_.close();
 	}
 
 	return true;

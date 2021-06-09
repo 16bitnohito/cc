@@ -313,6 +313,7 @@ private:
 	template <class... Ts>
 	[[noreturn]] void fatal_error(const Token& token, const StringView& format, const Ts&... args) {
 		output_log(DiagLevel::kFatalError, token, format, args...);
+		std::exit(EXIT_FAILURE);
 	}
 
 	SourceFile& current_source();
@@ -344,8 +345,10 @@ private:
 
 	std::ostream* output_;
 	std::vector<char> output_buffer_;
+	std::ofstream output_file_;
 	std::ostream* error_output_;
 	std::vector<char> error_output_buffer_;
+	std::ofstream error_file_;
 	std::stack<SourceFile*> sources_;
 	MacroSet macros_;
 	std::vector<std::string> predef_macro_names_;

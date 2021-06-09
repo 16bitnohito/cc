@@ -455,10 +455,6 @@ int Preprocessor::run() {
 	preprocessing_file(in, in_path);
 	//output_error("{} errors, {} warnings.\n", error_count_, warning_count_);
 
-	// TODO: いつもの簡易プロファイラー的なものにする。
-	clock_end_ = clock() - clock_start_;
-	info(kTokenNull, T_("elapsed: {}"), clock_end_);
-
 	if (!cleanup()) {
 		return 1;
 	}
@@ -477,6 +473,12 @@ bool Preprocessor::cleanup() {
 
 	if (error_output_) {
 		error_output_->flush();
+
+		// TODO: いつもの簡易プロファイラー的なものにする。
+		clock_end_ = clock() - clock_start_;
+		info(kTokenNull, T_("elapsed: {}"), clock_end_);
+		error_output_->flush();
+
 		error_output_ = nullptr;
 	}
 	if (error_file_.is_open()) {

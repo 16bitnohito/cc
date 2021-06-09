@@ -257,9 +257,7 @@ private:
 	bool execute_undef();
 	bool execute_pragma(const TokenList& tokens, const Token& location);
 
-	void output_text(const std::string& text) {
-		output_text(text.c_str());
-	}
+	void output_text(const StringView& text);
 	void output_text(const char* text);
 
 	using ErrorOutputIterator = std::ostreambuf_iterator<char>;

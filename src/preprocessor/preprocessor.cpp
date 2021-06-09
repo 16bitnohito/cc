@@ -2574,9 +2574,12 @@ bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location
 	}
 }
 
-//void Preprocessor::output_text(const String& text) {
-//	output_text(text.c_str());
-//}
+void Preprocessor::output_text(const StringView& text) {
+	output_->write(text.data(), text.length());
+#if !defined(NDEBUG)
+	output_->flush();
+#endif
+}
 
 void Preprocessor::output_text(const char* text) {
 	output_->write(text, strlen(text));
@@ -2594,9 +2597,7 @@ void Preprocessor::output_error_with_args(
 	}
 
 	vformat_to(ErrorOutputIterator(*error_output_), format, args);
-#if !defined(NDEBUG)
 	error_output_->flush();
-#endif
 }
 
 void Preprocessor::output_log_with_args(
@@ -2637,9 +2638,7 @@ void Preprocessor::output_log_with_args(
 	format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
 	vformat_to(it, format, args);
 	format_to(it, "\n");
-#if !defined(NDEBUG)
 	error_output_->flush();
-#endif
 }
 
 SourceFile& Preprocessor::current_source() {

@@ -1645,7 +1645,8 @@ bool Preprocessor::expand(const Macro& macro, const Macro::ArgList& macro_args, 
 	Indent indent;
 #endif
 
-	macro_invocation_stack_.push_back({ &macro, &macro_args });
+	Macro::ArgList expanded_args(macro_args.size());
+	macro_invocation_stack_.push_back({ &macro, &macro_args, &expanded_args });
 	auto ord = enum_ordinal(macro.expantion_method());
 	bool dont_rescan = (this->*expantion_methods_[ord])(macro, macro_args, result_expanded);
 	macro_invocation_stack_.pop_back();
@@ -1659,11 +1660,40 @@ bool Preprocessor::expand_directly_copyable(const Macro& macro, const Macro::Arg
 }
 
 bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+	// 使われている引数を展開する。
+	Macro::ArgList& expanded_args = *macro_invocation_stack_.back().expanded_args;
+	const TokenList& list = macro.replist();
+	bool used_va_args = false;
+	for (auto it = macro.replist().begin(); it != macro.replist().end(); ++it) {
+		const Token& t = *it;
+		if (t.type() != TokenType::kIdentifier) {
+			continue;
+		}
+		if (macro.has_va_args() && (t == kTokenVaArgs || t == kTokenVaOpt)) {
+			used_va_args = true;
+			continue;
+		}
+
+		auto i = macro.param_index_of(t.string());
+		if (i != macro.params().size()) {
+			get_expanded_arg(i, macro_args[i], expanded_args);
+		}
+	}
+
+	// 可変引数を展開する。
+	// 引数そのものが使われていなくても (__VA_ARGS__が現れなくても)、__VA_OPT__が有れば、その判断に
+	// 利用されるので、やはり展開しておく。
+	if (used_va_args) {
+		const auto i0 = macro.params().size() - 1;	// マクロの仮引数の数 - 1: 即ち、"..."のオフセット
+		const auto end = macro_args.size();
+		if (i0 < end) {
+			get_expanded_arg(i0, macro_args[i0], expanded_args);
+		}
+	}
+
 	//  パラメーターのトークンを展開済み引数に置き換える。
 	//  引数は必要時に展開される。
-	Macro::ArgList expanded_args(macro_args.size());
 	TokenList substituted;
-	const TokenList& list = macro.replist();
 	for (auto it = list.begin(); it != list.end(); ++it) {
 		const Token& t = *it;
 
@@ -1880,7 +1910,7 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
 	}
 
 	// 可変引数が有っても、空リストの場合も可変引数は指定されていないものとする。
-	const Macro::ArgList* parent_args = parent_invocation.args;
+	const Macro::ArgList* parent_args = parent_invocation.expanded_args;
 	if (parent_args->empty() || (*parent_args)[parent_i0].empty()) {
 		return true;
 	}

@@ -362,6 +362,7 @@ private:
 	struct MacroInvocation {
 		const Macro* macro;
 		const Macro::ArgList* args;
+		Macro::ArgList* expanded_args;
 	};
 	std::vector<MacroInvocation> macro_invocation_stack_;
 };

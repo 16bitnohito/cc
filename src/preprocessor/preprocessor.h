@@ -264,26 +264,26 @@ private:
 
 	void output_error_with_args(
 			StringView format,
-			const std::format_args_t<ErrorOutputIterator, char>& args);
-			//const std::format_args& args);
+			//const std::format_args_t<ErrorOutputIterator, char>& args);
+			const std::format_args& args);
 
 	template <class... Ts>
 	void output_error(StringView format, Ts... args) {
-		using Context = std::basic_format_context<ErrorOutputIterator, char>;
-		output_error_with_args(format, std::make_format_args<Context>(args...));
-		//output_error_with_args(level, token, format, std::make_format_args(args...));
+		//using Context = std::basic_format_context<ErrorOutputIterator, char>;
+		//output_error_with_args(format, std::make_format_args<Context>(args...));
+		output_error_with_args(format, std::make_format_args(args...));
 	}
 
 	void output_log_with_args(
 			DiagLevel level, const Token& token, const StringView& format,
-			const std::format_args_t<ErrorOutputIterator, char>& args);
-			//const std::format_args& args);
+			//const std::format_args_t<ErrorOutputIterator, char>& args);
+			const std::format_args& args);
 
 	template <class... Ts>
 	void output_log(DiagLevel level, const Token& token, const StringView& format, const Ts&... args) {
-		using Context = std::basic_format_context<ErrorOutputIterator, char>;
-		output_log_with_args(level, token, format, std::make_format_args<Context>(args...));
-		//output_log_with_args(level, token, format, std::make_format_args(args...));
+		//using Context = std::basic_format_context<ErrorOutputIterator, char>;
+		//output_log_with_args(level, token, format, std::make_format_args<Context>(args...));
+		output_log_with_args(level, token, format, std::make_format_args(args...));
 	}
 
 	template <class... Ts>

@@ -361,7 +361,7 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
 Preprocessor::Preprocessor(const Options& opts)
 	: opts_(opts)
 	, include_dirs_()
-	, diag_level_(DiagLevel::kInfo)
+	, diag_level_(DiagLevel::kWarning)
 	, clock_start_()
 	, clock_end_()
 	, stream_stack_()
@@ -405,8 +405,8 @@ int Preprocessor::run() {
 	//
 	String err_path = opts_.error_log_filepath();
 	if (err_path.empty()) {
-		error_output_buffer_.resize(4 * 1024);
-		cerr.rdbuf()->pubsetbuf(error_output_buffer_.data(), error_output_buffer_.size());
+		//error_output_buffer_.resize(4 * 1024);
+		//cerr.rdbuf()->pubsetbuf(error_output_buffer_.data(), error_output_buffer_.size());
 		error_output_ = &cerr;
 	} else {
 		error_file_.open(path_string(err_path), ios_base::binary);
@@ -2582,6 +2582,11 @@ void Preprocessor::output_text(const StringView& text) {
 }
 
 void Preprocessor::output_text(const char* text) {
+	if (!text) {
+		output_->write("(NUL)", 5);
+		return;
+	}
+
 	output_->write(text, strlen(text));
 #if !defined(NDEBUG)
 	output_->flush();
@@ -2590,20 +2595,22 @@ void Preprocessor::output_text(const char* text) {
 
 void Preprocessor::output_error_with_args(
 		StringView format,
-		const std::format_args_t<ErrorOutputIterator, char>& args) {
-		//const std::format_args& args) {
+		//const std::format_args_t<ErrorOutputIterator, char>& args) {
+		const std::format_args& args) {
 	if (!error_output_) {
 		return ;
 	}
 
-	vformat_to(ErrorOutputIterator(*error_output_), format, args);
+	//vformat_to(ErrorOutputIterator(*error_output_), format, args);
+	const auto s = std::vformat(format, args);
+	error_output_->write(s.data(), s.size());
 	error_output_->flush();
 }
 
 void Preprocessor::output_log_with_args(
 		DiagLevel level, const Token& token, const StringView& format,
-		const std::format_args_t<Preprocessor::ErrorOutputIterator, char>& args) {
-		//const std::format_args& args) {
+		//const std::format_args_t<Preprocessor::ErrorOutputIterator, char>& args) {
+		const std::format_args& args) {
 	if (!error_output_) {
 		return ;
 	}
@@ -2634,10 +2641,12 @@ void Preprocessor::output_log_with_args(
 	string s = source_from_internal(current_source_path());
 
 	auto i = enum_ordinal(level);
-	ErrorOutputIterator it(*error_output_);
-	format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
-	vformat_to(it, format, args);
-	format_to(it, "\n");
+	//ErrorOutputIterator it(*error_output_);
+	//format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
+	//vformat_to(it, format, args);
+	//format_to(it, "\n");
+	auto log = std::format("{}:{}:{}: {}: {}\n", s, l, c, kLevelTag[i], std::vformat(format, args));
+	error_output_->write(log.data(), log.size());
 	error_output_->flush();
 }
 

@@ -260,20 +260,6 @@ private:
 	void output_text(const StringView& text);
 	void output_text(const char* text);
 
-	using ErrorOutputIterator = std::ostreambuf_iterator<char>;
-
-	void output_error_with_args(
-			StringView format,
-			//const std::format_args_t<ErrorOutputIterator, char>& args);
-			const std::format_args& args);
-
-	template <class... Ts>
-	void output_error(StringView format, Ts... args) {
-		//using Context = std::basic_format_context<ErrorOutputIterator, char>;
-		//output_error_with_args(format, std::make_format_args<Context>(args...));
-		output_error_with_args(format, std::make_format_args(args...));
-	}
-
 	void output_log_with_args(
 			DiagLevel level, const Token& token, const StringView& format,
 			//const std::format_args_t<ErrorOutputIterator, char>& args);
@@ -346,7 +332,7 @@ private:
 	std::ofstream output_file_;
 	std::ostream* error_output_;
 	std::vector<char> error_output_buffer_;
-	std::ofstream error_file_;
+	std::shared_ptr<std::ofstream> error_file_;
 	std::stack<SourceFile*> sources_;
 	MacroSet macros_;
 	std::vector<std::string> predef_macro_names_;

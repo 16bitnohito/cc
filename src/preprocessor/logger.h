@@ -2,7 +2,9 @@
 #define CC_PREPROCESSOR_LOGGER_H_
 
 #include <format>
+#include <iostream>
 #include <iterator>
+#include <memory>
 #include <preprocessor/config.h>
 #include <preprocessor/utility.h>
 
@@ -25,7 +27,7 @@ enum class LogLevel {
 class Logger {
 public:
 	using LogOutputIterator = std::ostreambuf_iterator<char>;
-	
+
 	static Logger& instance();
 
 	Logger(const Logger&) = delete;
@@ -40,13 +42,15 @@ public:
 		min_level_ = min_level;
 	}
 
+	void set_output_stream(const std::shared_ptr<std::ostream>& output);
+
 	void output_log_with_args(LogLevel level, const StringView& format,
-		                      const std::format_args_t<LogOutputIterator, char>& args);
+		                      const std::format_args& args);
 
 	template <class... Ts>
 	void output_log(LogLevel level, const StringView& format, const Ts&... args) {
-		using Context = std::basic_format_context<LogOutputIterator, char>;
-		output_log_with_args(level, format, std::make_format_args<Context>(args...));
+		//using Context = std::basic_format_context<LogOutputIterator, char>;
+		output_log_with_args(level, format, std::make_format_args(args...));
 	}
 
 	template <class... Ts>
@@ -84,6 +88,7 @@ protected:
 
 private:
 	LogLevel min_level_;
+	std::shared_ptr<std::ostream> output_;
 };
 
 template <class... Ts>

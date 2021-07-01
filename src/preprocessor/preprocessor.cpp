@@ -10,6 +10,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <preprocessor/logger.h>
 #include <preprocessor/utility.h>
 
 using namespace std;
@@ -409,12 +410,13 @@ int Preprocessor::run() {
 		//cerr.rdbuf()->pubsetbuf(error_output_buffer_.data(), error_output_buffer_.size());
 		error_output_ = &cerr;
 	} else {
-		error_file_.open(path_string(err_path), ios_base::binary);
-		if (!error_file_) {
-			output_error(kNoSuchFileError, err_path.c_str());
+		error_file_ = make_shared<ofstream>(path_string(err_path), ios_base::binary);
+		if (!*error_file_) {
+			log_error(kNoSuchFileError, err_path.c_str());
 			return 1;
 		}
-		error_output_ = &error_file_;
+		error_output_ = error_file_.get();
+		Logger::instance().set_output_stream(error_file_);
 	}
 
 	//
@@ -426,7 +428,7 @@ int Preprocessor::run() {
 	} else {
 		output_file_.open(path_string(out_path), ios_base::binary);
 		if (!output_file_) {
-			output_error(kNoSuchFileError, out_path.c_str());
+			log_error(kNoSuchFileError, out_path.c_str());
 			return 1;
 		}
 		output_ = &output_file_;
@@ -435,7 +437,7 @@ int Preprocessor::run() {
 	//
 	String in_path = opts_.input_filepath();
 	if (in_path.empty()) {
-		output_error(kNoInputError);
+		log_error(kNoInputError);
 		return 1;
 	}
 
@@ -444,7 +446,7 @@ int Preprocessor::run() {
 	if (in_path != T_("-")) {
 		in_file.open(path_string(in_path), ios_base::binary);
 		if (!in_file.is_open()) {
-			output_error(kNoSuchFileError, in_path.c_str());
+			log_error(kNoSuchFileError, in_path.c_str());
 			return 1;
 		}
 
@@ -453,7 +455,7 @@ int Preprocessor::run() {
 
 	prepare_predefined_macro();
 	preprocessing_file(in, in_path);
-	//output_error("{} errors, {} warnings.\n", error_count_, warning_count_);
+	//log_info("{} errors, {} warnings.\n", error_count_, warning_count_);
 
 	if (!cleanup()) {
 		return 1;
@@ -481,8 +483,8 @@ bool Preprocessor::cleanup() {
 
 		error_output_ = nullptr;
 	}
-	if (error_file_.is_open()) {
-		error_file_.close();
+	if (error_file_ && error_file_->is_open()) {
+		error_file_->close();
 	}
 
 	return true;
@@ -2623,20 +2625,6 @@ void Preprocessor::output_text(const char* text) {
 #endif
 }
 
-void Preprocessor::output_error_with_args(
-		StringView format,
-		//const std::format_args_t<ErrorOutputIterator, char>& args) {
-		const std::format_args& args) {
-	if (!error_output_) {
-		return ;
-	}
-
-	//vformat_to(ErrorOutputIterator(*error_output_), format, args);
-	const auto s = std::vformat(format, args);
-	error_output_->write(s.data(), s.size());
-	error_output_->flush();
-}
-
 void Preprocessor::output_log_with_args(
 		DiagLevel level, const Token& token, const StringView& format,
 		//const std::format_args_t<Preprocessor::ErrorOutputIterator, char>& args) {
@@ -2864,26 +2852,26 @@ const MacroPtr Preprocessor::find_macro(const std::string& name) {
 void Preprocessor::print_macros() {
 	for (const auto& kv : macros_) {
 		auto& m = kv.second;
-		output_error("{}", m->name());
+		log_debug("{}", m->name());
 		if (m->is_function()) {
-			output_error("(");
+			log_debug("(");
 			if (!m->params().empty()) {
 				auto it = m->params().begin();
-				output_error("{}", (*it));
+				log_debug("{}", (*it));
 				++it;
 				for (; it != m->params().end(); ++it) {
-					output_error(", {}", (*it));
+					log_debug(", {}", (*it));
 				}
 			}
-			output_error(")");
+			log_debug(")");
 		}
-		output_error(": ");
+		log_debug(": ");
 
 		for (const auto& r : m->replist()) {
-			output_error("{}", r.string());
+			log_debug("{}", r.string());
 		}
 
-		output_error("\n");
+		log_debug("\n");
 	}
 }
 

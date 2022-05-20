@@ -17,28 +17,28 @@ extern const String kPathDelimiter;
  */
 class Source {
 public:
-	Source() = default;
-	Source(const Source&) = delete;
-	virtual ~Source() = default;
+    Source() = default;
+    Source(const Source&) = delete;
+    virtual ~Source() = default;
 
-	Source& operator=(const Source&) = delete;
+    Source& operator=(const Source&) = delete;
 
-	virtual Token next_token() = 0;
+    virtual Token next_token() = 0;
 };
 
 /**
  */
 struct Group {
-	bool processing;
-	TokenType type;
+    bool processing;
+    TokenType type;
 
-	Group(bool p, TokenType t) {
-		processing = p;
-		type = t;
-	}
+    Group(bool p, TokenType t) {
+        processing = p;
+        type = t;
+    }
 
-	~Group() {
-	}
+    ~Group() {
+    }
 };
 
 /**
@@ -46,7 +46,7 @@ struct Group {
 class SourceFile
     : public Source {
 public:
-	friend class ConditionScope;
+    friend class ConditionScope;
 
     explicit SourceFile(std::istream& input, const String& filepath, const Options& opts);
     virtual ~SourceFile() override;
@@ -55,21 +55,21 @@ public:
 
     void scanner_hint(ScannerHint hint);
 
-	const String& source_path() const { return path_; }
-	void source_path(const String& value) { path_ = value; }
+    const String& source_path() const { return path_; }
+    void source_path(const String& value) { path_ = value; }
 
-	int condition_level() const { return condition_level_; }
-	void inc_condition_level() { ++condition_level_; }
-	void dec_condition_level() { --condition_level_; }
+    int condition_level() const { return condition_level_; }
+    void inc_condition_level() { ++condition_level_; }
+    void dec_condition_level() { --condition_level_; }
 
     String parent_dir();
-	std::size_t num_groups() const { return groups_.size(); }
-	Group* current_group() const { return groups_.top(); }
+    std::size_t num_groups() const { return groups_.size(); }
+    Group* current_group() const { return groups_.top(); }
 
-	void reset_line_number(std::uint32_t new_line_number);
+    void reset_line_number(std::uint32_t new_line_number);
 
-	void push_group(Group& group);
-	void pop_group();
+    void push_group(Group& group);
+    void pop_group();
 
     std::uint32_t line();
     std::uint32_t column();
@@ -77,8 +77,8 @@ public:
 private:
     Scanner scanner_;
     String path_;
-	int condition_level_;
-	std::stack<Group*> groups_;
+    int condition_level_;
+    std::stack<Group*> groups_;
     std::uint32_t line_;
 };
 
@@ -116,23 +116,23 @@ private:
  */
 class GroupScope {
 public:
-	GroupScope(SourceFile& source, Group& group)
-		: source_(source) {
-		source_.push_group(group);
-	}
+    GroupScope(SourceFile& source, Group& group)
+        : source_(source) {
+        source_.push_group(group);
+    }
 
     GroupScope(const GroupScope&) = delete;
     GroupScope(GroupScope&&) = delete;
 
-	~GroupScope() {
-		source_.pop_group();
-	}
+    ~GroupScope() {
+        source_.pop_group();
+    }
 
     GroupScope& operator=(const GroupScope&) = delete;
     GroupScope& operator=(GroupScope&&) = delete;
 
 private:
-	SourceFile& source_;
+    SourceFile& source_;
 };
 
 class ConditionScope {
@@ -161,7 +161,7 @@ private:
  */
 class TokenStream {
 public:
-	static constexpr int kNumLookahead = 2;
+    static constexpr int kNumLookahead = 2;
 
     explicit TokenStream(Source& input);
     TokenStream(const TokenStream&) = delete;
@@ -175,12 +175,12 @@ public:
     void insert(TokenList&& tokens);
     const Token& peek(int i) const;
 
-	void reset_line_number(std::uint32_t new_line_number);
+    void reset_line_number(std::uint32_t new_line_number);
 
 private:
     std::reference_wrapper<Source> input_source_;
-	std::vector<Token> lookahead_;
-	std::size_t p_;
+    std::vector<Token> lookahead_;
+    std::size_t p_;
     TokenList queue_;
     std::size_t q_;
 };

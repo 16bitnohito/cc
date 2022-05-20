@@ -9,42 +9,42 @@
 namespace pp {
 
 enum class OperatorId {
-	kUnknown,
-	kCloseParen,
-	kOpenParen,
-	//kComma,
-	kColon,
-	kCond,
-	kOr,
-	kAnd,
-	kBitOr,
-	kBitXor,
-	kBitAnd,
-	kEq,
-	kNeq,
-	kLt,
-	kGt,
-	kLeq,
-	kGeq,
-	kShl,
-	kShr,
-	kAdd,
-	kSub,
-	kMul,
-	kDiv,
-	kMod,
-	kPlus,
-	kMinus,
-	kCompl,
-	kNot,
+    kUnknown,
+    kCloseParen,
+    kOpenParen,
+    //kComma,
+    kColon,
+    kCond,
+    kOr,
+    kAnd,
+    kBitOr,
+    kBitXor,
+    kBitAnd,
+    kEq,
+    kNeq,
+    kLt,
+    kGt,
+    kLeq,
+    kGeq,
+    kShl,
+    kShr,
+    kAdd,
+    kSub,
+    kMul,
+    kDiv,
+    kMod,
+    kPlus,
+    kMinus,
+    kCompl,
+    kNot,
 };
 
 
 struct Operator {
-	OperatorId id;
-	std::string sequence;
-	std::uint8_t precedence;
-	std::uint8_t arity;
+    OperatorId id;
+    std::string sequence;
+    std::uint8_t precedence;
+    std::uint8_t arity;
 };
 
 void init_calculator();

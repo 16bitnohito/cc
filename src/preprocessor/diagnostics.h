@@ -9,13 +9,13 @@
 namespace pp {
 
 enum class DiagLevel {
-	kNoLog,
-	kFatalError,
-	kError,
-	kWarning,
-	kInfo,
-	kTrace,
-	kDebug,
+    kNoLog,
+    kFatalError,
+    kError,
+    kWarning,
+    kInfo,
+    kTrace,
+    kDebug,
 };
 
 constexpr auto kMinDiagLevel = DiagLevel::kNoLog;

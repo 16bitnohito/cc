@@ -21,64 +21,64 @@ namespace pp {
 /**
  */
 enum class ScannerHint {
-	kInitial,
-	kIncludeDirective,
+    kInitial,
+    kIncludeDirective,
 };
 
 /**
  */
 class Scanner {
 public:
-	explicit Scanner(std::istream& input, bool trigraph);
-	Scanner(const Scanner&) = delete;
+    explicit Scanner(std::istream& input, bool trigraph);
+    Scanner(const Scanner&) = delete;
     ~Scanner();
 
-	Scanner& operator=(const Scanner&) = delete;
+    Scanner& operator=(const Scanner&) = delete;
 
     Token next_token();
 
     bool is_support_trigraph();
     void state_hint(ScannerHint hint);
 
-	std::uint32_t line_number();
-	void line_number(std::uint32_t value);
-	std::uint32_t column();
+    std::uint32_t line_number();
+    void line_number(std::uint32_t value);
+    std::uint32_t column();
 
 private:
-	int get() {
-		if (buf_i_ >= buf_.length()) {
-			if (readline() != 0) {
-				return EOF;
-			}
-		}
+    int get() {
+        if (buf_i_ >= buf_.length()) {
+            if (readline() != 0) {
+                return EOF;
+            }
+        }
 
-		int c = buf_[buf_i_] & 0xff;
-		buf_i_++;
+        int c = buf_[buf_i_] & 0xff;
+        buf_i_++;
 
-		return c;
-	}
+        return c;
+    }
 
-	std::string replace_trigraphs(std::string& s);
-	bool splice_source_line(std::string& logical_line, std::string& physical_line);
-	int getline(std::string& result);
-	int readline();
-	//void transit(int c, State to_state);
-	//void finish(Token::Type token_type);
-	void mark();
-	void reset(std::string& cseq);
-	void clear_mark();
+    std::string replace_trigraphs(std::string& s);
+    bool splice_source_line(std::string& logical_line, std::string& physical_line);
+    int getline(std::string& result);
+    int readline();
+    //void transit(int c, State to_state);
+    //void finish(Token::Type token_type);
+    void mark();
+    void reset(std::string& cseq);
+    void clear_mark();
 
-	std::reference_wrapper<std::istream> input_;
-	std::string buf_;
-	std::uint32_t buf_i_;
-	std::uint32_t line_number_;
+    std::reference_wrapper<std::istream> input_;
+    std::string buf_;
+    std::uint32_t buf_i_;
+    std::uint32_t line_number_;
     bool trigraph_;
-	int c_;
-	//std::string cseq_;
-	//State state_;
-	ScannerHint hint_;
-	//Token::Type type_;
-	std::uint32_t buf_i_mark_;
+    int c_;
+    //std::string cseq_;
+    //State state_;
+    ScannerHint hint_;
+    //Token::Type type_;
+    std::uint32_t buf_i_mark_;
 };
 
 }   //  namespace pp

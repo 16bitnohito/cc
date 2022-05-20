@@ -40,19 +40,19 @@ void SourceFile::scanner_hint(ScannerHint hint) {
 
 String SourceFile::parent_dir() {
     String::size_type i = path_.rfind(kPathDelimiter);
-	if (i == string::npos) {
-		return T_("");
-	} else {
-		return path_.substr(0, (i - 0));
-	}
+    if (i == string::npos) {
+        return T_("");
+    } else {
+        return path_.substr(0, (i - 0));
+    }
 }
 
 void SourceFile::push_group(Group& group) {
-	groups_.push(&group);
+    groups_.push(&group);
 }
 
 void SourceFile::pop_group() {
-	groups_.pop();
+    groups_.pop();
 }
 
 std::uint32_t SourceFile::line() {
@@ -66,7 +66,7 @@ std::uint32_t SourceFile::column() {
 void SourceFile::reset_line_number(std::uint32_t new_line_number) {
     // 分離した影響で、無理やり TokenStreamと分担させていて歪なのをどうにかしたい。
     scanner_.line_number(new_line_number);
-	line_ = new_line_number;
+    line_ = new_line_number;
 }
 
 
@@ -114,7 +114,7 @@ TokenStream::TokenStream(Source& input_source)
 }
 
 TokenStream::~TokenStream() {
-	assert(q_ == queue_.size());
+    assert(q_ == queue_.size());
 }
 
 Source* TokenStream::input_source() const {
@@ -146,14 +146,14 @@ const Token& TokenStream::peek(int i) const {
 }
 
 void TokenStream::reset_line_number(std::uint32_t new_line_number) {
-	for (int i = 0; i < kNumLookahead; i++) {
-		Token& t = lookahead_[(p_ + i) % kNumLookahead];
-		t.line(new_line_number);
+    for (int i = 0; i < kNumLookahead; i++) {
+        Token& t = lookahead_[(p_ + i) % kNumLookahead];
+        t.line(new_line_number);
 
-		if (t.type() == TokenType::kNewLine) {
-			new_line_number++;
-		}
-	}
+        if (t.type() == TokenType::kNewLine) {
+            new_line_number++;
+        }
+    }
 }
 
 }   // namespace pp

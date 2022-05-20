@@ -12,44 +12,44 @@
 namespace pp {
 
 enum class TokenType {
-	kNull = 256,
+    kNull = 256,
 
-	kHeaderName,
-	kIdentifier,
-	kPpNumber,
-	kCharacterConstant,
-	kStringLiteral,
-	kPunctuator,
-	kNonWhiteSpaceCharacter,
+    kHeaderName,
+    kIdentifier,
+    kPpNumber,
+    kCharacterConstant,
+    kStringLiteral,
+    kPunctuator,
+    kNonWhiteSpaceCharacter,
 
-	kNewLine,
-	kWhiteSpace,
-	kComment,
+    kNewLine,
+    kWhiteSpace,
+    kComment,
 
-	kInclude,
-	kDefine,
-	kUndef,
-	kIf,
-	kIfdef,
-	kIfndef,
+    kInclude,
+    kDefine,
+    kUndef,
+    kIf,
+    kIfdef,
+    kIfndef,
     kElif,
     kElifdef,
     kElifndef,
     kElse,
-	kEndif,
-	kError,
-	kLine,
-	kPragma,
+    kEndif,
+    kError,
+    kLine,
+    kPragma,
 
-	//kOpDefined,
-	//kOpStringize,
-	//kOpConcat,
+    //kOpDefined,
+    //kOpStringize,
+    //kOpConcat,
 
-	kPlaceMarker,
+    kPlaceMarker,
 
-	kNonReplacementTarget,
+    kNonReplacementTarget,
 
-	kEndOfFile,
+    kEndOfFile,
 };
 
 /**
@@ -57,120 +57,120 @@ enum class TokenType {
  */
 class Token {
 public:
-	class TokenValue {
-	public:
-		TokenValue(const std::string& string, TokenType type)
-			: string_(string)
-			, type_(type) {
-		}
+    class TokenValue {
+    public:
+        TokenValue(const std::string& string, TokenType type)
+            : string_(string)
+            , type_(type) {
+        }
 
-		~TokenValue() {
-		}
+        ~TokenValue() {
+        }
 
-		const std::string& string() const { return string_; }
-		TokenType type() const { return type_; }
+        const std::string& string() const { return string_; }
+        TokenType type() const { return type_; }
 
-	private:
-		std::string string_;
-		TokenType type_;
-	};
+    private:
+        std::string string_;
+        TokenType type_;
+    };
 
-	static const std::shared_ptr<Token::TokenValue> kTokenValueNull;
-	static const std::shared_ptr<Token::TokenValue> kTokenValueASpace;
+    static const std::shared_ptr<Token::TokenValue> kTokenValueNull;
+    static const std::shared_ptr<Token::TokenValue> kTokenValueASpace;
 
-	static const char* type_to_string(TokenType type);
+    static const char* type_to_string(TokenType type);
 
-	template <typename Container>
-	static std::string concat_string(const Container& tokens) {
-		std::string result;
+    template <typename Container>
+    static std::string concat_string(const Container& tokens) {
+        std::string result;
 
-		for (const auto& t : tokens) {
-			result += t.string();
-		}
-		return result;
-	}
+        for (const auto& t : tokens) {
+            result += t.string();
+        }
+        return result;
+    }
 
-	static std::shared_ptr<TokenValue> make_value(const std::string& string, TokenType type) {
-		return std::make_shared<TokenValue>(string, type);
-	}
+    static std::shared_ptr<TokenValue> make_value(const std::string& string, TokenType type) {
+        return std::make_shared<TokenValue>(string, type);
+    }
 
-	Token()
-		: value_(kTokenValueNull)
-		, line_()
-		, column_() {
-	}
+    Token()
+        : value_(kTokenValueNull)
+        , line_()
+        , column_() {
+    }
 
-	Token(const std::string& string, TokenType type)
-		: value_(Token::make_value(string, type))
-		, line_()
-		, column_() {
-	}
+    Token(const std::string& string, TokenType type)
+        : value_(Token::make_value(string, type))
+        , line_()
+        , column_() {
+    }
 
-	Token(const std::string& string, TokenType type, std::uint32_t line, std::uint32_t column)
-		: value_(Token::make_value(string, type))
-		, line_(line)
-		, column_(column) {
-	}
+    Token(const std::string& string, TokenType type, std::uint32_t line, std::uint32_t column)
+        : value_(Token::make_value(string, type))
+        , line_(line)
+        , column_(column) {
+    }
 
-	Token(std::shared_ptr<TokenValue> value, std::uint32_t line, std::uint32_t column)
-		: value_(value)
-		, line_(line)
-		, column_(column) {
-	}
+    Token(std::shared_ptr<TokenValue> value, std::uint32_t line, std::uint32_t column)
+        : value_(value)
+        , line_(line)
+        , column_(column) {
+    }
 
-	Token(const Token& init) = default;
-	Token(Token&& init) = default;
+    Token(const Token& init) = default;
+    Token(Token&& init) = default;
 
-	~Token() {
-	}
+    ~Token() {
+    }
 
-	Token& operator=(const Token& rhs) = default;
-	Token& operator=(Token&& rhs) = default;
+    Token& operator=(const Token& rhs) = default;
+    Token& operator=(Token&& rhs) = default;
 
-	bool operator==(const Token& rhs) const {
-		return type() == rhs.type() && string() == rhs.string();
-	}
+    bool operator==(const Token& rhs) const {
+        return type() == rhs.type() && string() == rhs.string();
+    }
 
-	bool operator!=(const Token& rhs) const {
-		return !(*this == rhs);
-	}
+    bool operator!=(const Token& rhs) const {
+        return !(*this == rhs);
+    }
 
-	const std::string& string() const {
-		return value_->string();
-	}
+    const std::string& string() const {
+        return value_->string();
+    }
 
-	TokenType type() const {
-		return static_cast<TokenType>(value_->type());
-	}
+    TokenType type() const {
+        return static_cast<TokenType>(value_->type());
+    }
 
-	std::uint32_t line() const {
-		return line_;
-	}
+    std::uint32_t line() const {
+        return line_;
+    }
 
-	void line(std::uint32_t value) {
-		line_ = value;
-	}
+    void line(std::uint32_t value) {
+        line_ = value;
+    }
 
-	std::uint32_t column() const {
-		return column_;
-	}
+    std::uint32_t column() const {
+        return column_;
+    }
 
-	bool is_eol() const {
-		return type() == TokenType::kNewLine || type() == TokenType::kEndOfFile;
-	}
+    bool is_eol() const {
+        return type() == TokenType::kNewLine || type() == TokenType::kEndOfFile;
+    }
 
-	bool is_ws() const {
-		return type() == TokenType::kWhiteSpace || type() == TokenType::kComment;
-	}
+    bool is_ws() const {
+        return type() == TokenType::kWhiteSpace || type() == TokenType::kComment;
+    }
 
-	bool is_ws_nl() const {
-		return type() == TokenType::kWhiteSpace || type() == TokenType::kComment || type() == TokenType::kNewLine;
-	}
+    bool is_ws_nl() const {
+        return type() == TokenType::kWhiteSpace || type() == TokenType::kComment || type() == TokenType::kNewLine;
+    }
 
 private:
-	std::shared_ptr<TokenValue> value_;
-	std::uint32_t line_;
-	std::uint32_t column_;
+    std::shared_ptr<TokenValue> value_;
+    std::uint32_t line_;
+    std::uint32_t column_;
 };
 
 using TokenList = std::vector<Token>;

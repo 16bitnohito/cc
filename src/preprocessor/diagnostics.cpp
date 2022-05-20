@@ -41,15 +41,14 @@ const StringView kInvalidConstantExpressionError = T_("整数定数式でなけ�
 const StringView kConstantNumberIsNotAIntegerError = T_("{}は整数ではないか、ここでは取り扱えない。");
 const StringView kInvalidOperatorError = T_("\"{}\"は定数式で使えない演算子である。");
 
-const StringView kElifWithoutIfError = T_("#ifの無い #elifが見つかった。");
-const StringView kElseWithoutIfError = T_("#ifの無い #elseが見つかった。");
-const StringView kEndifWithoutIfError = T_("#ifの無い #endifが見つかった。");
+const StringView kNoCorrespondingIfError = T_("#ifの無い {}が見つかった。");
 const StringView kUnterminatedIfError = T_("{}行目の #ifに対応する #endifが無い。");
-const StringView kElifAfterElseError = T_("#elseの後に #elifが見つかった。");
+const StringView kElifGroupAfterElseError = T_("#elseの後に {}が見つかった。");
 const StringView kIdsAreEvaluatedToZero = T_("識別子 {}は 0に評価される。");
 const StringView kInvalidMacroName = T_("マクロ名は識別子でなければならない。");
 const StringView kInvalidHeaderName = T_("ヘッダー名が不正である。");
 const StringView kPragmaIsIgnoredWarning = T_("プラグマ {}は無視される。");
+const StringView kNoIdentifierSpecifiedError = T_("{}の識別子が指定されていない。");
 
 const StringView kMinSpecSourceFileInclusionWarning = T_("#includeの入れ子が {}回を超えた。({}回)");
 const StringView kMinSpecConditionalInclusionWarning = T_("条件分岐の入れ子が {}回を超えた。({}回)");

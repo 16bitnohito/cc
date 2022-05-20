@@ -58,16 +58,15 @@ extern const StringView kInvalidConstantExpressionError;
 extern const StringView kConstantNumberIsNotAIntegerError;
 extern const StringView kInvalidOperatorError;
 
-extern const StringView kElifWithoutIfError;
-extern const StringView kElseWithoutIfError;
-extern const StringView kEndifWithoutIfError;
+extern const StringView kNoCorrespondingIfError;
 extern const StringView kUnterminatedIfError;
-extern const StringView kElifAfterElseError;
+extern const StringView kElifGroupAfterElseError;
 extern const StringView kIdsAreEvaluatedToZero;
 extern const StringView kInvalidMacroName;
 extern const StringView kInvalidHeaderName;
 extern const StringView kPragmaIsIgnoredWarning;
 extern const StringView kPragmaIsIgnoredWarningF;
+extern const StringView kNoIdentifierSpecifiedError;
 
 constexpr int kMinSpecSourceFileInclusion = 15;
 constexpr int kMinSpecConditionalInclusion = 63;

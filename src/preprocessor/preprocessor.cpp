@@ -26,8 +26,10 @@ std::vector<std::tuple<std::string, pp::TokenType>> directives = {
 	{ "if", TokenType::kIf },
 	{ "ifdef", TokenType::kIfdef },
 	{ "ifndef", TokenType::kIfndef },
-	{ "elif", TokenType::kElif },
-	{ "else", TokenType::kElse },
+    { "elif", TokenType::kElif },
+    { "elifdef", TokenType::kElifdef },
+    { "elifndef", TokenType::kElifndef },
+    { "else", TokenType::kElse },
 	{ "endif", TokenType::kEndif },
 	{ "error", TokenType::kError },
 	{ "line", TokenType::kLine },
@@ -45,6 +47,30 @@ pp::TokenType as_directive(const Token& token) {
 	} else {
 		return token.type();
 	}
+}
+
+inline
+bool is_if_group_directive(pp::TokenType type) {
+    switch (type) {
+    case TokenType::kIf:
+    case TokenType::kIfdef:
+    case TokenType::kIfndef:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline
+bool is_elif_group_directive(pp::TokenType type) {
+    switch (type) {
+    case TokenType::kElif:
+    case TokenType::kElifdef:
+    case TokenType::kElifndef:
+        return true;
+    default:
+        return false;
+    }
 }
 
 const char* const kLevelTag[] = {
@@ -656,19 +682,19 @@ bool Preprocessor::group_part() {
 		SourceFile& src = current_source();
 		TokenType cur_group = src.current_group()->type;
 		Token dir_token = peek(1);
-		TokenType dir = as_directive(dir_token);
+        TokenType dir = as_directive(dir_token);
 
-		if (((cur_group == TokenType::kIf)     && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
-			((cur_group == TokenType::kIfdef)  && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
-			((cur_group == TokenType::kIfndef) && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
-			((cur_group == TokenType::kElif)   && (dir == TokenType::kElif || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
-			((cur_group == TokenType::kElse)   && (dir == TokenType::kEndif))) {
+		if (((cur_group == TokenType::kIf)       && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kIfdef)    && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kIfndef)   && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+			((cur_group == TokenType::kElif)     && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+            ((cur_group == TokenType::kElifdef)  && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+            ((cur_group == TokenType::kElifndef) && (is_elif_group_directive(dir) || dir == TokenType::kElse || dir == TokenType::kEndif)) ||
+            ((cur_group == TokenType::kElse)     && (dir == TokenType::kEndif))) {
 			return false;
 		}
 
-		if (dir == TokenType::kIf ||
-			dir == TokenType::kIfdef ||
-			dir == TokenType::kIfndef) {
+		if (is_if_group_directive(dir)) {
 			if_section();
 		} else if (
 			dir == TokenType::kInclude ||
@@ -681,17 +707,15 @@ bool Preprocessor::group_part() {
 			control_line(dir);
 		} else {
 			if (src.condition_level() == 0) {
-				if (dir == TokenType::kElif) {
-					error(dir_token, kElifWithoutIfError);
-				} else if (dir == TokenType::kElse) {
-					error(dir_token, kElseWithoutIfError);
-				} else if (dir == TokenType::kEndif) {
-					error(dir_token, kEndifWithoutIfError);
-				}
+                if (is_elif_group_directive(dir) ||
+                    dir == TokenType::kElse ||
+                    dir == TokenType::kEndif) {
+                    error(dir_token, kNoCorrespondingIfError, dir_token.string());
+                }
 			} else {
-				if (cur_group == TokenType::kElse && dir == TokenType::kElif) {
-					error(dir_token, kElifAfterElseError);
-				}
+                if (cur_group == TokenType::kElse && is_elif_group_directive(dir)) {
+                    error(dir_token, kElifGroupAfterElseError, dir_token.string());
+                }
 			}
 
 			non_directive();
@@ -711,9 +735,7 @@ void Preprocessor::if_section() {
 
 	Token if_token = peek(1);
 	TokenType dir = as_directive(if_token);
-	if (dir == TokenType::kIf ||
-		dir == TokenType::kIfdef ||
-		dir == TokenType::kIfndef) {
+	if (is_if_group_directive(dir)) {
 		processed = if_group();
 	} else {
 		fatal_error(if_token, as_internal(__func__) /* ロジックエラーっぽい */);
@@ -722,12 +744,14 @@ void Preprocessor::if_section() {
 	//  ここに来た時点で "#"は consume済み。
 	skip_ws();
 
-	if (as_directive(peek(1)) == TokenType::kElif) {
+    TokenType elif_dir = as_directive(peek(1));
+	if (is_elif_group_directive(elif_dir)) {
 		//processed = elif_groups(processed);
-		Token t;
+        Token t;
 		do {
 			processed = elif_group(processed) || processed;
-		} while (as_directive(peek(1)) == TokenType::kElif);
+            elif_dir = as_directive(peek(1));
+		} while (is_elif_group_directive(elif_dir));
 	}
 
 	skip_ws();
@@ -1155,6 +1179,7 @@ bool Preprocessor::if_group() {
 
 			Token name_token = peek(1);
 			if (name_token.type() != TokenType::kIdentifier) {
+                error(name_token, kNoIdentifierSpecifiedError, dir_token.string());
 				skip_directive_line();
 				result = 0;
 			} else {
@@ -1173,7 +1198,8 @@ bool Preprocessor::if_group() {
 
 			Token name_token = peek(1);
 			if (name_token.type() != TokenType::kIdentifier) {
-				skip_directive_line();
+                error(name_token, kNoIdentifierSpecifiedError, dir_token.string());
+                skip_directive_line();
 				result = 0;
 			} else {
 				auto name = name_token.string();
@@ -1215,22 +1241,66 @@ bool Preprocessor::elif_group(bool processed) {
 	//"#" "elif" constant_expression(); new_line(); group() ? ;
 	skip_ws();
 
-	Token dir_token = peek(1);
-	match("elif");
-	skip_ws();
+    target_intmax_t result;
+    SourceFile& src = current_source();
+    Token dir_token = peek(1);
+    TokenType dir = as_directive(dir_token);
+    Group* parent = src.current_group();
 
-	SourceFile& src = current_source();
-	Group* parent = src.current_group();
-	target_intmax_t result;
 	if (!parent->processing || processed) {
 		skip_directive_line();
 		result = 0;
 	} else {
-		result = constant_expression(make_constant_expression(), dir_token);
+        if (dir == TokenType::kElif) {
+            match("elif");
+            skip_ws();
+
+            result = constant_expression(make_constant_expression(), dir_token);
+        } else if (dir == TokenType::kElifdef) {
+            match("elifdef");
+            skip_ws();
+
+            Token name_token = peek(1);
+            if (name_token.type() != TokenType::kIdentifier) {
+                error(name_token, kNoIdentifierSpecifiedError, dir_token.string());
+                skip_directive_line();
+                result = 0;
+            } else {
+                auto name = name_token.string();
+                match(TokenType::kIdentifier);
+                skip_ws();
+
+                if (name_token == kTokenVaArgs) {
+                    error(name_token, kVaArgsIdentifierUsageError);
+                }
+                result = (find_macro(name) != nullptr);
+            }
+        } else if (dir == TokenType::kElifndef) {
+            match("elifndef");
+            skip_ws();
+
+            Token name_token = peek(1);
+            if (name_token.type() != TokenType::kIdentifier) {
+                error(name_token, kNoIdentifierSpecifiedError, dir_token.string());
+                skip_directive_line();
+                result = 0;
+            } else {
+                auto name = name_token.string();
+                match(TokenType::kIdentifier);
+                skip_ws();
+
+                if (name_token == kTokenVaArgs) {
+                    error(name_token, kVaArgsIdentifierUsageError);
+                }
+                result = (find_macro(name) == nullptr);
+            }
+        } else {
+            fatal_error(dir_token, as_internal(__func__) /* ロジックエラー */);
+        }
 	}
 	new_line();
 
-	Group g(parent->processing && !processed && (result != 0), TokenType::kElif);
+	Group g(parent->processing && !processed && (result != 0), dir);
 	group(src, g);
 
 	return g.processing;

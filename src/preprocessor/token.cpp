@@ -31,7 +31,9 @@ const char* Token::type_to_string(TokenType type) {
 	CASE(TokenType::kIfdef);
 	CASE(TokenType::kIfndef);
 	CASE(TokenType::kElif);
-	CASE(TokenType::kElse);
+    CASE(TokenType::kElifdef);
+    CASE(TokenType::kElifndef);
+    CASE(TokenType::kElse);
 	CASE(TokenType::kEndif);
 	CASE(TokenType::kError);
 	CASE(TokenType::kLine);

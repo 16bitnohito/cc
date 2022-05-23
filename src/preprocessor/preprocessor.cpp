@@ -295,6 +295,7 @@ const Token kTokenOpPragma("_Pragma", TokenType::kIdentifier);
 const Token kTokenStdc("STDC", TokenType::kIdentifier);
 const Token kTokenVaArgs("__VA_ARGS__", TokenType::kIdentifier);
 const Token kTokenVaOpt("__VA_OPT__", TokenType::kIdentifier);
+const Token kTokenOpHasCAttribute("__has_c_attribute", TokenType::kIdentifier);
 
 // static
 MacroPtr Macro::create_macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token) {
@@ -370,6 +371,8 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
         return MacroExpantionMethod::kOpPragma;
     } else if (name == kTokenVaOpt.string()) {
         return MacroExpantionMethod::kVaOpt;
+    } else if (name == kTokenOpHasCAttribute.string()) {
+        return MacroExpantionMethod::kOpHasCAttribute;
     } else {
         bool directly = true;
         for (const auto& t : replist) {
@@ -591,6 +594,18 @@ void Preprocessor::prepare_predefined_macro() {
             Macro::ParamList{ "content" },
             TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
         auto result = macros_.insert({ op_va_opt->name(), op_va_opt });
+        if (!result.second) {
+            fatal_error(kTokenNull, as_internal(__func__));
+        }
+    }
+
+    // __has_c_attributeは特別なマクロとして扱う。
+    {
+        auto op_has_c_attribute = Macro::create_macro(
+            kTokenOpHasCAttribute.string(),
+            Macro::ParamList{ "content" },
+            TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
+        auto result = macros_.insert({ op_has_c_attribute->name(), op_has_c_attribute });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__));
         }
@@ -846,6 +861,7 @@ TokenList Preprocessor::make_constant_expression() {
     }
 
     if (expr.empty() || bad_expr) {
+        skip_directive_line();
         expr.clear();
         expr.push_back(Token("0", TokenType::kPpNumber));
     }
@@ -1634,6 +1650,11 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             output_text(t.string());
             continue;
         }
+        if (t == kTokenOpHasCAttribute) {
+            error(t, kOpHasCAttributeIdentifierUsageError);
+            output_text(t.string());
+            continue;
+        }
         const MacroPtr m = find_macro(t.string());
         if (m == nullptr) {
             output_text(t.string());
@@ -1995,6 +2016,34 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
     return false;
 }
 
+bool Preprocessor::expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+    if (macro_args.empty() || macro_args[0].empty()) {
+        error(kTokenNull, kOpHasCAttributeNeedsAnAttribute);
+        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+        return true;
+    }
+
+    // 標準の属性
+    if (macro_args.size() == 1) {
+        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+
+        //const auto& attr_name = macro_args[0][0].string();
+        //if (attr_name.string() == "nodiscard") {
+        //    expr.push_back(Token("202003L", TokenType::kPpNumber));
+        //} else if (attr_name.string() == "maybe_unused" ||
+        //    attr_name.string() == "deprecated" ||
+        //    attr_name.string() == "fallthrough") {
+        //    expr.push_back(Token("201904L", TokenType::kPpNumber));
+        //} else {
+        //    expr.push_back(Token("0", TokenType::kPpNumber));
+        //}
+    } else {
+        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+    }
+
+    return true;
+}
+
 TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token) {
     if (token.type() != TokenType::kIdentifier) {
         //result.push_back(token);
@@ -2348,7 +2397,8 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
     Macro::ArgList args;
     size_t comma = 0;
 
-    if (macro.name() == kTokenVaOpt.string()) {
+    if (macro.name() == kTokenVaOpt.string() || macro.name() == kTokenOpHasCAttribute.string()) {
+        // ここは実際に可変引数である訳ではない。コンマで区切らないトークン列を返す読み取り処理の流用している。
         args.reserve(1);
 
         TokenList arg;
@@ -2799,6 +2849,10 @@ bool Preprocessor::is_valid_macro_name(const Token& name) {
     }
     if (name == kTokenVaOpt) {
         error(name, kVaOptIdentifierUsageError);
+        return false;
+    }
+    if (name == kTokenOpHasCAttribute) {
+        error(name, kOpHasCAttributeIdentifierUsageError);
         return false;
     }
 

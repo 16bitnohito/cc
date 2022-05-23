@@ -46,6 +46,7 @@ enum class MacroExpantionMethod {
     kNormal,
     kOpPragma,
     kVaOpt,
+    kOpHasCAttribute,
 
     kNumElements,
 };
@@ -186,6 +187,7 @@ private:
     bool expand_normal(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_pragma(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_va_opt(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+    bool expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
     static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {
@@ -193,6 +195,7 @@ private:
         &Preprocessor::expand_normal,
         &Preprocessor::expand_op_pragma,
         &Preprocessor::expand_va_opt,
+        &Preprocessor::expand_op_has_c_attribute,
     };
 
     TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);

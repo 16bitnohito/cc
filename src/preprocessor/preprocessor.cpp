@@ -560,8 +560,11 @@ void Preprocessor::prepare_predefined_macro() {
 
     //
     //add_predefined_macro("__STDC_ANALYZABLE__",      "1",       TokenType::kPpNumber);
-    //add_predefined_macro("__STDC_IEC_559__",         "1",       TokenType::kPpNumber);
-    //add_predefined_macro("__STDC_IEC_559_COMPLEX__", "1",       TokenType::kPpNumber);
+    //add_predefined_macro("__STDC_IEC_559__",         "1",       TokenType::kPpNumber);    // obsolescent
+    //add_predefined_macro("__STDC_IEC_559_COMPLEX__", "1",       TokenType::kPpNumber);    // obsolescent
+    //add_predefined_macro("__STDC_IEC_60559_BFP__",     "yyyymmL", TokenType::kPpNumber);
+    //add_predefined_macro("__STDC_IEC_60559_DFP__",     "yyyymmL", TokenType::kPpNumber);
+    //add_predefined_macro("__STDC_IEC_60559_COMPLEX__", "yyyymmL", TokenType::kPpNumber);
     //add_predefined_macro("__STDC_LIB_EXT1__",        "201109L", TokenType::kPpNumber);
     add_predefined_macro("__STDC_NO_ATOMICS__", "1", TokenType::kPpNumber);
     add_predefined_macro("__STDC_NO_COMPLEX__", "1", TokenType::kPpNumber);

@@ -787,7 +787,7 @@ Token Scanner::next_token() {
                 cseq += to_c(c_);
                 state = ScannerState::kStringLiteral1;
             } else if (cseq[0] == 'u' && (k == kDigit && c_ == '8')) {
-                //  "u8\"" or identifier
+                //  "u8\"" or "u8'" or identifier
                 cseq += to_c(c_);
                 state = ScannerState::kStringLiteral4;
             } else if ((k == '_' || k == kLetter || k == '\\') || k == kDigit) {
@@ -1027,6 +1027,10 @@ Token Scanner::next_token() {
                 //  "u8\""
                 cseq += to_c(c_);
                 state = ScannerState::kStringLiteral1;
+            } else if (k == '\'') {
+                //  "u8'"
+                cseq += to_c(c_);
+                state = ScannerState::kCharacterConstant1;
             } else if ((k == '_' || k == kLetter || k == '\\') || k == kDigit) {
                 //  "u8."
                 cseq += to_c(c_);

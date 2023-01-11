@@ -1763,7 +1763,7 @@ int Scanner::readline() {
 }
 
 std::string Scanner::replace_trigraphs(std::string& s) {
-    const int kTrigraphComponents = 3;
+    constexpr int kTrigraphComponents = 3;
     string::size_type r = 0;
     string::size_type w = 0;
 
@@ -1792,7 +1792,7 @@ std::string Scanner::replace_trigraphs(std::string& s) {
             case '(':
                 c = '[';
                 break;
-            case '\\':
+            case '\'':
                 c = '^';
                 break;
             case '>':
@@ -1813,7 +1813,7 @@ std::string Scanner::replace_trigraphs(std::string& s) {
             }
             if (c != t2) {
                 s[w] = c;
-                r += 3;
+                r += kTrigraphComponents;
                 w += 1;
             } else {
                 s[w] = s[r];
@@ -1827,6 +1827,8 @@ std::string Scanner::replace_trigraphs(std::string& s) {
         r++;
         w++;
     }
+
+    s.erase(w);
 
     return s;
 }

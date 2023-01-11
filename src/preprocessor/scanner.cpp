@@ -87,6 +87,11 @@ bool is_nl(int c) {
     return c == '\x0a' || c == '\x0d';
 }
 
+inline
+bool is_eol(int c) {
+    return is_nl(c) || c == EOF;
+}
+
 //  D.1 Ranges of characters allowed
 constexpr uint32_t ucn_allowed[][3] = {
     { 0x00A8, 0x00A8, 1 },
@@ -186,72 +191,93 @@ bool is_valid_ucn(std::uint32_t n) {
     if (0xD800 <= n && n <= 0xDFFF) {
         return false;
     }
+    if (0x10FFFF < n) {
+        return false;
+    }
 
     return true;
+}
+
+bool contains_invalid_ucn_for_identifier(const std::string& s) {
+    constexpr string::size_type kUcnDigitStart = 2;
+    constexpr string::size_type kUcn16Digits = 4;
+    constexpr string::size_type kUcn32Digits = 8;
+
+    string::size_type i = 0;
+    string::size_type digits = 0;
+    bool ucn;
+    if (s[0] != '\\') {
+        ++i;
+    } else {
+        switch (s[1]) {
+        case 'u':
+            digits = kUcn16Digits;
+            ucn = true;
+            break;
+
+        case 'U':
+            digits = kUcn32Digits;
+            ucn = true;
+            break;
+
+        default:
+            assert(false);
+            ucn = false;
+            break;
+        }
+
+        if (ucn) {
+            uint32_t n = 0;
+            auto r = from_chars(&s[kUcnDigitStart], &s[kUcnDigitStart + digits], n, 16);
+            if (!is_valid_ucn_for_identifier_initially(n)) {
+                return true;
+            }
+            i += kUcnDigitStart + digits;
+        } else {
+            ++i;
+        }
+    }
+
+    while (i < s.length()) {
+        if (s[i] != '\\') {
+            ++i;
+        } else {
+            switch (s[i + 1]) {
+            case 'u':
+                digits = kUcn16Digits;
+                ucn = true;
+                break;
+
+            case 'U':
+                digits = kUcn32Digits;
+                ucn = true;
+                break;
+
+            default:
+                ucn = false;
+                break;
+            }
+
+            if (ucn) {
+                uint32_t n = 0;
+                auto r = from_chars(&s[i + kUcnDigitStart], &s[i + kUcnDigitStart + digits], n, 16);
+                if (!is_valid_ucn_for_identifier(n)) {
+                    return true;
+                }
+                i += kUcnDigitStart + digits;
+            } else {
+                ++i;
+            }
+        }
+    }
+
+    return false;
 }
 
 inline
 char to_c(int c) {
     return static_cast<char>(c);
 }
-
-enum class ScannerState {
-    kInitial,
-    kHeaderName1,
-    kHeaderNameF1,
-    kIdentifier1,
-    kIdentifier2,
-    kIdentifierF1,
-    kPpNumber1,
-    kPpNumber2,
-    kPpNumber3,
-    kPpNumberF1,
-    kPpNumberF2,
-    kCharacterConstant1,
-    kCharacterConstant2,
-    kCharacterConstant3,
-    kCharacterConstant4,
-    kCharacterConstant5,
-    kCharacterConstant6,
-    kCharacterConstant7,
-    kCharacterConstant8,
-    kCharacterConstant9,
-    kCharacterConstantF1,
-    kStringLiteral1,
-    kStringLiteral2,
-    kStringLiteral3,
-    kStringLiteral4,
-    kStringLiteral5,
-    kStringLiteral6,
-    kStringLiteral7,
-    kStringLiteral8,
-    kStringLiteral9,
-    kStringLiteralF1,
-    kLineComment,
-    kBlockComment,
-    kWhiteSpaces,
-    kLineBreak,
-    kEllipsis,
-    kPlus,
-    kMinus,
-    kAsterisk,
-    kSlash1,
-    kPercent1,
-    kPercent2,
-    kPercent3,
-    kEqual1,
-    kLess1,
-    kLess2,
-    kGreater1,
-    kGreater2,
-    kCaret1,
-    kVerticalBar1,
-    kAmpersand1,
-    kExclamation1,
-    kColon1,
-    kPound1,
-    kEnd,
-};
 
 std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
     for (size_t i = pos; i < s.length(); i++) {
@@ -302,1364 +328,1333 @@ Token Scanner::next_token() {
 
     clear_mark();
     bool error = false;
-    bool match = false;
-    string cseq;
-    TokenType type = TokenType::kNull;
-    ScannerState state = ScannerState::kInitial;
     uint32_t line_number = line_number_;
     uint32_t column = buf_i_;
 
-    while (!match && !error) {
-        switch (state) {
-        case ScannerState::kInitial: {
-            mark();
+    state_ = ScannerState::kInitial;
+    return_state_ = ScannerState::kInitial;
+    cseq_.clear();
+    type_ = TokenType::kNull;
+    match_ = false;
 
+    while (!match_ && !error) {
+        switch (state_) {
+        case ScannerState::kInitial: {
             const int k = char_kind(c_);
             switch (k) {
             case kWsChar:
-                cseq += to_c(c_);
                 if (c_ == '\n') {
-                    state = ScannerState::kEnd;
-                    type = TokenType::kNewLine;
+                    cseq_ += to_c(c_);
                     c_ = get();
+                    finish(TokenType::kNewLine);
                 } else if (c_ == '\r') {
-                    state = ScannerState::kLineBreak;
+                    transit(ScannerState::kLineBreak, c_);
                 } else {
-                    state = ScannerState::kWhiteSpaces;
+                    transit(ScannerState::kWhiteSpaces, c_);
                 }
                 break;
 
             case kDigit:
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
                 break;
 
             case kLetter:
-                if (c_ == 'L' || c_ == 'U' || c_ == 'u') {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant2;
+                if (c_ == 'L') {
+                    transit(ScannerState::kState232_225_244_264_249_234_269, c_);
+                } else if (c_ == 'U') {
+                    transit(ScannerState::kState242_262_232_249_234_269_223, c_);
+                } else if (c_ == 'u') {
+                    transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
                 } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kIdentifierF1;
+                    transit(ScannerState::kState232_234_227, c_);
                 }
                 break;
 
             case '_':
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifierF1;
+                transit(ScannerState::kState232_234_227, c_);
                 break;
 
             case '\\':
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifier1;
-                break;
-
-            case '\'':
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant1;
-                break;
-
-            case '\"':
-                if (hint_ == ScannerHint::kIncludeDirective) {
-                    cseq += to_c(c_);
-                    state = ScannerState::kHeaderName1;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kStringLiteral1;
-                }
-                break;
-
-            case '[':
-            case ']':
-            case '(':
-            case ')':
-            case '{':
-            case '}':
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-                break;
-
-            case '.':
-                //  '..'
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumber1;
-                break;
-
-            case ',':
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-                break;
-
-            case '+':
-                //  '+'
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kPlus;
-                break;
-
-            case '-':
-                //  '>'
-                //  '-'
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kMinus;
-                break;
-
-            case '*':
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kAsterisk;
-                break;
-
-            case '/':
-                //  '/'
-                //  '*'
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kSlash1;
-                break;
-
-            case '%':
-                //  '>'
-                //  ':'
-                //  ':%:'
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kPercent1;
-                break;
-
-            case '=':
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kEqual1;
-                break;
-
-            case '<':
-                //  ':'
-                //  '%'
-                //  '='
-                //  '<'
-                //  '<='
-                //  END
-                if (hint_ == ScannerHint::kIncludeDirective) {
-                    cseq += to_c(c_);
-                    state = ScannerState::kHeaderName1;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kLess1;
-                }
-                break;
-
-            case '>':
-                //  '='
-                //  '>'
-                //  '>='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kGreater1;
-                break;
-
-            case '^':
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kCaret1;
-                break;
-
-            case '|':
-                //  '='
-                //  '|'
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kVerticalBar1;
-                break;
-
-            case '&':
-                //  '='
-                //  '&'
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kAmpersand1;
-                break;
-
-            case '~':
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_234_227);
                 break;
 
             case '!':
-                //  '='
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kExclamation1;
+                transit(ScannerState::kState68_69_38, c_);
                 break;
 
-            case '?':
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-                break;
-
-            case ':':
-                //  '>'
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kColon1;
-                break;
-
-            case ';':
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
+            case '"':
+                if (hint_ == ScannerHint::kIncludeDirective) {
+                    transit(ScannerState::kStateHeaderNameInitial, c_);
+                } else {
+                    transit(ScannerState::kState273_274_270_271, c_);
+                }
                 break;
 
             case '#':
-                //  '#'
-                //  END
-                cseq += to_c(c_);
-                state = ScannerState::kPound1;
+                transit(ScannerState::kState148_150_151, c_);
+                break;
+
+            case '%':
+                transit(ScannerState::kState166_167_170_42_171_174_110_175_111, c_);
+                break;
+
+            case '&':
+                transit(ScannerState::kState28_134_135_76_77, c_);
+                break;
+
+            case '\'':
+                transit(ScannerState::kState250_251, c_);
+                break;
+
+            case '(':
+                transit(ScannerState::kState6, c_);
+                break;
+
+            case ')':
+                transit(ScannerState::kState8, c_);
+                break;
+
+            case '*':
+                transit(ScannerState::kState103_102_30, c_);
+                break;
+
+            case '+':
+                transit(ScannerState::kState32_114_115_20_21, c_);
+                break;
+
+            case ',':
+                transit(ScannerState::kState146, c_);
+                break;
+
+            case '-':
+                transit(ScannerState::kState16_17_34_118_119_24_25, c_);
+                break;
+
+            case '.':
+                transit(ScannerState::kState182_184_94_14_95, c_);
+                break;
+
+            case '/':
+                transit(ScannerState::kState40_106_107, c_);
+                break;
+
+            case ':':
+                transit(ScannerState::kState86_88_89_158_159, c_);
+                break;
+
+            case ';':
+                transit(ScannerState::kState92, c_);
+                break;
+
+            case '<':
+                if (hint_ == ScannerHint::kIncludeDirective) {
+                    transit(ScannerState::kStateHeaderNameInitial, c_);
+                } else {
+                    transit(ScannerState::kState162_163_122_123_44_45_52_56_57_154_155, c_);
+                }
+                break;
+
+            case '=':
+                transit(ScannerState::kState64_65_100, c_);
+                break;
+
+            case '>':
+                transit(ScannerState::kState128_129_48_49_54_60_61, c_);
+                break;
+
+            case '?':
+                transit(ScannerState::kState84, c_);
+                break;
+
+            //case 'D':
+            //    transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
+            //    break;
+
+            //case 'L':
+            //    transit(ScannerState::kState232_225_244_264_249_234_269, c_);
+            //    break;
+
+            //case 'S':
+            //    transit(ScannerState::kState232_234_227, c_);
+            //    break;
+
+            //case 'U':
+            //    transit(ScannerState::kState242_262_232_249_234_269_223, c_);
+            //    break;
+
+            case '[':
+                transit(ScannerState::kState2, c_);
+                break;
+
+            case ']':
+                transit(ScannerState::kState4, c_);
+                break;
+
+            case '^':
+                transit(ScannerState::kState72_138_139, c_);
+                break;
+
+            //case 'u':
+            //    transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
+            //    break;
+
+            case '{':
+                transit(ScannerState::kState10, c_);
+                break;
+
+            case '|':
+                transit(ScannerState::kState80_81_74_142_143, c_);
+                break;
+
+            case '}':
+                transit(ScannerState::kState12, c_);
+                break;
+
+            case '~':
+                transit(ScannerState::kState36, c_);
                 break;
 
             default:
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kNonWhiteSpaceCharacter;
+                cseq_ += to_c(c_);
                 c_ = get();
+                finish(TokenType::kNonWhiteSpaceCharacter);
+                break;
+            }
+
+            break;
+        }
+        case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "D"
+            }
+            break;
+        }
+        case ScannerState::kState86_88_89_158_159: {
+            mark();
+            if (c_ == ':') {
+                transit(ScannerState::kState90, c_);
+            } else if (c_ == '>') {
+                transit(ScannerState::kState160, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// ":"
+            }
+            break;
+        }
+        case ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221: {
+            mark();
+            if (c_ == '"') {
+                transit(ScannerState::kState273_274_270_271, c_);
+            } else if (c_ == '\'') {
+                transit(ScannerState::kState250_251, c_);
+            } else if (c_ == '8') {
+                transit(ScannerState::kState258_232_249_234_219_269_238, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                finish(TokenType::kIdentifier);	// "u"
+            }
+            break;
+        }
+        case ScannerState::kState80_81_74_142_143: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState144, c_);
+            } else if (c_ == '|') {
+                transit(ScannerState::kState82, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "|"
+            }
+            break;
+        }
+        case ScannerState::kState10: {
+            mark();
+            finish(TokenType::kPunctuator);	// "{"
+            break;
+        }
+        case ScannerState::kState64_65_100: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState66, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "="
+            }
+            break;
+        }
+        case ScannerState::kState160: {
+            mark();
+            finish(TokenType::kPunctuator, "]");	// ":>"
+            break;
+        }
+        case ScannerState::kState36: {
+            mark();
+            finish(TokenType::kPunctuator);	// "~"
+            break;
+        }
+        case ScannerState::kState207_199: {
+            if (c_ == '+' || c_ == '-') {	// 'g'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState193_194_189_190: {
+            if (isdigit(c_)) {	// 'D'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191, c_);
+            } else if (c_ == '_' || isalpha(c_)) {	// 'N'
+                transit(ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState68_69_38: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState70, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "!"
+            }
+            break;
+        }
+        case ScannerState::kState103_102_30: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState104, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "*"
+            }
+            break;
+        }
+        case ScannerState::kState90: {
+            mark();
+            finish(TokenType::kPunctuator);	// "::"
+            break;
+        }
+        case ScannerState::kState197_207: {
+            if (c_ == '+' || c_ == '-') {	// 'g'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState28_134_135_76_77: {
+            mark();
+            if (c_ == '&') {
+                transit(ScannerState::kState78, c_);
+            } else if (c_ == '=') {
+                transit(ScannerState::kState136, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "&"
+            }
+            break;
+        }
+        case ScannerState::kState258_232_249_234_219_269_238: {
+            mark();
+            if (c_ == '"') {
+                transit(ScannerState::kState273_274_270_271, c_);
+            } else if (c_ == '\'') {
+                transit(ScannerState::kState250_251, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                finish(TokenType::kIdentifier);	// "u8"
+            }
+            break;
+        }
+        case ScannerState::kState16_17_34_118_119_24_25: {
+            mark();
+            if (c_ == '-') {
+                transit(ScannerState::kState26, c_);
+            } else if (c_ == '=') {
+                transit(ScannerState::kState120, c_);
+            } else if (c_ == '>') {
+                transit(ScannerState::kState18, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "-"
+            }
+            break;
+        }
+        case ScannerState::kState8: {
+            mark();
+            finish(TokenType::kPunctuator);	// ")"
+            break;
+        }
+        case ScannerState::kState82: {
+            mark();
+            finish(TokenType::kPunctuator);	// "||"
+            break;
+        }
+        case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "D\'D"
+            }
+            break;
+        }
+        case ScannerState::kState92: {
+            mark();
+            finish(TokenType::kPunctuator);	// ";"
+            break;
+        }
+        case ScannerState::kState166_167_170_42_171_174_110_175_111: {
+            mark();
+            if (c_ == ':') {
+                transit(ScannerState::kState176_177_172, c_);
+            } else if (c_ == '=') {
+                transit(ScannerState::kState112, c_);
+            } else if (c_ == '>') {
+                transit(ScannerState::kState168, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "%"
+            }
+            break;
+        }
+        case ScannerState::kState201_207: {
+            if (c_ == '+' || c_ == '-') {	// 'g'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState273_274_270_271: {
+            if (c_ == '"') {
+                transit(ScannerState::kState275, c_);
+            } else if (c_ == '\\') {	// 's'
+                transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
+            } else {	// 's'
+                if (is_eol(c_)) {
+                    error = true;
+                } else {
+                    // XXX: is_member_of_source_char_set(c_)
+                    transit(ScannerState::kState272_274_271, c_);
+                }
+            }
+            break;
+        }
+        case ScannerState::kState136: {
+            mark();
+            finish(TokenType::kPunctuator);	// "&="
+            break;
+        }
+        case ScannerState::kState112: {
+            mark();
+            finish(TokenType::kPunctuator);	// "%="
+            break;
+        }
+        case ScannerState::kState26: {
+            mark();
+            finish(TokenType::kPunctuator);	// "--"
+            break;
+        }
+        case ScannerState::kState146: {
+            mark();
+            finish(TokenType::kPunctuator);	// ","
+            break;
+        }
+        case ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "D..."
+            }
+            break;
+        }
+        case ScannerState::kState72_138_139: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState140, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "^"
+            }
+            break;
+        }
+        case ScannerState::kState128_129_48_49_54_60_61: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState62, c_);
+            } else if (c_ == '>') {
+                transit(ScannerState::kState130_131_50, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// ">"
+            }
+            break;
+        }
+        case ScannerState::kState182_184_94_14_95: {
+            mark();
+            if (c_ == '.') {
+                transit(ScannerState::kState96_97, c_);
+            } else if (isdigit(c_)) {	// 'D'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "."
+            }
+            break;
+        }
+        case ScannerState::kState96_97: {
+            if (c_ == '.') {
+                transit(ScannerState::kState98, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "DCCCC"
+            }
+            break;
+        }
+        case ScannerState::kState70: {
+            mark();
+            finish(TokenType::kPunctuator);	// "!="
+            break;
+        }
+        case ScannerState::kState148_150_151: {
+            mark();
+            if (c_ == '#') {
+                transit(ScannerState::kState152, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "#"
+            }
+            break;
+        }
+        case ScannerState::kState275: {
+            mark();
+            finish(TokenType::kStringLiteral);	// """"""
+            break;
+        }
+        case ScannerState::kState232_225_244_264_249_234_269: {
+            mark();
+            if (c_ == '"') {
+                transit(ScannerState::kState273_274_270_271, c_);
+            } else if (c_ == '\'') {
+                transit(ScannerState::kState250_251, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                finish(TokenType::kIdentifier);	// "L"
+            }
+            break;
+        }
+        case ScannerState::kState12: {
+            mark();
+            finish(TokenType::kPunctuator);	// "}"
+            break;
+        }
+        case ScannerState::kState242_262_232_249_234_269_223: {
+            mark();
+            if (c_ == '"') {
+                transit(ScannerState::kState273_274_270_271, c_);
+            } else if (c_ == '\'') {
+                transit(ScannerState::kState250_251, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                finish(TokenType::kIdentifier);	// "U"
+            }
+            break;
+        }
+        case ScannerState::kState4: {
+            mark();
+            finish(TokenType::kPunctuator);	// "]"
+            break;
+        }
+        case ScannerState::kState144: {
+            mark();
+            finish(TokenType::kPunctuator);	// "|="
+            break;
+        }
+        case ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "D\'N"
+            }
+            break;
+        }
+        case ScannerState::kState140: {
+            mark();
+            finish(TokenType::kPunctuator);	// "^="
+            break;
+        }
+        case ScannerState::kState232_234_227: {
+            mark();
+            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                error = contains_invalid_ucn_for_identifier(cseq_);
+                finish(TokenType::kIdentifier);	// "S"
+            }
+            break;
+        }
+        case ScannerState::kState250_251: {
+            if (c_ == '\\') {	// 'c'
+                transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
+            } else {	// 'c'
+                if (is_eol(c_)) {
+                    error = true;
+                } else {
+                    // XXX: is_member_of_source_char_set(c_)
+                    transit(ScannerState::kState251_252_253, c_);
+                }
+            }
+            break;
+        }
+        case ScannerState::kState32_114_115_20_21: {
+            mark();
+            if (c_ == '+') {
+                transit(ScannerState::kState22, c_);
+            } else if (c_ == '=') {
+                transit(ScannerState::kState116, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "+"
+            }
+            break;
+        }
+        case ScannerState::kState40_106_107: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState108, c_);
+            } else if (c_ == '/') {
+                transit(ScannerState::kLineComment, c_);
+            } else if (c_ == '*') {
+                transit(ScannerState::kBlockComment, c_);
+            } else {
+                finish(TokenType::kPunctuator); // "/"
+            }
+            break;
+        }
+        case ScannerState::kState2: {
+            mark();
+            finish(TokenType::kPunctuator);	// "["
+            break;
+        }
+        case ScannerState::kState104: {
+            mark();
+            finish(TokenType::kPunctuator);	// "*="
+            break;
+        }
+        case ScannerState::kState84: {
+            mark();
+            finish(TokenType::kPunctuator);	// "?"
+            break;
+        }
+        case ScannerState::kState162_163_122_123_44_45_52_56_57_154_155: {
+            mark();
+            if (c_ == '%') {
+                transit(ScannerState::kState164, c_);
+            } else if (c_ == ':') {
+                transit(ScannerState::kState156, c_);
+            } else if (c_ == '<') {
+                transit(ScannerState::kState124_125_46, c_);
+            } else if (c_ == '=') {
+                transit(ScannerState::kState58, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "<"
+            }
+            break;
+        }
+        case ScannerState::kState164: {
+            mark();
+            finish(TokenType::kPunctuator, "{");	// "<%"
+            break;
+        }
+        case ScannerState::kState98: {
+            mark();
+            finish(TokenType::kPunctuator);	// "..."
+            break;
+        }
+        case ScannerState::kState152: {
+            mark();
+            finish(TokenType::kPunctuator);	// "##"
+            break;
+        }
+        case ScannerState::kState6: {
+            mark();
+            finish(TokenType::kPunctuator);	// "("
+            break;
+        }
+        case ScannerState::kState168: {
+            mark();
+            finish(TokenType::kPunctuator, "}");	// "%>"
+            break;
+        }
+        case ScannerState::kState176_177_172: {
+            mark();
+            if (c_ == '%') {
+                transit(ScannerState::kState178_179, c_);
+            } else {
+                finish(TokenType::kPunctuator, "#");	// "%:"
+            }
+            break;
+        }
+        case ScannerState::kState203_207: {
+            if (c_ == '+' || c_ == '-') {	// 'g'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState62: {
+            mark();
+            finish(TokenType::kPunctuator);	// ">="
+            break;
+        }
+        case ScannerState::kState156: {
+            mark();
+            finish(TokenType::kPunctuator, "[");	// "<:"
+            break;
+        }
+        case ScannerState::kState232_233: {
+            mark();
+            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState232_233, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
+            } else {
+                error = contains_invalid_ucn_for_identifier(cseq_);
+                finish(TokenType::kIdentifier);	// "uCCCCCC"
+            }
+            break;
+        }
+        case ScannerState::kState66: {
+            mark();
+            finish(TokenType::kPunctuator);	// "=="
+            break;
+        }
+        case ScannerState::kState124_125_46: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState126, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// "<<"
+            }
+            break;
+        }
+        case ScannerState::kState116: {
+            mark();
+            finish(TokenType::kPunctuator);	// "+="
+            break;
+        }
+        case ScannerState::kState120: {
+            mark();
+            finish(TokenType::kPunctuator);	// "-="
+            break;
+        }
+        case ScannerState::kState78: {
+            mark();
+            finish(TokenType::kPunctuator);	// "&&"
+            break;
+        }
+        case ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188: {
+            mark();
+            if (c_ == '\'') {
+                transit(ScannerState::kState193_194_189_190, c_);
+            } else if (c_ == '.') {
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
+            } else if (c_ == 'E') {
+                transit(ScannerState::kState207_199, c_);
+            } else if (c_ == 'P') {
+                transit(ScannerState::kState203_207, c_);
+            } else if (c_ == 'e') {
+                transit(ScannerState::kState197_207, c_);
+            } else if (c_ == 'p') {
+                transit(ScannerState::kState201_207, c_);
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+                transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
+            } else if (c_ == '\\') {
+                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
+            } else {
+                finish(TokenType::kPpNumber);	// "DEgggg"
+            }
+            break;
+        }
+        case ScannerState::kState18: {
+            mark();
+            finish(TokenType::kPunctuator);	// "->"
+            break;
+        }
+        case ScannerState::kState108: {
+            mark();
+            finish(TokenType::kPunctuator);	// "/="
+            break;
+        }
+        case ScannerState::kState130_131_50: {
+            mark();
+            if (c_ == '=') {
+                transit(ScannerState::kState132, c_);
+            } else {
+                finish(TokenType::kPunctuator);	// ">>"
+            }
+            break;
+        }
+        case ScannerState::kState272_274_271: {
+            if (c_ == '"') {
+                transit(ScannerState::kState275, c_);
+            } else if (c_ == '\\') {	// 's'
+                transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
+            } else {	// 's'
+                if (is_eol(c_)) {
+                    error = true;
+                } else {
+                    // XXX: is_member_of_source_char_set(c_)
+                    transit(ScannerState::kState272_274_271, c_);
+                }
+            }
+            break;
+        }
+        case ScannerState::kState251_252_253: {
+            if (c_ == '\'') {
+                transit(ScannerState::kState254, c_);
+            } else if (c_ == '\\') {	// 'c'
+                transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
+            } else {	// 'c'
+                if (is_eol(c_)) {
+                    error = true;
+                } else {
+                    // XXX: is_member_of_source_char_set(c_)
+                    transit(ScannerState::kState251_252_253, c_);
+                }
+            }
+            break;
+        }
+        case ScannerState::kState58: {
+            mark();
+            finish(TokenType::kPunctuator);	// "<="
+            break;
+        }
+        case ScannerState::kState22: {
+            mark();
+            finish(TokenType::kPunctuator);	// "++"
+            break;
+        }
+        case ScannerState::kState132: {
+            mark();
+            finish(TokenType::kPunctuator);	// ">>="
+            break;
+        }
+        case ScannerState::kState254: {
+            mark();
+            finish(TokenType::kCharacterConstant);	// "\'\'\'\'\'c\'"
+            break;
+        }
+        case ScannerState::kState126: {
+            mark();
+            finish(TokenType::kPunctuator);	// "<<="
+            break;
+        }
+        case ScannerState::kState178_179: {
+            if (c_ == ':') {
+                transit(ScannerState::kState180, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kState180: {
+            mark();
+            finish(TokenType::kPunctuator, "##");	// "%:%:"
+            break;
+        }
+
+        case ScannerState::kLineComment: {
+            while (!is_eol(c_)) {
+                cseq_ += to_c(c_);
+                c_ = get();
+            }
+
+            finish(TokenType::kComment);
+            break;
+        }
+        case ScannerState::kBlockComment: {
+            int prev = '\0';
+            while (true) {
+                if (c_ == EOF) {
+                    // error(Token(Token::kNullTokenValue, line, column), /* コメントが終了しなかった。 */);
+                    break;
+                }
+                cseq_ += to_c(c_);
+                if (c_ == '/' && prev == '*') {
+                    c_ = get();
+                    break;
+                }
+                prev = c_;
+                c_ = get();
+            }
+
+            finish(TokenType::kComment);
+            break;
+        }
+        case ScannerState::kWhiteSpaces: {
+            while (is_ws(c_)) {
+                cseq_ += to_c(c_);
+                c_ = get();
+            }
+
+            finish(TokenType::kWhiteSpace);
+            break;
+        }
+        case ScannerState::kLineBreak: {
+            if (c_ == '\n') {
+                cseq_ += to_c(c_);
+                c_ = get();
+            }
+
+            finish(TokenType::kNewLine);
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterNameInitial: {
+            if (c_ == 'U') {
+                ucn_digit_start_ = cseq_.length() + 1;
+                transit(ScannerState::kStateUniversalCharacterName16_17, c_);
+            } else if (c_ == 'u') {
+                ucn_digit_start_ = cseq_.length() + 1;
+                transit(ScannerState::kStateUniversalCharacterName4_5, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName16_17: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName18_19, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName4_5: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName6_7, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName18_19: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName20_21, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName20_21: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName22_23, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName6_7: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName8_9, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName22_23: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName24_25, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName24_25: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName26_27, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName26_27: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName28_29, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName8_9: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName10_11, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName10_11: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName12, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName28_29: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName30_31, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName30_31: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateUniversalCharacterName32, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName12: {
+            mark();
+
+            uint32_t n;
+            auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+            error = !is_valid_ucn(n);
+
+            finish();   // \uXXXX
+            break;
+        }
+        case ScannerState::kStateUniversalCharacterName32: {
+            mark();
+
+            uint32_t n;
+            auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+            error = !is_valid_ucn(n);
+
+            finish();   // \UXXXXXXXX
+            break;
+        }
+        case ScannerState::kStateEscapeSequenceInitial: {
+            switch (c_) {
+            case '"':   // 6
+            case '\'':  // 4
+            case '?':   // 8
+            case '\\':  // 10
+            case 'a':   // 12
+            case 'b':   // 14
+            case 'f':   // 16
+            case 'n':   // 18
+            case 'r':   // 20
+            case 't':   // 22
+            case 'v':   // 24
+                finish(c_);
+                break;
+
+            case 'u':
+                ucn_digit_start_ = cseq_.length() + 1;
+                transit(ScannerState::kStateEscapeSequence42_43, c_);
+                break;
+
+            case 'U':
+                ucn_digit_start_ = cseq_.length() + 1;
+                transit(ScannerState::kStateEscapeSequence52_53, c_);
+                break;
+
+            case 'x':
+                transit(ScannerState::kStateEscapeSequence38_39, c_);
+                break;
+
+            default:
+                if (is_oct(c_)) {
+                    transit(ScannerState::kStateEscapeSequence32_33_26_28_29, c_);
+                } else {
+                    error = true;
+                }
                 break;
             }
             break;
         }
-        case ScannerState::kHeaderName1: {
-            c_ = get();
-            const int k = char_kind(c_);
-            int close_char = (cseq[0] == '<') ? '>' : '"';
-            if (k == close_char) {
-                cseq += to_c(c_);
-                state = ScannerState::kHeaderNameF1;
-            } else {
-                if (is_nl(c_)) {
-                    //  行末まで読み取ったので、ヘッダー名としては不正で、このままエラーで返す。
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kHeaderName1;
-                }
-            }
-            break;
-        }
-        case ScannerState::kHeaderNameF1: {
-            state = ScannerState::kEnd;
-            type = TokenType::kHeaderName;
-            c_ = get();
-            break;
-        }
-        case ScannerState::kIdentifier1: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == kLetter && (c_ == 'u' || c_ == 'U')) {
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifier2;
-            } else {
-                //error = true;
-                reset(cseq);
-                type = TokenType::kNonWhiteSpaceCharacter;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kIdentifier2: {
-            //  UCN
-            c_ = get();
-            if (isxdigit(c_)) {
-                const size_t d = (cseq[1] == 'u') ? 6 : 10;
-                cseq += to_c(c_);
-                if (cseq.length() < d) {
-                    state = ScannerState::kIdentifier2;
-                } else {
-                    state = ScannerState::kIdentifierF1;
-
-                    cseq = to_upper_string(cseq, 2);
-
-                    size_t next;
-                    uint32_t n = stoul(&cseq[2], &next, 16);
-                    if (next != (cseq.length() - 2)) {
-                        error = true;
-                    }
-                    if (!is_valid_ucn_for_identifier(n)) {
-                        error = true;
-                    } else {
-                        if (cseq.length() == d) {
-                            if (!is_valid_ucn_for_identifier_initially(n)) {
-                                error = true;
-                            }
-                        }
-                    }
-                    //  上位でチェックすべきかも。
-                    error = error || !is_valid_ucn(n);
-                }
+        case ScannerState::kStateEscapeSequence52_53: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence54_55, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kIdentifierF1: {
-            mark();
-
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '_' || k == kLetter || k == kDigit) {
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifierF1;
-            } else if (c_ == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifier1;
-            } else {
-                type = TokenType::kIdentifier;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kPpNumber1: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == kDigit) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == '.') {
-                cseq += to_c(c_);
-                state = ScannerState::kEllipsis;
-            } else {
-                type = TokenType::kPunctuator;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kPpNumber2: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == kLetter && (c_ == 'u' || c_ == 'U')) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumber3;
+        case ScannerState::kStateEscapeSequence54_55: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence56_57, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kPpNumber3: {
-            //  UCN
-            c_ = get();
-            if (isxdigit(c_)) {
-                const size_t d = (cseq[1] == 'u') ? 6 : 10;
-                cseq += to_c(c_);
-                if (cseq.length() < d) {
-                    state = ScannerState::kPpNumber3;
-                } else {
-                    state = ScannerState::kPpNumberF1;
-
-                    size_t next;
-                    uint32_t n = stoul(&cseq[2], &next, 16);
-                    if (next != (cseq.length() - 2)) {
-                        error = true;
-                    }
-                    if (!is_valid_ucn_for_identifier(n)) {
-                        error = true;
-                    } else {
-                        if (cseq.length() == d) {
-                            if (!is_valid_ucn_for_identifier_initially(n)) {
-                                error = true;
-                            }
-                        }
-                    }
-                    //  上位でチェックすべきかも。
-                    error = error || !is_valid_ucn(n);
-                }
+        case ScannerState::kStateEscapeSequence56_57: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence58_59, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kPpNumberF1: {
-            mark();
-
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '.') {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == kLetter && (c_ == 'e' || c_ == 'E' || c_ == 'p' || c_ == 'P')) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF2;
-            } else if (k == '_' || k == kLetter) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == kDigit) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumber2;
-            } else {
-                type = TokenType::kPpNumber;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kPpNumberF2: {
-            mark();
-
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '.') {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == kLetter && (c_ == 'e' || c_ == 'E' || c_ == 'p' || c_ == 'P')) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF2;
-            } else if (k == '_' || k == kLetter) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == kDigit) {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == '+' || k == '-') {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumberF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kPpNumber2;
-            } else {
-                type = TokenType::kPpNumber;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant1: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                //  空の文字定数はエラー。
-                cseq += to_c(c_);
-                //state = ScannerState::kEnd;
-                error = true;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant4;
-            } else {
-                if (is_nl(c_)) {
-                    reset(cseq);
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant3;
-                }
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant2: {
-            //  case ScannerState::kStringLiteral2:
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                //  "\'"
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant1;
-            } else if (k == '\"') {
-                //  "u\""
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
-            } else if (cseq[0] == 'u' && (k == kDigit && c_ == '8')) {
-                //  "u8\"" or "u8'" or identifier
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral4;
-            } else if ((k == '_' || k == kLetter || k == '\\') || k == kDigit) {
-                //  "u."
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifierF1;
-            } else {
-                //error = true;
-                //  "u" only
-                reset(cseq);
-                type = TokenType::kIdentifier;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant3: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstantF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant4;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant3;
-                }
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant4: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'' || k == '"' || k == '?' || k == '\\' ||
-                (k == kLetter && (c_ == 'a' || c_ == 'b' || c_ == 'f' || c_ == 'n' || c_ == 'r' || c_ == 't' || c_ == 'v'))) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant3;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant5;
-            } else if (k == kLetter && (c_ == 'U' || c_ == 'u')) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant6;
-            } else if (k == kLetter && c_ == 'x') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant7;
-            } else {
-                reset(cseq);
-                error = true;
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant5: {
-            //  OCT
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstantF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant4;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant8;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant3;
-                }
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant6: {
-            //  UCN
-            c_ = get();
-            if (isxdigit(c_)) {
-                const size_t d = (cseq[1] == 'u') ? 6U : 10U;
-                cseq += to_c(c_);
-                if (cseq.length() < d) {
-                    state = ScannerState::kCharacterConstant6;
-                } else {
-                    state = ScannerState::kCharacterConstant3;
-
-                    size_t next;
-                    uint32_t n = stoul(&cseq[2], &next, 16);
-                    if (next != (cseq.length() - 2)) {
-                        error = true;
-                    }
-                    if (!is_valid_ucn_for_identifier(n)) {
-                        error = true;
-                    } else {
-                        if (cseq.length() == d) {
-                            if (!is_valid_ucn_for_identifier_initially(n)) {
-                                error = true;
-                            }
-                        }
-                    }
-                    //  上位でチェックすべきかも。
-                    error = error || !is_valid_ucn(n);
-                }
+        case ScannerState::kStateEscapeSequence58_59: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence60_61, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kCharacterConstant7: {
-            //  HEX
-            c_ = get();
-            if (isxdigit(c_)) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant9;
+        case ScannerState::kStateEscapeSequence38_39: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence40_39, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kCharacterConstant8: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstantF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant4;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant3;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant3;
-                }
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstant9: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstantF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant4;
-            } else if (isxdigit(c_)) {
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant9;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kCharacterConstant3;
-                }
-            }
-            break;
-        }
-        case ScannerState::kCharacterConstantF1: {
-            mark();
-            c_ = get();
-            type = TokenType::kCharacterConstant;
-            state = ScannerState::kEnd;
-            break;
-        }
-        case ScannerState::kStringLiteral1: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteralF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral3;
-            } else {
-                if (is_nl(c_)) {
-                    reset(cseq);
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kStringLiteral1;
-                }
-            }
-            break;
-        }
-        case ScannerState::kStringLiteral2: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
-            } else if (k == kDigit && c_ == '8') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral4;
+        case ScannerState::kStateEscapeSequence42_43: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence44_45, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kStringLiteral3: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\'' || k == '"' || k == '?' || k == '\\' ||
-                (k == kLetter && (c_ == 'a' || c_ == 'b' || c_ == 'f' || c_ == 'n' || c_ == 'r' || c_ == 't' || c_ == 'v'))) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral5;
-            } else if (k == kLetter && (c_ == 'U' || c_ == 'u')) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral6;
-            } else if (k == kLetter && (c_ == 'x')) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral7;
+        case ScannerState::kStateEscapeSequence40_39: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence40_39, c_);
             } else {
-                //error = true;
-                //  不正なエスケープシーケンスとして、そのまま続行する。
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
+                // \xX...
+                finish();
             }
             break;
         }
-        case ScannerState::kStringLiteral4: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                //  "u8\""
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
-            } else if (k == '\'') {
-                //  "u8'"
-                cseq += to_c(c_);
-                state = ScannerState::kCharacterConstant1;
-            } else if ((k == '_' || k == kLetter || k == '\\') || k == kDigit) {
-                //  "u8."
-                cseq += to_c(c_);
-                state = ScannerState::kIdentifierF1;
-            } else {
-                //  "u8"
-                type = TokenType::kIdentifier;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kStringLiteral5: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteralF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral3;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral8;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kStringLiteral1;
-                }
-            }
-            break;
-        }
-        case ScannerState::kStringLiteral6: {
-            //  UCN
-            c_ = get();
-            if (isxdigit(c_)) {
-                const size_t d = (cseq[1] == 'u') ? 6 : 10;
-                cseq += to_c(c_);
-                if (cseq.length() < d) {
-                    state = ScannerState::kStringLiteral6;
-                } else {
-                    state = ScannerState::kStringLiteral1;
-
-                    size_t next;
-                    uint32_t n = stoul(&cseq[2], &next, 16);
-                    if (next != (cseq.length() - 2)) {
-                        error = true;
-                    }
-                    if (!is_valid_ucn_for_identifier(n)) {
-                        error = true;
-                    } else {
-                        if (cseq.length() == d) {
-                            if (!is_valid_ucn_for_identifier_initially(n)) {
-                                error = true;
-                            }
-                        }
-                    }
-                    //  上位でチェックすべきかも。
-                    error = error || !is_valid_ucn(n);
-                }
+        case ScannerState::kStateEscapeSequence44_45: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence46_47, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kStringLiteral7: {
-            c_ = get();
-            if (isxdigit(c_)) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral9;
+        case ScannerState::kStateEscapeSequence46_47: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence48_49, c_);
             } else {
                 error = true;
             }
             break;
         }
-        case ScannerState::kStringLiteral8: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteralF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral3;
-            } else if (k == kDigit && ('0' <= c_ && c_ <= '7')) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral1;
+        case ScannerState::kStateEscapeSequence32_33_26_28_29: {
+            if (is_oct(c_)) {
+                transit(ScannerState::kStateEscapeSequence34_35_30, c_);
             } else {
-                if (is_nl(c_)) {
+                // \O
+                finish();
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence60_61: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence62_63, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence34_35_30: {
+            if (is_oct(c_)) {
+                // \OOO
+                finish(c_); // ScannerState::kStateEscapeSequence36
+            } else {
+                // \OO
+                finish();
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence48_49: {
+            if (is_hex(c_)) {
+                // \uXXXX
+                finish(c_); // ScannerState::kStateEscapeSequence50
+
+                uint32_t n;
+                auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+                error = !is_valid_ucn(n);
+            } else {
+                error = true;
+                finish();
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence62_63: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence64_65, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence64_65: {
+            if (is_hex(c_)) {
+                transit(ScannerState::kStateEscapeSequence66_67, c_);
+            } else {
+                error = true;
+            }
+            break;
+        }
+        case ScannerState::kStateEscapeSequence66_67: {
+            if (is_hex(c_)) {
+                // \UXXXXXXXX
+                finish(c_); // ScannerState::kStateEscapeSequence68);
+
+                uint32_t n;
+                auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+                error = !is_valid_ucn(n);
+            } else {
+                error = true;
+                finish();
+            }
+            break;
+        }
+        case ScannerState::kStateHeaderNameInitial: {
+            int close_char = (cseq_[0] == '<') ? '>' : '"';
+            if (c_ == close_char) {
+                transit(ScannerState::kStateHeaderNameA1, c_);
+            } else {
+                if (is_eol(c_)) {
+                    // 行末まで読み取ったので、ヘッダー名としては不正で、このままエラーで返す。
                     error = true;
                 } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kStringLiteral1;
+                    transit(ScannerState::kStateHeaderNameInitial, c_);
                 }
             }
             break;
         }
-        case ScannerState::kStringLiteral9: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '\"') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteralF1;
-            } else if (k == '\\') {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral3;
-            } else if (isxdigit(c_)) {
-                cseq += to_c(c_);
-                state = ScannerState::kStringLiteral9;
-            } else {
-                if (is_nl(c_)) {
-                    error = true;
-                } else {
-                    cseq += to_c(c_);
-                    state = ScannerState::kStringLiteral1;
-                }
-            }
-            break;
-        }
-        case ScannerState::kStringLiteralF1: {
-            mark();
-            c_ = get();
-            type = TokenType::kStringLiteral;
-            state = ScannerState::kEnd;
-            break;
-        }
-        case ScannerState::kLineComment: {
-            c_ = get();
-            while (!is_nl(c_) && c_ != EOF) {
-                cseq += to_c(c_);
-                c_ = get();
-            }
-            state = ScannerState::kEnd;
-            type = TokenType::kComment;
-            break;
-        }
-        case ScannerState::kBlockComment: {
-            //do {
-            //	while (c_ != '*' && c_ != EOF) {
-            //		c_ = get();
-            //		cseq += to_c(c_);
-            //	}
-            //	c_ = get();
-            //	cseq += to_c(c_);
-            //} while (c_ != '/' && c_ != EOF);
-
-            int prev = 0;
-            while (true) {
-                c_ = get();
-                if (c_ == EOF) {
-                    //  error(Token(Token::kNullTokenValue, line, column), /* コメントが終了しなかった。 */);
-                    break;
-                }
-                cseq += to_c(c_);
-                if (c_ == '/') {
-                    if (prev == '*') {
-                        break;
-                    }
-                }
-                prev = c_;
-            }
-
-            type = TokenType::kComment;
-            c_ = get();
-            state = ScannerState::kEnd;
-            break;
-        }
-        case ScannerState::kWhiteSpaces: {
-            c_ = get();
-
-            if (is_ws(c_)) {
-                cseq += to_c(c_);
-                state = ScannerState::kWhiteSpaces;
-            } else {
-                type = TokenType::kWhiteSpace;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kLineBreak: {
-            c_ = get();
-
-            if (c_ == '\n') {
-                cseq += to_c(c_);
-                c_ = get();
-            }
-            type = TokenType::kNewLine;
-            state = ScannerState::kEnd;
-            break;
-        }
-        case ScannerState::kEllipsis: {
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '.') {
-                //  "..."
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //error = true;
-                reset(cseq);
-                type = TokenType::kPunctuator;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kPlus: {
-            //  '+'
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '+') {
-                //  "++"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '=') {
-                //  "+="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "+"
-                type = TokenType::kPunctuator;
-                state = ScannerState::kEnd;
-            }
-            break;
-        }
-        case ScannerState::kMinus: {
-            //  '>'
-            //  '-'
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '>') {
-                //  "->"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '-') {
-                //  "--"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '=') {
-                //  "-="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "-"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kAsterisk: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "*="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "*"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kSlash1: {
-            //  '/'
-            //  '*'
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '/') {
-                cseq += to_c(c_);
-                state = ScannerState::kLineComment;
-            } else if (k == '*') {
-                cseq += to_c(c_);
-                state = ScannerState::kBlockComment;
-            } else if (k == '=') {
-                //  "/="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "/"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kPercent1: {
-            //  '>'
-            //  ':'
-            //  ':%:'
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '>') {
-                //  "%>"
-                cseq = "}";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == ':') {
-                cseq += to_c(c_);
-                state = ScannerState::kPercent2;
-            } else if (k == '=') {
-                //  "%="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "%"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kPercent2: {
-            //  '%:'
-            //  END
-            mark();
-
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '%') {
-                cseq += to_c(c_);
-                state = ScannerState::kPercent3;
-            } else {
-                //  "%:"
-                cseq = "#";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kPercent3: {
-            //  ':'
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == ':') {
-                //  "%:%:"
-                cseq = "##";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "%:"
-                reset(cseq);
-                cseq = "#";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kEqual1: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "=="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "="
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kLess1: {
-            //  ':'
-            //  '%'
-            //  '<'
-            //  '='
-            //  '<='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == ':') {
-                //  "<:"
-                cseq = "[";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '%') {
-                //  "<%"
-                cseq = "{";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '<') {
-                cseq += to_c(c_);
-                state = ScannerState::kLess2;
-            } else if (k == '=') {
-                //  "<="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "<"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kLess2: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "<<="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "<<"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kGreater1: {
-            //  '>'
-            //  '='
-            //  '>='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '>') {
-                cseq += to_c(c_);
-                state = ScannerState::kGreater2;
-            } else if (k == '=') {
-                //  ">="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  ">"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kGreater2: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  ">>="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  ">>"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kCaret1: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "^="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "^"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kVerticalBar1: {
-            //  '='
-            //  '|'
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "|="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '|') {
-                //  "||"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "|"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kAmpersand1: {
-            //  '='
-            //  '&'
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "&="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else if (k == '&') {
-                //  "&&"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "&"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kExclamation1: {
-            //  '='
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '=') {
-                //  "!="
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "!"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kColon1: {
-            //  '>'
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '>') {
-                //  ":>"
-                cseq = "]";
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  ":"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kPound1: {
-            //  '#'
-            //  END
-            c_ = get();
-            const int k = char_kind(c_);
-            if (k == '#') {
-                //  "##"
-                cseq += to_c(c_);
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-                c_ = get();
-            } else {
-                //  "#"
-                state = ScannerState::kEnd;
-                type = TokenType::kPunctuator;
-            }
-            break;
-        }
-        case ScannerState::kEnd: {
-            match = true;
+        case ScannerState::kStateHeaderNameA1: {
+            finish(TokenType::kHeaderName);
             break;
         }
         default: {
+            // fatal_error();
             error = true;
-            break;
         }
-        }
+        }   // switch
     }
 
     if (error) {
-        type = TokenType::kNonWhiteSpaceCharacter;
+        type_ = TokenType::kNonWhiteSpaceCharacter;
     }
 
-    return Token(cseq, type, line_number, column);
+    return Token(cseq_, type_, line_number, column);
 }
 
 bool Scanner::is_support_trigraph() {
@@ -1860,16 +1855,53 @@ bool Scanner::splice_source_line(std::string& logical_line, std::string& physica
     return more_splicing;
 }
 
-//void Scanner::transit(int c, State to_state) {
-//	cseq_ += static_cast<char>(c);
-//	state_ = to_state;
-//}
+void Scanner::transit(ScannerState next_state, int c) {
+    cseq_ += to_c(c);
+	state_ = next_state;
+    c_ = get();
+}
 
-//void Scanner::finish(TokenType token_type) {
-//	state_ = ScannerState::kEnd;
-//	type_ = token_type;
-//	c_ = get();
-//}
+void Scanner::transit(ScannerState next_state, int c, ScannerState return_state) {
+    if (return_state_ != ScannerState::kInitial) {
+        throw runtime_error(__func__);
+    }
+
+    cseq_ += to_c(c);
+    state_ = next_state;
+    return_state_ = return_state;
+    c_ = get();
+}
+
+void Scanner::finish(TokenType token_type) {
+    type_ = token_type;
+    match_ = true;
+}
+
+void Scanner::finish(TokenType token_type, std::string_view cseq) {
+    type_ = token_type;
+    cseq_ = cseq;
+    match_ = true;
+}
+
+void Scanner::finish() {
+    if (return_state_ == ScannerState::kInitial) {
+        throw runtime_error(__func__);
+    }
+
+    state_ = return_state_;
+    return_state_ = ScannerState::kInitial;
+}
+
+void Scanner::finish(int c) {
+    if (return_state_ == ScannerState::kInitial) {
+        throw runtime_error(__func__);
+    }
+
+    cseq_ += to_c(c);
+    state_ = return_state_;
+    return_state_ = ScannerState::kInitial;
+    c_ = get();
+}
 
 void Scanner::mark() {
     buf_i_mark_ = buf_i_;

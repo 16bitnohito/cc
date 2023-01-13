@@ -274,7 +274,7 @@ String normalize_path(const String& path) {
     return result;
 }
 
-}	//  anonymous namespace
+}   // anonymous namespace
 
 namespace pp {
 
@@ -1120,8 +1120,8 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
                 result = l % r;
                 break;
             //case OperatorId::kComma:
-            //	result = r;
-            //	break;
+            //    result = r;
+            //    break;
             default:
                 assert(false);
                 break;
@@ -1248,7 +1248,7 @@ bool Preprocessor::elif_groups(bool /*processed*/) {
     //elif_groups(); elif_group();
 
     //do {
-    //	processed = elif_group(processed) || processed;
+    //    processed = elif_group(processed) || processed;
     //} while (peek(1).string() == "#" && as_directive(peek(2)) == TokenType::kElif);
 
     //return processed;
@@ -1354,7 +1354,7 @@ void Preprocessor::control_line(TokenType directive) {
 
     //"#" "define" match(TokenType::kIdentifier); lparen();
     //while (? ? ? ) {
-    //	identifier_list();
+    //    identifier_list();
     //}
     //match(')');
     //replacement_list();
@@ -1612,10 +1612,10 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
     //bool output = cur_group->processing;
 
     //while (peek(1).type() != TokenType::kNewLine) {
-    //	pp_tokens(output);
+    //    pp_tokens(output);
     //}
     //if (output) {
-    //	output_text("\n");
+    //    output_text("\n");
     //}
     //new_line();
 
@@ -1780,7 +1780,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
     // 引数そのものが使われていなくても (__VA_ARGS__が現れなくても)、__VA_OPT__が有れば、その判断に
     // 利用されるので、やはり展開しておく。
     if (used_va_args) {
-        const auto i0 = macro.params().size() - 1;	// マクロの仮引数の数 - 1: 即ち、"..."のオフセット
+        const auto i0 = macro.params().size() - 1;  // マクロの仮引数の数 - 1: 即ち、"..."のオフセット
         const auto end = macro_args.size();
         if (i0 < end) {
             get_expanded_arg(i0, macro_args[i0], expanded_args);
@@ -1808,7 +1808,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
                     substituted.push_back(t);
                 } else {
                     if (macro.has_va_args() && t == kTokenVaArgs) {
-                        const auto i0 = macro.params().size() - 1;	// マクロの仮引数の数 - 1、即ち、"..."のオフセット
+                        const auto i0 = macro.params().size() - 1;  // マクロの仮引数の数 - 1、即ち、"..."のオフセット
                         const auto end = macro_args.size();
                         if (i0 < end) {
                             const auto& a0 = get_expanded_arg(i0, macro_args[i0], expanded_args);
@@ -2060,7 +2060,7 @@ TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macr
         if (i0 < end) {
             const TokenList& a0 = macro_args[i0];
             //if (a0.empty()) {
-            //	result.push_back(kTokenPlaceMarker);
+            //    result.push_back(kTokenPlaceMarker);
             //} else {
             result.insert(result.end(), a0.begin(), a0.end());
             //}
@@ -2072,7 +2072,7 @@ TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macr
         } else {
             const TokenList& a = macro_args[i];
             //if (a.empty()) {
-            //	result.push_back(kTokenPlaceMarker);
+            //    result.push_back(kTokenPlaceMarker);
             //} else {
             result.insert(result.end(), a.begin(), a.end());
             //}

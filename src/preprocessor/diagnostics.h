@@ -85,15 +85,15 @@ extern const StringView kMinSpecMacroArgumentsWarning;
 #define DEBUG(t, ...)
 #define DEBUG_EXPR(expr)
 #else
-#define DEBUG(t, ...)		debug(t, __VA_ARGS__)
-#define DEBUG_EXPR(expr)	expr
+#define DEBUG(t, ...)       debug(t, __VA_ARGS__)
+#define DEBUG_EXPR(expr)    expr
 #endif
 
 
-//  TODO: 出力先を合わせるためだけのものから脱却させる or die。
+// TODO: 出力先を合わせるためだけのものから脱却させる or die。
 class Diagnostics {
 };
 
-}   //  namespace pp
+}   // namespace pp
 
-#endif	//  PREPROCESSOR_DIAGNOSTICS_H_
+#endif  // PREPROCESSOR_DIAGNOSTICS_H_

@@ -16,7 +16,7 @@ add_executable(cpp
                "scanner.cpp" "scanner.h"
                "token.cpp" "token.h"
                "utility.cpp" "utility.h")
-	
+
 target_include_directories(cpp PRIVATE "../../src")
 if (WIN32)
 target_link_libraries (cpp PRIVATE win32util)

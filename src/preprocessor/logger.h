@@ -127,6 +127,6 @@ void log_trace(const StringView& format, const Ts&... args) {
     pp::Logger::instance().trace(format, args...);
 }
 
-}	// namespace pp
+}   // namespace pp
 
 #endif  // CC_PREPROCESSOR_LOGGER_H_

@@ -10,7 +10,7 @@ const std::shared_ptr<Token::TokenValue> Token::kTokenValueASpace = make_shared<
 
 //  static
 const char* Token::type_to_string(TokenType type) {
-#define CASE(t)		case t: return #t
+#define CASE(t)     case t: return #t
     switch (type) {
     CASE(TokenType::kHeaderName);
     CASE(TokenType::kIdentifier);

@@ -14,9 +14,9 @@ const pp::StringView kNoOptionParameterError = T_("オプション {}の値が�
 namespace pp {
 
 Options::Options() {
-    input_encoding_ = T_("utf-8");	//  今は気分的なもの。
+    input_encoding_ = T_("utf-8");  // 今は気分的なもの。
     //input_filepath_;
-    output_encoding_ = T_("utf-8");	//  今は気分的なもの。
+    output_encoding_ = T_("utf-8"); // 今は気分的なもの。
     //output_filepath_;
     output_line_directive_ = true;
     output_comment_ = false;
@@ -62,7 +62,7 @@ const std::vector<MacroDefinitionOperation>& Options::macro_operations() const {
 
 bool Options::parse_options(const std::vector<String>& args) {
     if (ssize(args) > numeric_limits<int>::max()) {
-        return false;	// too many options
+        return false;   // too many options
     }
 
     int argc = static_cast<int>(ssize(args));
@@ -126,12 +126,12 @@ bool Options::parse_options(const std::vector<String>& args) {
             }
             //  TODO: 将来的には。
             //case 'P': {
-            //	output_line_directive_ = false;
-            //	break;
+            //    output_line_directive_ = false;
+            //    break;
             //}
             //case 'C': {
-            //	output_comment_ = true;
-            //	break;
+            //    output_comment_ = true;
+            //    break;
             //}
             case T_('o'): {
                 String path;

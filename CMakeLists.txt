@@ -23,7 +23,7 @@ set(CMAKE_CXX_EXTENSIONS off)
 
 # 共通設定
 if (MSVC)
-    string(REGEX REPLACE "/W[0-3]" "/Wall" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/W[0-3]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     add_compile_options(
                         /wd4061     # switch 中の列挙子 '' ('' の) は case ラベルによって明示的にハンドルされません。
                         #/wd4245     # '' から '' に変換しました。signed/unsigned が一致しません。

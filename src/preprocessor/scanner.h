@@ -217,6 +217,6 @@ private:
     std::uint32_t ucn_digit_start_;
 };
 
-}   //  namespace pp
+}   // namespace pp
 
-#endif	//  PREPROCESSOR_SCANNER_H_
+#endif  // PREPROCESSOR_SCANNER_H_

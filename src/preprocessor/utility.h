@@ -21,21 +21,21 @@ using PlatformChar = lib::win32util::Win32Char;
 using PathChar = std::filesystem::path::value_type;
 
 #if defined(WIN32UTIL_STRICT_CHAR_TYPE)
-#define T__(l)	as_internal(l)
+#define T__(l)  as_internal(l)
 #else
-//#define T__(l)	L ## l
-#define T__(l)	l
-//#define T__(l)	u8 ## l
+//#define T__(l)  L ## l
+#define T__(l)  l
+//#define T__(l)  u8 ## l
 #endif
 #else
 using Char = char;
 using PlatformChar = char;
 using PathChar = char;
 
-#define T__(l)	l
+#define T__(l)  l
 #endif
 
-#define T_(l)	T__(l)
+#define T_(l)   T__(l)
 
 using String = std::basic_string<Char>;
 using StringView = std::basic_string_view<Char>;
@@ -90,7 +90,7 @@ PlatformString platform_string(StringView s) {
 
 //[[nodiscard]] inline
 //PlatformString platform_string(const String& s) {
-//	return lib::win32util::u8s_to_wcs(s);
+//  return lib::win32util::u8s_to_wcs(s);
 //}
 
 [[nodiscard]] inline
@@ -126,7 +126,7 @@ const String& internal_string(const PlatformString& s) {
 
 //[[nodiscard]] inline constexpr
 //String internal_string(PlatformStringView s) {
-//	return String(s.data(), s.length());
+//  return String(s.data(), s.length());
 //}
 
 [[nodiscard]] inline constexpr
@@ -236,6 +236,6 @@ void raise_generic_error(const char* message, int error);
 // Win32エラーは、win32util内でwin32_categoryを定義し、それをエラー値と共に
 // lib::win32util::raise_win32_errorから送出しています。
 
-}	//  namespace pp
+}   // namespace pp
 
-#endif	//  PREPROCESSOR_UTILITY_H_
+#endif  // PREPROCESSOR_UTILITY_H_

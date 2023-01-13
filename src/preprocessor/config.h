@@ -1,29 +1,29 @@
 #ifndef PREPROCESSOR_CONFIG_H_
 #define PREPROCESSOR_CONFIG_H_
 
-//  HOST
-#define PLATFORM_UNKNOWN		0
-#define PLATFORM_WINDOWS		1
+// HOST
+#define PLATFORM_UNKNOWN    0
+#define PLATFORM_WINDOWS    1
 
 #if defined(_WIN32)
-#define HOST_PLATFORM		PLATFORM_WINDOWS
+#define HOST_PLATFORM   PLATFORM_WINDOWS
 #else
-#define HOST_PLATFORM		PLATFORM_UNKNOWN
+#define HOST_PLATFORM   PLATFORM_UNKNOWN
 #endif
 
 namespace pp {
 
-//  TARGET
+// TARGET
 using target_intmax_t = std::int32_t;
 using target_uintmax_t = std::uint32_t;
 
-//  BUILD
+// BUILD
 //#if USE_STD_FILESYSTEM
 //using Path = std::filesystem::path;
 //#else
 //using Path = std::wstring;
 //#endif
 
-}   //  namespace pp
+}   // namespace pp
 
-#endif	//	PREPROCESSOR_CONFIG_H_
+#endif  // PREPROCESSOR_CONFIG_H_

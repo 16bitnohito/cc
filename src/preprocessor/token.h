@@ -178,6 +178,6 @@ using TokenList = std::vector<Token>;
 extern const Token kTokenNull;
 extern const Token kTokenEndOfFile;
 
-}   //  namespace pp
+}   // namespace pp
 
-#endif	//  PREPROCESSOR_TOKEN_H_
+#endif  // PREPROCESSOR_TOKEN_H_

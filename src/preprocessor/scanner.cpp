@@ -288,7 +288,7 @@ std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
     return s;
 }
 
-}	//  anonymous namespace
+}   // anonymous namespace
 
 namespace pp {
 
@@ -537,12 +537,12 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "D"
+                finish(TokenType::kPpNumber);   // "D"
             }
             break;
         }
@@ -553,7 +553,7 @@ Token Scanner::next_token() {
             } else if (c_ == '>') {
                 transit(ScannerState::kState160, c_);
             } else {
-                finish(TokenType::kPunctuator);	// ":"
+                finish(TokenType::kPunctuator); // ":"
             }
             break;
         }
@@ -565,12 +565,12 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState250_251, c_);
             } else if (c_ == '8') {
                 transit(ScannerState::kState258_232_249_234_219_269_238, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
-                finish(TokenType::kIdentifier);	// "u"
+                finish(TokenType::kIdentifier); // "u"
             }
             break;
         }
@@ -581,13 +581,13 @@ Token Scanner::next_token() {
             } else if (c_ == '|') {
                 transit(ScannerState::kState82, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "|"
+                finish(TokenType::kPunctuator); // "|"
             }
             break;
         }
         case ScannerState::kState10: {
             mark();
-            finish(TokenType::kPunctuator);	// "{"
+            finish(TokenType::kPunctuator); // "{"
             break;
         }
         case ScannerState::kState64_65_100: {
@@ -595,24 +595,24 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState66, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "="
+                finish(TokenType::kPunctuator); // "="
             }
             break;
         }
         case ScannerState::kState160: {
             mark();
-            finish(TokenType::kPunctuator, "]");	// ":>"
+            finish(TokenType::kPunctuator, "]");    // ":>"
             break;
         }
         case ScannerState::kState36: {
             mark();
-            finish(TokenType::kPunctuator);	// "~"
+            finish(TokenType::kPunctuator); // "~"
             break;
         }
         case ScannerState::kState207_199: {
-            if (c_ == '+' || c_ == '-') {	// 'g'
+            if (c_ == '+' || c_ == '-') {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
@@ -622,9 +622,9 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState193_194_189_190: {
-            if (isdigit(c_)) {	// 'D'
+            if (isdigit(c_)) {  // 'D'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191, c_);
-            } else if (c_ == '_' || isalpha(c_)) {	// 'N'
+            } else if (c_ == '_' || isalpha(c_)) {  // 'N'
                 transit(ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188, c_);
             } else {
                 error = true;
@@ -636,7 +636,7 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState70, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "!"
+                finish(TokenType::kPunctuator); // "!"
             }
             break;
         }
@@ -645,19 +645,19 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState104, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "*"
+                finish(TokenType::kPunctuator); // "*"
             }
             break;
         }
         case ScannerState::kState90: {
             mark();
-            finish(TokenType::kPunctuator);	// "::"
+            finish(TokenType::kPunctuator); // "::"
             break;
         }
         case ScannerState::kState197_207: {
-            if (c_ == '+' || c_ == '-') {	// 'g'
+            if (c_ == '+' || c_ == '-') {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
@@ -673,7 +673,7 @@ Token Scanner::next_token() {
             } else if (c_ == '=') {
                 transit(ScannerState::kState136, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "&"
+                finish(TokenType::kPunctuator); // "&"
             }
             break;
         }
@@ -683,12 +683,12 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState273_274_270_271, c_);
             } else if (c_ == '\'') {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
-                finish(TokenType::kIdentifier);	// "u8"
+                finish(TokenType::kIdentifier); // "u8"
             }
             break;
         }
@@ -701,18 +701,18 @@ Token Scanner::next_token() {
             } else if (c_ == '>') {
                 transit(ScannerState::kState18, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "-"
+                finish(TokenType::kPunctuator); // "-"
             }
             break;
         }
         case ScannerState::kState8: {
             mark();
-            finish(TokenType::kPunctuator);	// ")"
+            finish(TokenType::kPunctuator); // ")"
             break;
         }
         case ScannerState::kState82: {
             mark();
-            finish(TokenType::kPunctuator);	// "||"
+            finish(TokenType::kPunctuator); // "||"
             break;
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191: {
@@ -729,18 +729,18 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "D\'D"
+                finish(TokenType::kPpNumber);   // "D\'D"
             }
             break;
         }
         case ScannerState::kState92: {
             mark();
-            finish(TokenType::kPunctuator);	// ";"
+            finish(TokenType::kPunctuator); // ";"
             break;
         }
         case ScannerState::kState166_167_170_42_171_174_110_175_111: {
@@ -752,14 +752,14 @@ Token Scanner::next_token() {
             } else if (c_ == '>') {
                 transit(ScannerState::kState168, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "%"
+                finish(TokenType::kPunctuator); // "%"
             }
             break;
         }
         case ScannerState::kState201_207: {
-            if (c_ == '+' || c_ == '-') {	// 'g'
+            if (c_ == '+' || c_ == '-') {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
@@ -771,9 +771,9 @@ Token Scanner::next_token() {
         case ScannerState::kState273_274_270_271: {
             if (c_ == '"') {
                 transit(ScannerState::kState275, c_);
-            } else if (c_ == '\\') {	// 's'
+            } else if (c_ == '\\') {    // 's'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
-            } else {	// 's'
+            } else {    // 's'
                 if (is_eol(c_)) {
                     error = true;
                 } else {
@@ -785,22 +785,22 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState136: {
             mark();
-            finish(TokenType::kPunctuator);	// "&="
+            finish(TokenType::kPunctuator); // "&="
             break;
         }
         case ScannerState::kState112: {
             mark();
-            finish(TokenType::kPunctuator);	// "%="
+            finish(TokenType::kPunctuator); // "%="
             break;
         }
         case ScannerState::kState26: {
             mark();
-            finish(TokenType::kPunctuator);	// "--"
+            finish(TokenType::kPunctuator); // "--"
             break;
         }
         case ScannerState::kState146: {
             mark();
-            finish(TokenType::kPunctuator);	// ","
+            finish(TokenType::kPunctuator); // ","
             break;
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188: {
@@ -817,12 +817,12 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "D..."
+                finish(TokenType::kPpNumber);   // "D..."
             }
             break;
         }
@@ -831,7 +831,7 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState140, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "^"
+                finish(TokenType::kPunctuator); // "^"
             }
             break;
         }
@@ -842,7 +842,7 @@ Token Scanner::next_token() {
             } else if (c_ == '>') {
                 transit(ScannerState::kState130_131_50, c_);
             } else {
-                finish(TokenType::kPunctuator);	// ">"
+                finish(TokenType::kPunctuator); // ">"
             }
             break;
         }
@@ -850,10 +850,10 @@ Token Scanner::next_token() {
             mark();
             if (c_ == '.') {
                 transit(ScannerState::kState96_97, c_);
-            } else if (isdigit(c_)) {	// 'D'
+            } else if (isdigit(c_)) {   // 'D'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "."
+                finish(TokenType::kPunctuator); // "."
             }
             break;
         }
@@ -879,18 +879,18 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "DCCCC"
+                finish(TokenType::kPpNumber);   // "DCCCC"
             }
             break;
         }
         case ScannerState::kState70: {
             mark();
-            finish(TokenType::kPunctuator);	// "!="
+            finish(TokenType::kPunctuator); // "!="
             break;
         }
         case ScannerState::kState148_150_151: {
@@ -898,13 +898,13 @@ Token Scanner::next_token() {
             if (c_ == '#') {
                 transit(ScannerState::kState152, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "#"
+                finish(TokenType::kPunctuator); // "#"
             }
             break;
         }
         case ScannerState::kState275: {
             mark();
-            finish(TokenType::kStringLiteral);	// """"""
+            finish(TokenType::kStringLiteral);  // """"""
             break;
         }
         case ScannerState::kState232_225_244_264_249_234_269: {
@@ -913,18 +913,18 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState273_274_270_271, c_);
             } else if (c_ == '\'') {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
-                finish(TokenType::kIdentifier);	// "L"
+                finish(TokenType::kIdentifier); // "L"
             }
             break;
         }
         case ScannerState::kState12: {
             mark();
-            finish(TokenType::kPunctuator);	// "}"
+            finish(TokenType::kPunctuator); // "}"
             break;
         }
         case ScannerState::kState242_262_232_249_234_269_223: {
@@ -933,23 +933,23 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState273_274_270_271, c_);
             } else if (c_ == '\'') {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
-                finish(TokenType::kIdentifier);	// "U"
+                finish(TokenType::kIdentifier); // "U"
             }
             break;
         }
         case ScannerState::kState4: {
             mark();
-            finish(TokenType::kPunctuator);	// "]"
+            finish(TokenType::kPunctuator); // "]"
             break;
         }
         case ScannerState::kState144: {
             mark();
-            finish(TokenType::kPunctuator);	// "|="
+            finish(TokenType::kPunctuator); // "|="
             break;
         }
         case ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188: {
@@ -966,36 +966,36 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "D\'N"
+                finish(TokenType::kPpNumber);   // "D\'N"
             }
             break;
         }
         case ScannerState::kState140: {
             mark();
-            finish(TokenType::kPunctuator);	// "^="
+            finish(TokenType::kPunctuator); // "^="
             break;
         }
         case ScannerState::kState232_234_227: {
             mark();
-            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {  // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 error = contains_invalid_ucn_for_identifier(cseq_);
-                finish(TokenType::kIdentifier);	// "S"
+                finish(TokenType::kIdentifier); // "S"
             }
             break;
         }
         case ScannerState::kState250_251: {
-            if (c_ == '\\') {	// 'c'
+            if (c_ == '\\') {   // 'c'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
-            } else {	// 'c'
+            } else {    // 'c'
                 if (is_eol(c_)) {
                     error = true;
                 } else {
@@ -1012,7 +1012,7 @@ Token Scanner::next_token() {
             } else if (c_ == '=') {
                 transit(ScannerState::kState116, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "+"
+                finish(TokenType::kPunctuator); // "+"
             }
             break;
         }
@@ -1031,17 +1031,17 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState2: {
             mark();
-            finish(TokenType::kPunctuator);	// "["
+            finish(TokenType::kPunctuator); // "["
             break;
         }
         case ScannerState::kState104: {
             mark();
-            finish(TokenType::kPunctuator);	// "*="
+            finish(TokenType::kPunctuator); // "*="
             break;
         }
         case ScannerState::kState84: {
             mark();
-            finish(TokenType::kPunctuator);	// "?"
+            finish(TokenType::kPunctuator); // "?"
             break;
         }
         case ScannerState::kState162_163_122_123_44_45_52_56_57_154_155: {
@@ -1055,33 +1055,33 @@ Token Scanner::next_token() {
             } else if (c_ == '=') {
                 transit(ScannerState::kState58, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "<"
+                finish(TokenType::kPunctuator); // "<"
             }
             break;
         }
         case ScannerState::kState164: {
             mark();
-            finish(TokenType::kPunctuator, "{");	// "<%"
+            finish(TokenType::kPunctuator, "{");    // "<%"
             break;
         }
         case ScannerState::kState98: {
             mark();
-            finish(TokenType::kPunctuator);	// "..."
+            finish(TokenType::kPunctuator); // "..."
             break;
         }
         case ScannerState::kState152: {
             mark();
-            finish(TokenType::kPunctuator);	// "##"
+            finish(TokenType::kPunctuator); // "##"
             break;
         }
         case ScannerState::kState6: {
             mark();
-            finish(TokenType::kPunctuator);	// "("
+            finish(TokenType::kPunctuator); // "("
             break;
         }
         case ScannerState::kState168: {
             mark();
-            finish(TokenType::kPunctuator, "}");	// "%>"
+            finish(TokenType::kPunctuator, "}");    // "%>"
             break;
         }
         case ScannerState::kState176_177_172: {
@@ -1089,14 +1089,14 @@ Token Scanner::next_token() {
             if (c_ == '%') {
                 transit(ScannerState::kState178_179, c_);
             } else {
-                finish(TokenType::kPunctuator, "#");	// "%:"
+                finish(TokenType::kPunctuator, "#");    // "%:"
             }
             break;
         }
         case ScannerState::kState203_207: {
-            if (c_ == '+' || c_ == '-') {	// 'g'
+            if (c_ == '+' || c_ == '-') {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
@@ -1107,29 +1107,29 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState62: {
             mark();
-            finish(TokenType::kPunctuator);	// ">="
+            finish(TokenType::kPunctuator); // ">="
             break;
         }
         case ScannerState::kState156: {
             mark();
-            finish(TokenType::kPunctuator, "[");	// "<:"
+            finish(TokenType::kPunctuator, "[");    // "<:"
             break;
         }
         case ScannerState::kState232_233: {
             mark();
-            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {  // 'C'
                 transit(ScannerState::kState232_233, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 error = contains_invalid_ucn_for_identifier(cseq_);
-                finish(TokenType::kIdentifier);	// "uCCCCCC"
+                finish(TokenType::kIdentifier); // "uCCCCCC"
             }
             break;
         }
         case ScannerState::kState66: {
             mark();
-            finish(TokenType::kPunctuator);	// "=="
+            finish(TokenType::kPunctuator); // "=="
             break;
         }
         case ScannerState::kState124_125_46: {
@@ -1137,23 +1137,23 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState126, c_);
             } else {
-                finish(TokenType::kPunctuator);	// "<<"
+                finish(TokenType::kPunctuator); // "<<"
             }
             break;
         }
         case ScannerState::kState116: {
             mark();
-            finish(TokenType::kPunctuator);	// "+="
+            finish(TokenType::kPunctuator); // "+="
             break;
         }
         case ScannerState::kState120: {
             mark();
-            finish(TokenType::kPunctuator);	// "-="
+            finish(TokenType::kPunctuator); // "-="
             break;
         }
         case ScannerState::kState78: {
             mark();
-            finish(TokenType::kPunctuator);	// "&&"
+            finish(TokenType::kPunctuator); // "&&"
             break;
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188: {
@@ -1170,23 +1170,23 @@ Token Scanner::next_token() {
                 transit(ScannerState::kState197_207, c_);
             } else if (c_ == 'p') {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {	// 'C'
+            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
             } else if (c_ == '\\') {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
-                finish(TokenType::kPpNumber);	// "DEgggg"
+                finish(TokenType::kPpNumber);   // "DEgggg"
             }
             break;
         }
         case ScannerState::kState18: {
             mark();
-            finish(TokenType::kPunctuator);	// "->"
+            finish(TokenType::kPunctuator); // "->"
             break;
         }
         case ScannerState::kState108: {
             mark();
-            finish(TokenType::kPunctuator);	// "/="
+            finish(TokenType::kPunctuator); // "/="
             break;
         }
         case ScannerState::kState130_131_50: {
@@ -1194,16 +1194,16 @@ Token Scanner::next_token() {
             if (c_ == '=') {
                 transit(ScannerState::kState132, c_);
             } else {
-                finish(TokenType::kPunctuator);	// ">>"
+                finish(TokenType::kPunctuator); // ">>"
             }
             break;
         }
         case ScannerState::kState272_274_271: {
             if (c_ == '"') {
                 transit(ScannerState::kState275, c_);
-            } else if (c_ == '\\') {	// 's'
+            } else if (c_ == '\\') {    // 's'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
-            } else {	// 's'
+            } else {    // 's'
                 if (is_eol(c_)) {
                     error = true;
                 } else {
@@ -1216,9 +1216,9 @@ Token Scanner::next_token() {
         case ScannerState::kState251_252_253: {
             if (c_ == '\'') {
                 transit(ScannerState::kState254, c_);
-            } else if (c_ == '\\') {	// 'c'
+            } else if (c_ == '\\') {    // 'c'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
-            } else {	// 'c'
+            } else {    // 'c'
                 if (is_eol(c_)) {
                     error = true;
                 } else {
@@ -1230,27 +1230,27 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState58: {
             mark();
-            finish(TokenType::kPunctuator);	// "<="
+            finish(TokenType::kPunctuator); // "<="
             break;
         }
         case ScannerState::kState22: {
             mark();
-            finish(TokenType::kPunctuator);	// "++"
+            finish(TokenType::kPunctuator); // "++"
             break;
         }
         case ScannerState::kState132: {
             mark();
-            finish(TokenType::kPunctuator);	// ">>="
+            finish(TokenType::kPunctuator); // ">>="
             break;
         }
         case ScannerState::kState254: {
             mark();
-            finish(TokenType::kCharacterConstant);	// "\'\'\'\'\'c\'"
+            finish(TokenType::kCharacterConstant);  // "\'\'\'\'\'c\'"
             break;
         }
         case ScannerState::kState126: {
             mark();
-            finish(TokenType::kPunctuator);	// "<<="
+            finish(TokenType::kPunctuator); // "<<="
             break;
         }
         case ScannerState::kState178_179: {
@@ -1263,7 +1263,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState180: {
             mark();
-            finish(TokenType::kPunctuator, "##");	// "%:%:"
+            finish(TokenType::kPunctuator, "##");   // "%:%:"
             break;
         }
 
@@ -1859,7 +1859,7 @@ bool Scanner::splice_source_line(std::string& logical_line, std::string& physica
 
 void Scanner::transit(ScannerState next_state, int c) {
     cseq_ += to_c(c);
-	state_ = next_state;
+    state_ = next_state;
     c_ = get();
 }
 

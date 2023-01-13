@@ -35,7 +35,7 @@ std::vector<std::string_view> integer_suffixes = {
     "ull",
 };
 
-}	//  anonymous namespace
+}   //  anonymous namespace
 
 namespace pp {
 
@@ -72,8 +72,7 @@ bool parse_int(const std::string& s, target_intmax_t* result) {
 
         *result = n;
         return true;
-    }
-    catch (...) {
+    } catch (...) {
         return false;
     }
 }

@@ -50,6 +50,6 @@ struct Operator {
 void init_calculator();
 bool parse_int(const std::string& s, target_intmax_t* result);
 
-}   //  namespace pp
+}   // namespace pp
 
-#endif	//  PREPROCESSOR_CALCULATOR_H_
+#endif  // PREPROCESSOR_CALCULATOR_H_

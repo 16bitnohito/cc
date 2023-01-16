@@ -299,11 +299,14 @@ Scanner::Scanner(std::istream& input, bool trigraph)
     , line_number_()
     , trigraph_(trigraph)
     , c_()
-    //, cseq_()
-    //, state_(ScannerState::kInitial)
+    , cseq_()
+    , state_(ScannerState::kInitial)
+    , return_state_(ScannerState::kInitial)
     , hint_(ScannerHint::kInitial)
-    //, type_()
-    , buf_i_mark_() {
+    , type_(TokenType::kNull)
+    , match_()
+    , buf_i_mark_()
+    , ucn_digit_start_() {
     //  申し訳程度
     static constexpr char kUtf8Bom[] = "\xef\xbb\xbf";
     for (auto b : kUtf8Bom) {

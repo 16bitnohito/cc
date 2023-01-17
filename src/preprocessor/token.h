@@ -38,6 +38,7 @@ enum class TokenType {
     kElse,
     kEndif,
     kError,
+    kWarning,
     kLine,
     kPragma,
 

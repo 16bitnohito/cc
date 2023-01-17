@@ -32,17 +32,18 @@ std::vector<std::tuple<std::string, pp::TokenType>> directives = {
     { "else", TokenType::kElse },
     { "endif", TokenType::kEndif },
     { "error", TokenType::kError },
+    { "warning", TokenType::kWarning },
     { "line", TokenType::kLine },
     { "pragma", TokenType::kPragma },
 };
 
 pp::TokenType as_directive(const Token& token) {
-    const string& s = token.string();
-    auto it = lower_bound(begin(directives), end(directives), s,
-            [](const auto& lhs, const auto& rhs) {
-                return get<0>(lhs) < rhs;
+    auto it = binary_find(
+            begin(directives), end(directives), tuple{ token.string(), TokenType::kNull },
+            [](auto&& lhs, auto&& rhs) {
+                return get<0>(lhs) < get<0>(rhs);
             });
-    if (it != directives.end() && !(s < get<0>(*it))) {
+    if (it != end(directives)) {
         return get<1>(*it);
     } else {
         return token.type();
@@ -720,6 +721,7 @@ bool Preprocessor::group_part() {
             dir == TokenType::kUndef ||
             dir == TokenType::kLine ||
             dir == TokenType::kError ||
+            dir == TokenType::kWarning ||
             dir == TokenType::kPragma ||
             dir == TokenType::kNewLine) {
             control_line(dir);
@@ -1377,6 +1379,7 @@ void Preprocessor::control_line(TokenType directive) {
     //"#" "undef" identifier(); new_line();
     //"#" "line" pp_tokens(); new_line();
     //"#" "error" pp_tokens() ? ; new_line();
+    //"#" "warning" pp_tokens() ? ; new_line();
     //"#" "pragma" pp_tokens() ? ; new_line();
     //"#" new_line();
 
@@ -1577,6 +1580,19 @@ void Preprocessor::control_line(TokenType directive) {
         new_line();
 
         error(t, T_("#error {}"), internal_from_source(Token::concat_string(ts)));
+        break;
+    }
+    case TokenType::kWarning: {
+        Token t = peek(1);
+        match("warning");
+        skip_ws();
+
+        TokenList ts;
+        skip_directive_line(&ts);
+        ts = shrink_ws_tokens(ts);
+        new_line();
+
+        warning(t, T_("#warning {}"), internal_from_source(Token::concat_string(ts)));
         break;
     }
     case TokenType::kPragma: {

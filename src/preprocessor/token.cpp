@@ -36,6 +36,7 @@ const char* Token::type_to_string(TokenType type) {
     CASE(TokenType::kElse);
     CASE(TokenType::kEndif);
     CASE(TokenType::kError);
+    CASE(TokenType::kWarning);
     CASE(TokenType::kLine);
     CASE(TokenType::kPragma);
 

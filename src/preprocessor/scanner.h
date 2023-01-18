@@ -194,7 +194,6 @@ private:
     void transit(ScannerState next_state, int c);
     void transit(ScannerState next_state, int c, ScannerState return_state);
     void finish(TokenType token_type);
-    void finish(TokenType token_type, std::string_view cseq);
     void finish();
     void finish(int c);
     void mark();

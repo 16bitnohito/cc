@@ -51,6 +51,20 @@ enum class TokenType {
     kNonReplacementTarget,
 
     kEndOfFile,
+
+    // kPunctuatorで代替トークンが有るものはタイプを明示する。
+    kLeftBracket,
+    kRightBracket,
+    kLeftBrace,
+    kRightBrace,
+    kHash,
+    kHashHash,
+
+    // ついでに、コード中でよく利用される kPunctuatorのトークンも明示する。
+    kLeftParenthesis,
+    kRightParenthesis,
+    kEllipsis,
+    kComma,
 };
 
 /**
@@ -128,20 +142,12 @@ public:
     Token& operator=(const Token& rhs) = default;
     Token& operator=(Token&& rhs) = default;
 
-    bool operator==(const Token& rhs) const {
-        return type() == rhs.type() && string() == rhs.string();
-    }
-
-    bool operator!=(const Token& rhs) const {
-        return !(*this == rhs);
-    }
-
     const std::string& string() const {
         return value_->string();
     }
 
     TokenType type() const {
-        return static_cast<TokenType>(value_->type());
+        return value_->type();
     }
 
     std::uint32_t line() const {
@@ -154,6 +160,10 @@ public:
 
     std::uint32_t column() const {
         return column_;
+    }
+
+    bool is_null() const {
+        return type() == TokenType::kNull;
     }
 
     bool is_eol() const {
@@ -175,6 +185,7 @@ private:
 };
 
 using TokenList = std::vector<Token>;
+bool token_list_equal(const TokenList& lhs, const TokenList& rhs);
 
 extern const Token kTokenNull;
 extern const Token kTokenEndOfFile;

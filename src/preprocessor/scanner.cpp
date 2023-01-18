@@ -590,7 +590,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState10: {
             mark();
-            finish(TokenType::kPunctuator); // "{"
+            finish(TokenType::kLeftBrace); // "{"
             break;
         }
         case ScannerState::kState64_65_100: {
@@ -604,7 +604,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState160: {
             mark();
-            finish(TokenType::kPunctuator, "]");    // ":>"
+            finish(TokenType::kRightBracket);    // ":>"
             break;
         }
         case ScannerState::kState36: {
@@ -710,7 +710,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState8: {
             mark();
-            finish(TokenType::kPunctuator); // ")"
+            finish(TokenType::kRightParenthesis); // ")"
             break;
         }
         case ScannerState::kState82: {
@@ -803,7 +803,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState146: {
             mark();
-            finish(TokenType::kPunctuator); // ","
+            finish(TokenType::kComma); // ","
             break;
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188: {
@@ -901,7 +901,7 @@ Token Scanner::next_token() {
             if (c_ == '#') {
                 transit(ScannerState::kState152, c_);
             } else {
-                finish(TokenType::kPunctuator); // "#"
+                finish(TokenType::kHash); // "#"
             }
             break;
         }
@@ -927,7 +927,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState12: {
             mark();
-            finish(TokenType::kPunctuator); // "}"
+            finish(TokenType::kRightBrace); // "}"
             break;
         }
         case ScannerState::kState242_262_232_249_234_269_223: {
@@ -947,7 +947,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState4: {
             mark();
-            finish(TokenType::kPunctuator); // "]"
+            finish(TokenType::kRightBracket); // "]"
             break;
         }
         case ScannerState::kState144: {
@@ -1034,7 +1034,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState2: {
             mark();
-            finish(TokenType::kPunctuator); // "["
+            finish(TokenType::kLeftBracket); // "["
             break;
         }
         case ScannerState::kState104: {
@@ -1064,27 +1064,27 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState164: {
             mark();
-            finish(TokenType::kPunctuator, "{");    // "<%"
+            finish(TokenType::kLeftBrace);    // "<%"
             break;
         }
         case ScannerState::kState98: {
             mark();
-            finish(TokenType::kPunctuator); // "..."
+            finish(TokenType::kEllipsis); // "..."
             break;
         }
         case ScannerState::kState152: {
             mark();
-            finish(TokenType::kPunctuator); // "##"
+            finish(TokenType::kHashHash); // "##"
             break;
         }
         case ScannerState::kState6: {
             mark();
-            finish(TokenType::kPunctuator); // "("
+            finish(TokenType::kLeftParenthesis); // "("
             break;
         }
         case ScannerState::kState168: {
             mark();
-            finish(TokenType::kPunctuator, "}");    // "%>"
+            finish(TokenType::kRightBrace);    // "%>"
             break;
         }
         case ScannerState::kState176_177_172: {
@@ -1092,7 +1092,7 @@ Token Scanner::next_token() {
             if (c_ == '%') {
                 transit(ScannerState::kState178_179, c_);
             } else {
-                finish(TokenType::kPunctuator, "#");    // "%:"
+                finish(TokenType::kHash);    // "%:"
             }
             break;
         }
@@ -1115,7 +1115,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState156: {
             mark();
-            finish(TokenType::kPunctuator, "[");    // "<:"
+            finish(TokenType::kLeftBracket);    // "<:"
             break;
         }
         case ScannerState::kState232_233: {
@@ -1266,7 +1266,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState180: {
             mark();
-            finish(TokenType::kPunctuator, "##");   // "%:%:"
+            finish(TokenType::kHashHash);   // "%:%:"
             break;
         }
 
@@ -1879,12 +1879,6 @@ void Scanner::transit(ScannerState next_state, int c, ScannerState return_state)
 
 void Scanner::finish(TokenType token_type) {
     type_ = token_type;
-    match_ = true;
-}
-
-void Scanner::finish(TokenType token_type, std::string_view cseq) {
-    type_ = token_type;
-    cseq_ = cseq;
     match_ = true;
 }
 

@@ -284,19 +284,12 @@ const StringView kNoSuchFileError = T_("ファイルが開けない: {}\n");
 const StringView kFileOutputError = T_("出力に失敗した。\n");
 const StringView kErrorFileOutputError = T_("エラー出力に失敗した。\n");
 
-const Token kTokenASpace(" ", TokenType::kWhiteSpace);
-const Token kTokenOpenParen("(", TokenType::kPunctuator);
-const Token kTokenCloseParen(")", TokenType::kPunctuator);
-const Token kTokenComma(",", TokenType::kPunctuator);
-const Token kTokenEllipsis("...", TokenType::kPunctuator);
-const Token kTokenOpStringize("#", TokenType::kPunctuator);
-const Token kTokenOpConcat("##", TokenType::kPunctuator);
-const Token kTokenOpDefined("defined", TokenType::kIdentifier);
-const Token kTokenOpPragma("_Pragma", TokenType::kIdentifier);
-const Token kTokenStdc("STDC", TokenType::kIdentifier);
-const Token kTokenVaArgs("__VA_ARGS__", TokenType::kIdentifier);
-const Token kTokenVaOpt("__VA_OPT__", TokenType::kIdentifier);
-const Token kTokenOpHasCAttribute("__has_c_attribute", TokenType::kIdentifier);
+constexpr char kIdentPragma[] = "_Pragma";
+constexpr char kIdentDefined[] = "defined";
+constexpr char kIdentVaArgs[] = "__VA_ARGS__";
+constexpr char kIdentVaOpt[] = "__VA_OPT__";
+constexpr char kIdentHasCAttribute[] = "__has_c_attribute";
+constexpr char kPunctEllipsis[] = "...";
 
 // static
 MacroPtr Macro::create_macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token) {
@@ -343,7 +336,7 @@ void Macro::reset(const ParamList& params, const TokenList& replist, const std::
     expantion_method_ = get_expantion_method(MacroForm::kFunctionLike, name_, replist);
     params_ = params;
     replist_ = replist;
-    has_va_args_ = (params.empty()) ? false : (params.back() == kTokenEllipsis.string());
+    has_va_args_ = (params.empty()) ? false : (params.back() == kPunctEllipsis);
     source_ = source;
     line_ = name_token.line();
     column_ = name_token.column();
@@ -368,18 +361,18 @@ Macro::Macro(const std::string& name, const std::string& value, const TokenType 
 }
 
 MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::string& name, const TokenList& replist) {
-    if (name == kTokenOpPragma.string()) {
+    if (name == kIdentPragma) {
         return MacroExpantionMethod::kOpPragma;
-    } else if (name == kTokenVaOpt.string()) {
+    } else if (name == kIdentVaOpt) {
         return MacroExpantionMethod::kVaOpt;
-    } else if (name == kTokenOpHasCAttribute.string()) {
+    } else if (name == kIdentHasCAttribute) {
         return MacroExpantionMethod::kOpHasCAttribute;
     } else {
         bool directly = true;
         for (const auto& t : replist) {
             if (t.type() == TokenType::kIdentifier ||
-                t == kTokenOpStringize ||
-                t == kTokenOpConcat) {
+                t.type() == TokenType::kHash ||
+                t.type() == TokenType::kHashHash) {
                 directly = false;
                 break;
             }
@@ -573,7 +566,7 @@ void Preprocessor::prepare_predefined_macro() {
     add_predefined_macro("__STDC_NO_VLA__",     "1", TokenType::kPpNumber);
 
     //  マクロではないが、マクロ定義の対象にならない？ようなのでここで追加する。
-    predef_macro_names_.push_back(kTokenOpDefined.string());
+    predef_macro_names_.push_back(kIdentDefined);
 
     //  仕様的な定義済みマクロはここまでとして、後の検索の為にソートしておく。
     sort(predef_macro_names_.begin(), predef_macro_names_.end());
@@ -582,9 +575,9 @@ void Preprocessor::prepare_predefined_macro() {
     //  実際の処理は独自のメソッドで行われるので置換リストは適当に。
     {
         auto op_pragma = Macro::create_macro(
-            kTokenOpPragma.string(),
-            Macro::ParamList{ "content" },
-            TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
+                kIdentPragma,
+                Macro::ParamList{ "content" },
+                TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
         auto result = macros_.insert({ op_pragma->name(), op_pragma });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__) /* ロジックエラーかメモリーが足りないか？ */);
@@ -594,9 +587,9 @@ void Preprocessor::prepare_predefined_macro() {
     //  __VA_OPT__は特別なマクロとして扱う。
     {
         auto op_va_opt = Macro::create_macro(
-            kTokenVaOpt.string(),
-            Macro::ParamList{ "content" },
-            TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
+                kIdentVaOpt,
+                Macro::ParamList{ "content" },
+                TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
         auto result = macros_.insert({ op_va_opt->name(), op_va_opt });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__));
@@ -606,7 +599,7 @@ void Preprocessor::prepare_predefined_macro() {
     // __has_c_attributeは特別なマクロとして扱う。
     {
         auto op_has_c_attribute = Macro::create_macro(
-            kTokenOpHasCAttribute.string(),
+            kIdentHasCAttribute,
             Macro::ParamList{ "content" },
             TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
         auto result = macros_.insert({ op_has_c_attribute->name(), op_has_c_attribute });
@@ -694,8 +687,8 @@ bool Preprocessor::group_part() {
     TokenList ws_tokens;
     skip_ws(&ws_tokens);
 
-    if (peek(1).type() == TokenType::kPunctuator && peek(1).string() == "#") {
-        match(TokenType::kPunctuator);
+    if (peek(1).type() == TokenType::kHash) {
+        match(TokenType::kHash);
         skip_ws();
 
         SourceFile& src = current_source();
@@ -801,17 +794,17 @@ TokenList Preprocessor::make_constant_expression() {
             expr.push_back(t);
             continue;
         }
-        if (t == kTokenVaArgs) {
+        if (t.string() == kIdentVaArgs) {
             error(t, kVaArgsIdentifierUsageError);
             bad_expr = true;
             continue;
         }
 
-        if (t == kTokenOpDefined) {
+        if (t.string() == kIdentDefined) {
             skip_ws();
-            bool open = (peek(1) == kTokenOpenParen);
+            bool open = (peek(1).type() == TokenType::kLeftParenthesis);
             if (open) {
-                match(kTokenOpenParen.type());
+                match(TokenType::kLeftParenthesis);
                 skip_ws();
             }
 
@@ -827,11 +820,11 @@ TokenList Preprocessor::make_constant_expression() {
 
                 if (open) {
                     skip_ws();
-                    if (peek(1) != kTokenCloseParen) {
+                    if (peek(1).type() != TokenType::kRightParenthesis) {
                         error(peek(1), as_internal(__func__) /* 閉じ括弧が無い。構文がおかしいので失敗 */);
                         bad_expr = true;
                     }
-                    match(kTokenCloseParen.type());
+                    match(TokenType::kRightParenthesis);
                 }
             }
         } else {
@@ -846,7 +839,7 @@ TokenList Preprocessor::make_constant_expression() {
                 } else {
                     skip_ws();
 
-                    if (peek(1) != kTokenOpenParen) {
+                    if (peek(1).type() != TokenType::kLeftParenthesis) {
                         warning(t, kFuncTypeMacroUsageWarning);
                         bad_expr = true;
                     } else {
@@ -921,9 +914,11 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
             unary = false;
             break;
         }
-        case TokenType::kPunctuator: {
-            auto opstr = t.string();
-            match(TokenType::kPunctuator);
+        case TokenType::kPunctuator:
+        case TokenType::kLeftParenthesis:
+        case TokenType::kRightParenthesis: {
+            auto&& opstr = t.string();
+            match(t.type());
 
             Operator op = string_to_op(opstr);
 
@@ -1208,7 +1203,7 @@ bool Preprocessor::if_group() {
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token == kTokenVaArgs) {
+                if (name_token.string() == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) != nullptr);
@@ -1227,7 +1222,7 @@ bool Preprocessor::if_group() {
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token == kTokenVaArgs) {
+                if (name_token.string() == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) == nullptr);
@@ -1251,7 +1246,7 @@ bool Preprocessor::elif_groups(bool /*processed*/) {
 
     //do {
     //    processed = elif_group(processed) || processed;
-    //} while (peek(1).string() == "#" && as_directive(peek(2)) == TokenType::kElif);
+    //} while (peek(1).type() == TokenType::kHash && as_directive(peek(2)) == TokenType::kElif);
 
     //return processed;
 
@@ -1291,7 +1286,7 @@ bool Preprocessor::elif_group(bool processed) {
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token == kTokenVaArgs) {
+                if (name_token.string() == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) != nullptr);
@@ -1310,7 +1305,7 @@ bool Preprocessor::elif_group(bool processed) {
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token == kTokenVaArgs) {
+                if (name_token.string() == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) == nullptr);
@@ -1417,7 +1412,7 @@ void Preprocessor::control_line(TokenType directive) {
                     expand(*m, Macro::kNoArgs, expanded);
                 } else {
                     skip_ws();
-                    if (peek(1) != kTokenOpenParen) {
+                    if (peek(1).type() != TokenType::kLeftParenthesis) {
                         warning(header_name_token, kFuncTypeMacroUsageWarning);
                     } else {
                         auto args = read_macro_args(*m, nullptr);
@@ -1479,7 +1474,7 @@ void Preprocessor::control_line(TokenType directive) {
                     expand(*m, Macro::kNoArgs, expanded);
                 } else {
                     skip_ws();
-                    if (peek(1) != kTokenOpenParen) {
+                    if (peek(1).type() != TokenType::kLeftParenthesis) {
                         warning(num_token, kFuncTypeMacroUsageWarning);
                     } else {
                         auto args = read_macro_args(*m, nullptr);
@@ -1535,7 +1530,7 @@ void Preprocessor::control_line(TokenType directive) {
                     expand(*m, Macro::kNoArgs, expanded);
                 } else {
                     skip_ws();
-                    if (peek(1) != kTokenOpenParen) {
+                    if (peek(1).type() != TokenType::kLeftParenthesis) {
                         warning(path_token, kFuncTypeMacroUsageWarning);
                     } else {
                         auto args = read_macro_args(*m, nullptr);
@@ -1605,7 +1600,7 @@ void Preprocessor::control_line(TokenType directive) {
         new_line();
 
         ts = shrink_ws_tokens(ts);
-        //if (first_token == kTokenStdc) {
+        //if (first_token.string() == kIdentStdc) {
         //}
         execute_pragma(ts, first_token);
         break;
@@ -1659,17 +1654,17 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             output_text(t.string());
             continue;
         }
-        if (t == kTokenVaArgs) {
+        if (t.string() == kIdentVaArgs) {
             error(t, kVaArgsIdentifierUsageError);
             output_text(t.string());
             continue;
         }
-        if (t == kTokenVaOpt) {
+        if (t.string() == kIdentVaOpt) {
             error(t, kVaOptIdentifierUsageError);
             output_text(t.string());
             continue;
         }
-        if (t == kTokenOpHasCAttribute) {
+        if (t.string() == kIdentHasCAttribute) {
             error(t, kOpHasCAttributeIdentifierUsageError);
             output_text(t.string());
             continue;
@@ -1691,12 +1686,12 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             TokenList ws;
             skip_ws_and_nl(&ws, &broken);
 
-            if (peek(1) != kTokenOpenParen) {
+            if (peek(1).type() != TokenType::kLeftParenthesis) {
                 warning(t, kFuncTypeMacroUsageWarning);
                 expanded = move(ws);
                 dont_replace = true;
 
-                if (broken && (peek(1).type() == TokenType::kPunctuator && peek(1).string() == "#")) {
+                if (broken && (peek(1).type() == TokenType::kHash)) {
                     //  改行してディレクティブ行に到達したかもしれない。
                     break;
                 }
@@ -1781,7 +1776,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
         if (t.type() != TokenType::kIdentifier) {
             continue;
         }
-        if (macro.has_va_args() && (t == kTokenVaArgs || t == kTokenVaOpt)) {
+        if (macro.has_va_args() && (t.string() == kIdentVaArgs || t.string() == kIdentVaOpt)) {
             used_va_args = true;
             continue;
         }
@@ -1809,21 +1804,21 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
     for (auto it = list.begin(); it != list.end(); ++it) {
         const Token& t = *it;
 
-        if (t == kTokenOpStringize && macro.is_function()) {
+        if (t.type() == TokenType::kHash && macro.is_function()) {
             substituted.push_back(t);
             substituted.push_back(*++it);
-        } else if (t == kTokenOpConcat) {
+        } else if (t.type() == TokenType::kHashHash) {
             substituted.push_back(t);
             substituted.push_back(*++it);
         } else {
             auto next_it = next(it);
-            if (next_it != macro.replist().end() && *next_it == kTokenOpConcat) {
+            if (next_it != macro.replist().end() && next_it->type() == TokenType::kHashHash) {
                 substituted.push_back(t);
             } else {
                 if (t.type() != TokenType::kIdentifier) {
                     substituted.push_back(t);
                 } else {
-                    if (macro.has_va_args() && t == kTokenVaArgs) {
+                    if (macro.has_va_args() && t.string() == kIdentVaArgs) {
                         const auto i0 = macro.params().size() - 1;  // マクロの仮引数の数 - 1、即ち、"..."のオフセット
                         const auto end = macro_args.size();
                         if (i0 < end) {
@@ -1847,17 +1842,17 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
     //  文字列化(#)を行う。
     if (macro.is_function()) {
         for (auto it = substituted.begin(); it != substituted.end(); ++it) {
-            if (*it == kTokenOpStringize) {
+            if (it->type() == TokenType::kHash) {
                 auto next_it = next(it);
                 if (!(next_it != substituted.end() &&
                     next_it->type() == TokenType::kIdentifier &&
                     (find(macro.params().begin(), macro.params().end(), next_it->string()) != macro.params().end() ||
-                        *next_it == kTokenVaArgs))) {
+                        next_it->string() == kIdentVaArgs))) {
                     fatal_error(*next_it, as_internal(__func__) /* マクロ定義時に失敗しているはず */);
                 }
 
                 string s;
-                if (macro.has_va_args() && *next_it == kTokenVaArgs) {
+                if (macro.has_va_args() && next_it->string() == kIdentVaArgs) {
                     s = execute_stringize(macro_args, macro.params().size() - 1, macro_args.size());
                 } else {
                     auto i = macro.param_index_of(next_it->string());
@@ -1875,7 +1870,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 
     //  連結(##)を行う。
     for (auto it = substituted.begin(); it != substituted.end(); ) {
-        if (*it != kTokenOpConcat) {
+        if (it->type() != TokenType::kHashHash) {
             ++it;
         } else {
             decltype(it) prev_it;
@@ -1928,7 +1923,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
                 //        しても、それは結合できたということなので、特に問題は無いだろうか。ただ、numは
                 //        あくまでも pp-numberなのでパーサーがエラーにする可能性は残る。
                 Token t2 = concat_result.front();
-                if (t2 == kTokenOpConcat || t2.is_ws()) {
+                if (t2.type() == TokenType::kHashHash || t2.is_ws()) {
                     error(r, kGeneratedInvalidPpTokenError2, l.string(), r.string());
                     concat_result.pop_back();
                     concat_result.push_back(Token(t2.string(), TokenType::kNonReplacementTarget));
@@ -2070,7 +2065,7 @@ TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macr
     }
 
     TokenList result;
-    if (macro.has_va_args() && token == kTokenVaArgs) {
+    if (macro.has_va_args() && token.string() == kIdentVaArgs) {
         auto i0 = macro.params().size() - 1;
         const auto end = macro_args.size();
         if (i0 < end) {
@@ -2109,13 +2104,13 @@ void Preprocessor::scan(TokenList& result_expanded) {
             result_expanded.push_back(t);
             continue;
         }
-        if (t == kTokenVaArgs) {
+        if (t.string() == kIdentVaArgs) {
             // expandで展開されるはずなので、ここで見つかるのはエラーとする。
             error(t, kVaArgsIdentifierUsageError);
             result_expanded.push_back(t);
             continue;
         }
-        if (t == kTokenVaOpt) {
+        if (t.string() == kIdentVaOpt) {
             // 可変引数を持つマクロの展開中でなければエラーとする。
             bool context_error = true;
             if (!macro_invocation_stack_.empty()) {
@@ -2150,7 +2145,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
             TokenList ws;
             skip_ws(&ws);
 
-            if (peek(1) != kTokenOpenParen) {
+            if (peek(1).type() != TokenType::kLeftParenthesis) {
                 expanded = move(ws);
                 dont_replace = true;
             } else {
@@ -2222,7 +2217,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
     int old_error_count = error_count_;
     if (macro_form == MacroForm::kFunctionLike) {
         for (auto it = result.begin(); it != result.end(); it++) {
-            if (*it == kTokenOpStringize) {
+            if (it->type() == TokenType::kHash) {
                 //  #の次の空白は取り除いておく。
                 auto ident = next(it);
                 if (ident == result.end()) {
@@ -2236,7 +2231,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
                 }
 
                 bool found_param = find(macro_params.begin(), macro_params.end(), ident->string()) != macro_params.end();
-                if (!found_param && *ident != kTokenVaArgs) {
+                if (!found_param && ident->string() != kIdentVaArgs) {
                     error(*ident, kOpStringizeNeedsParameterError);
                     break;
                 }
@@ -2245,7 +2240,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
     }
 
     for (auto it = result.begin(); it != result.end(); it++) {
-        if (*it == kTokenOpConcat) {
+        if (it->type() == TokenType::kHashHash) {
             if (it == result.begin() || next(it) == result.end()) {
                 error(*it, kOpConcatNeedsParameterError);
                 break;
@@ -2264,22 +2259,22 @@ std::optional<TokenList> Preprocessor::replacement_list(
     }
 
     // 可変引数絡みの識別子を使えない場合に、それが見つかればエラーとする。
-    if ((macro_form == MacroForm::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kTokenEllipsis.string()))) ||
+    if ((macro_form == MacroForm::kFunctionLike && (macro_params.empty() || (!macro_params.empty() && macro_params.back() != kPunctEllipsis))) ||
         macro_form == MacroForm::kObjectLike) {
         Token va_args;
         Token va_opt;
         for_each(result.begin(), result.end(),
                 [&va_args, &va_opt](const auto& t) {
-                    if (t == kTokenVaArgs) {
+                    if (t.string() == kIdentVaArgs) {
                         va_args = t;
-                    } else if (t == kTokenVaOpt) {
+                    } else if (t.string() == kIdentVaOpt) {
                         va_opt = t;
                     }
                 });
-        if (va_args != kTokenNull) {
+        if (!va_args.is_null()) {
             error(va_args, kVaArgsIdentifierUsageError);
         }
-        if (va_opt != kTokenNull) {
+        if (!va_opt.is_null()) {
             error(va_opt, kVaOptIdentifierUsageError);
         }
     }
@@ -2292,37 +2287,36 @@ std::optional<TokenList> Preprocessor::replacement_list(
 }
 
 std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
-    if (peek(1) != kTokenOpenParen) {
+    if (peek(1).type() != TokenType::kLeftParenthesis) {
         fatal_error(peek(1), as_internal(__func__) /* ロジック間違い */);
         //return nullopt;
     }
 
-    match("(");
+    match(TokenType::kLeftParenthesis);
     skip_ws();
 
     bool bad_params = false;
     vector<string> params;
     set<string> added;
-    while (peek(1) != kTokenCloseParen) {
+    while (peek(1).type() != TokenType::kRightParenthesis) {
         skip_ws();
         Token id = peek(1);
         consume();
 
         skip_ws();
         Token delim_or_close = peek(1);
-        if (delim_or_close.type() != TokenType::kPunctuator ||
-                (delim_or_close != kTokenComma && delim_or_close != kTokenCloseParen)) {
+        if (delim_or_close.type() != TokenType::kComma && delim_or_close.type() != TokenType::kRightParenthesis) {
             error(id, kBadMacroParameterFormError);
             bad_params = true;
             break;
         } else {
-            if (delim_or_close == kTokenComma) {
-                match(",");
+            if (delim_or_close.type() == TokenType::kComma) {
+                match(TokenType::kComma);
             }
         }
 
         if (id.type() == TokenType::kIdentifier) {
-            if (id == kTokenVaArgs) {
+            if (id.string() == kIdentVaArgs) {
                 error(id, kVaArgsIdentifierUsageError);
                 bad_params = true;
                 break;
@@ -2334,9 +2328,9 @@ std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
                 break;
             }
             params.push_back(id.string());
-        } else if (id == kTokenEllipsis) {
+        } else if (id.type() == TokenType::kEllipsis) {
             params.push_back(id.string());
-            if (delim_or_close != kTokenCloseParen) {
+            if (delim_or_close.type() != TokenType::kRightParenthesis) {
                 error(id, kBadElipsisError);
                 bad_params = true;
             }
@@ -2352,7 +2346,7 @@ std::optional<Macro::ParamList> Preprocessor::read_macro_params() {
     }
 
     skip_ws();
-    match(")");
+    match(TokenType::kRightParenthesis);
     return params;
 }
 
@@ -2368,9 +2362,9 @@ Token Preprocessor::read_macro_arg_loop(TokenList* read_tokens, TokenList& resul
             break;
         }
 
-        if (t == kTokenOpenParen) {
+        if (t.type() == TokenType::kLeftParenthesis) {
             nest++;
-        } else if (t == kTokenCloseParen) {
+        } else if (t.type() == TokenType::kRightParenthesis) {
             nest--;
         }
 
@@ -2390,20 +2384,20 @@ Token Preprocessor::read_macro_arg_loop(TokenList* read_tokens, TokenList& resul
 Token Preprocessor::read_macro_arg(TokenList* read_tokens, TokenList& result_arg) {
     return read_macro_arg_loop(read_tokens, result_arg,
             [](const Token& t) {
-                return t == kTokenComma || t == kTokenCloseParen;
+                return t.type() == TokenType::kComma || t.type() == TokenType::kRightParenthesis;
             });
 }
 
 Token Preprocessor::read_macro_arg_at_ellipsis(TokenList* read_tokens, TokenList& result_arg) {
     return read_macro_arg_loop(read_tokens, result_arg,
             [](const Token& t) {
-                return t == kTokenCloseParen;
+                return t.type() == TokenType::kRightParenthesis;
             });
 }
 
 std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, TokenList* read_tokens) {
     Token open_paren = peek(1);
-    if (open_paren != kTokenOpenParen) {
+    if (open_paren.type() != TokenType::kLeftParenthesis) {
         fatal_error(peek(1), as_internal(__func__) /* ロジック間違い */);
         //return nullopt;
     }
@@ -2411,17 +2405,17 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
     if (read_tokens) {
         read_tokens->push_back(open_paren);
     }
-    match("(");
+    match(TokenType::kLeftParenthesis);
 
     Macro::ArgList args;
     size_t comma = 0;
 
-    if (macro.name() == kTokenVaOpt.string() || macro.name() == kTokenOpHasCAttribute.string()) {
+    if (macro.name() == kIdentVaOpt || macro.name() == kIdentHasCAttribute) {
         // ここは実際に可変引数である訳ではない。コンマで区切らないトークン列を返す読み取り処理の流用している。
         args.reserve(1);
 
         TokenList arg;
-        if (read_macro_arg_at_ellipsis(read_tokens, arg) == kTokenNull) {
+        if (read_macro_arg_at_ellipsis(read_tokens, arg).is_null()) {
             return nullopt;
         }
 
@@ -2438,7 +2432,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
         args.reserve(macro.params().size());
 
         Token t = peek(1);
-        while (t != kTokenCloseParen) {
+        while (t.type() != TokenType::kRightParenthesis) {
             const auto ellipsis_pos = macro.params().size() - 1;
             TokenList arg;
 
@@ -2448,17 +2442,17 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
             } else {
                 t = read_macro_arg_at_ellipsis(read_tokens, arg);
             }
-            if (t == kTokenNull) {
+            if (t.is_null()) {
                 return nullopt;
             }
 
             args.push_back(shrink_ws_tokens(arg));
 
-            if (t == kTokenComma) {
+            if (t.type() == TokenType::kComma) {
                 if (read_tokens) {
                     read_tokens->push_back(t);
                 }
-                match(",");
+                match(TokenType::kComma);
                 t = peek(1);
 
                 ++comma;
@@ -2475,7 +2469,7 @@ std::optional<Macro::ArgList> Preprocessor::read_macro_args(const Macro& macro, 
     if (read_tokens) {
         read_tokens->push_back(close_paren);
     }
-    match(")");
+    match(TokenType::kRightParenthesis);
 
     if (args.size() > kMinSpecMacroArguments) {
         info(close_paren, kMinSpecMacroArgumentsWarning, kMinSpecMacroArguments, args.size());
@@ -2670,7 +2664,7 @@ bool Preprocessor::execute_define() {
         //  NOTE: マクロ名の直後に空白やコメントを挟まずに括弧が
         //   有る場合のみ、関数型マクロとして解釈する。なので、ここでは
         //   空白を読み飛ばしてはならない。
-        bool func_type = (peek(1) == kTokenOpenParen);
+        bool func_type = (peek(1).type() == TokenType::kLeftParenthesis);
         if (!func_type) {
             optional<TokenList> replist = replacement_list(MacroForm::kObjectLike, Macro::kNoParams);
             if (!replist.has_value()) {
@@ -2858,19 +2852,19 @@ bool Preprocessor::is_valid_macro_name(const Token& name) {
         error(name, kPredefinedMacroNameError, name.string());
         return false;
     }
-    if (name == kTokenOpPragma) {
+    if (name.string() == kIdentPragma) {
         error(name, kOpPragmaUsedAsMacroName);
         return false;
     }
-    if (name == kTokenVaArgs) {
+    if (name.string() == kIdentVaArgs) {
         error(name, kVaArgsIdentifierUsageError);
         return false;
     }
-    if (name == kTokenVaOpt) {
+    if (name.string() == kIdentVaOpt) {
         error(name, kVaOptIdentifierUsageError);
         return false;
     }
-    if (name == kTokenOpHasCAttribute) {
+    if (name.string() == kIdentHasCAttribute) {
         error(name, kOpHasCAttributeIdentifierUsageError);
         return false;
     }
@@ -2890,7 +2884,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
     auto it = macros_.find(name.string());
     if (it != macros_.end()) {
         auto m = it->second;
-        if (m->is_function() || (m->replist() != replist)) {
+        if (m->is_function() || !token_list_equal(m->replist(), replist)) {
             warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
         }
         m->reset(replist, source_from_internal(current_source_path()), name);
@@ -2918,7 +2912,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
     auto it = macros_.find(name.string());
     if (it != macros_.end()) {
         auto m = it->second;
-        if (m->is_object() || (m->params() != params) || (m->replist() != replist)) {
+        if (m->is_object() || (m->params() != params) || !token_list_equal(m->replist(), replist)) {
             warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
         }
         m->reset(params, replist, source_from_internal(current_source_path()), name);

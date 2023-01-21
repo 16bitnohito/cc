@@ -88,6 +88,13 @@ bool token_list_equal(const TokenList& lhs, const TokenList& rhs) {
             // これらについては、タイプが同じであればそれは同じトークンとみなす。
             break;
 
+        case TokenType::kLeftParenthesis:
+        case TokenType::kRightParenthesis:
+        case TokenType::kEllipsis:
+        case TokenType::kComma:
+            // ついでに。これらも文字列を比較する必要は無い。
+            break;
+
         default:
             if (l->string() != r->string()) {
                 return false;

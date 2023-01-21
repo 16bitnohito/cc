@@ -828,7 +828,7 @@ TokenList Preprocessor::make_constant_expression() {
                 }
             }
         } else {
-            const MacroPtr m = find_macro(t.string());
+            MacroPtr m = find_macro(t.string());
             if (m == nullptr) {
                 expr.push_back(Token("0", TokenType::kPpNumber));
             } else {
@@ -890,7 +890,7 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
     while (!t.is_eol() && !bad_expr) {
         switch (t.type()) {
         case TokenType::kPpNumber: {
-            auto s = t.string();
+            auto& s = t.string();
             match(TokenType::kPpNumber);
 
             target_intmax_t n = 0;
@@ -905,7 +905,7 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
         case TokenType::kCharacterConstant: {
             //  TODO: 全くまともに作っていない。kPpNumberの場合と同じようにするには辛いので、Scanner側で
             //      数値を求めておきたい。
-            auto s = t.string();
+            auto& s = t.string();
             match(TokenType::kCharacterConstant);
 
             auto i = s.find('\'');
@@ -917,7 +917,7 @@ target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const
         case TokenType::kPunctuator:
         case TokenType::kLeftParenthesis:
         case TokenType::kRightParenthesis: {
-            auto&& opstr = t.string();
+            auto& opstr = t.string();
             match(t.type());
 
             Operator op = string_to_op(opstr);
@@ -1063,10 +1063,10 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
 
             switch (op.id) {
             case OperatorId::kOr:
-                result = l || r;
+                result = (l != 0) || (r != 0);
                 break;
             case OperatorId::kAnd:
-                result = l && r;
+                result = (l != 0) && (r != 0);
                 break;
             case OperatorId::kBitOr:
                 result = l | r;
@@ -1199,11 +1199,11 @@ bool Preprocessor::if_group() {
                 skip_directive_line();
                 result = 0;
             } else {
-                auto name = name_token.string();
+                auto& name = name_token.string();
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token.string() == kIdentVaArgs) {
+                if (name == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) != nullptr);
@@ -1218,11 +1218,11 @@ bool Preprocessor::if_group() {
                 skip_directive_line();
                 result = 0;
             } else {
-                auto name = name_token.string();
+                auto& name = name_token.string();
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token.string() == kIdentVaArgs) {
+                if (name == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) == nullptr);
@@ -1282,11 +1282,11 @@ bool Preprocessor::elif_group(bool processed) {
                 skip_directive_line();
                 result = 0;
             } else {
-                auto name = name_token.string();
+                auto& name = name_token.string();
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token.string() == kIdentVaArgs) {
+                if (name == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) != nullptr);
@@ -1301,11 +1301,11 @@ bool Preprocessor::elif_group(bool processed) {
                 skip_directive_line();
                 result = 0;
             } else {
-                auto name = name_token.string();
+                auto& name = name_token.string();
                 match(TokenType::kIdentifier);
                 skip_ws();
 
-                if (name_token.string() == kIdentVaArgs) {
+                if (name == kIdentVaArgs) {
                     error(name_token, kVaArgsIdentifierUsageError);
                 }
                 result = (find_macro(name) == nullptr);
@@ -1404,7 +1404,7 @@ void Preprocessor::control_line(TokenType directive) {
             match(TokenType::kIdentifier);
 
             TokenList expanded;
-            const MacroPtr m = find_macro(header_name_token.string());
+            MacroPtr m = find_macro(header_name_token.string());
             if (m == nullptr) {
                 error(header_name_token, as_internal(__func__));
             } else {
@@ -1466,7 +1466,7 @@ void Preprocessor::control_line(TokenType directive) {
             match(TokenType::kIdentifier);
 
             TokenList expanded;
-            const MacroPtr m = find_macro(num_token.string());
+            MacroPtr m = find_macro(num_token.string());
             if (m == nullptr) {
                 error(num_token, as_internal(__func__));
             } else {
@@ -1522,7 +1522,7 @@ void Preprocessor::control_line(TokenType directive) {
             match(TokenType::kIdentifier);
 
             TokenList expanded;
-            const MacroPtr m = find_macro(path_token.string());
+            MacroPtr m = find_macro(path_token.string());
             if (m == nullptr) {
                 error(path_token, as_internal(__func__));
             } else {
@@ -1669,7 +1669,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             output_text(t.string());
             continue;
         }
-        const MacroPtr m = find_macro(t.string());
+        MacroPtr m = find_macro(t.string());
         if (m == nullptr) {
             output_text(t.string());
             continue;
@@ -1726,7 +1726,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
         }
     }
 
-    auto nl = peek(1);
+    Token nl = peek(1);
     new_line();
     if (nl.type() == TokenType::kNewLine) {
         output_text(nl.string());
@@ -2130,7 +2130,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
             result_expanded.push_back(Token(t.string(), TokenType::kNonReplacementTarget));
             continue;
         }
-        const MacroPtr m = find_macro(t.string());
+        MacroPtr m = find_macro(t.string());
         if (m == nullptr) {
             result_expanded.push_back(t);
             continue;
@@ -2883,7 +2883,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 
     auto it = macros_.find(name.string());
     if (it != macros_.end()) {
-        auto m = it->second;
+        MacroPtr m = it->second;
         if (m->is_function() || !token_list_equal(m->replist(), replist)) {
             warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
         }
@@ -2892,15 +2892,14 @@ MacroPtr Preprocessor::add_macro(const Token& name, const TokenList& replist) {
 
         return m;
     } else {
-        auto result = macros_.insert(
-                {name.string(), Macro::create_macro(name.string(), replist, source_from_internal(current_source_path()), name)});
-        if (!result.second) {
+        auto [new_it, inserted] = macros_.insert(
+                { name.string(), Macro::create_macro(name.string(), replist, source_from_internal(current_source_path()), name) });
+        if (!inserted) {
             fatal_error(name, as_internal(__func__) /* ロジックエラーかメモリーが足りないか？ */);
         }
         DEBUG(name, T_("[DEF] {}"), macro_def_string(MacroForm::kObjectLike, name, Macro::kNoParams, replist));
 
-        auto inserted = *result.first;
-        return inserted.second;
+        return new_it->second;
     }
 }
 
@@ -2911,7 +2910,7 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 
     auto it = macros_.find(name.string());
     if (it != macros_.end()) {
-        auto m = it->second;
+        MacroPtr m = it->second;
         if (m->is_object() || (m->params() != params) || !token_list_equal(m->replist(), replist)) {
             warning(name, kMacroRedefinitionWarning, name.string(), m->source(), m->line(), m->column());
         }
@@ -2920,15 +2919,14 @@ MacroPtr Preprocessor::add_macro(const Token& name, const Macro::ParamList& para
 
         return m;
     } else {
-        auto result = macros_.insert(
-                {name.string(), Macro::create_macro(name.string(), params, replist, source_from_internal(current_source_path()), name)});
-        if (!result.second) {
+        auto [new_it, inserted] = macros_.insert(
+                { name.string(), Macro::create_macro(name.string(), params, replist, source_from_internal(current_source_path()), name) });
+        if (!inserted) {
             fatal_error(name, as_internal(__func__) /* ロジックエラー */);
         }
         DEBUG(name, T_("[DEF] {}"), macro_def_string(MacroForm::kFunctionLike, name, params, replist));
 
-        auto inserted = *result.first;
-        return inserted.second;
+        return new_it->second;
     }
 }
 
@@ -2971,12 +2969,12 @@ void Preprocessor::remove_macro(const Token& name) {
     }
 }
 
-const MacroPtr Preprocessor::find_macro(const std::string& name) {
+MacroPtr Preprocessor::find_macro(const std::string& name) {
     auto it = macros_.find(name);
     if (it == macros_.end()) {
         return nullptr;
     }
-    auto m = it->second;
+    MacroPtr m = it->second;
     if (name == "__FILE__") {
         m->reset({ Token(quote_string(source_string(current_source_path())), TokenType::kStringLiteral) }, "", kTokenNull);
     } else if (name == "__LINE__") {

@@ -319,7 +319,7 @@ private:
     MacroPtr add_macro(const Token& name, const Macro::ParamList& params, const TokenList& replist);
     std::string macro_def_string(MacroForm form, const Token& name, const Macro::ParamList& params, const TokenList& replist);
     void remove_macro(const Token& name);
-    const MacroPtr find_macro(const std::string& name);
+    MacroPtr find_macro(const std::string& name);
     void print_macros();
 
     const Options& opts_;

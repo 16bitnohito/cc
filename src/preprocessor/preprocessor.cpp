@@ -289,6 +289,7 @@ constexpr char kIdentDefined[] = "defined";
 constexpr char kIdentVaArgs[] = "__VA_ARGS__";
 constexpr char kIdentVaOpt[] = "__VA_OPT__";
 constexpr char kIdentHasCAttribute[] = "__has_c_attribute";
+constexpr char kIdentHasInclude[] = "__has_include";
 constexpr char kPunctEllipsis[] = "...";
 
 // static
@@ -367,6 +368,8 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
         return MacroExpantionMethod::kVaOpt;
     } else if (name == kIdentHasCAttribute) {
         return MacroExpantionMethod::kOpHasCAttribute;
+    } else if (name == kIdentHasInclude) {
+        return MacroExpantionMethod::kOpHasInclude;
     } else {
         bool directly = true;
         for (const auto& t : replist) {
@@ -379,6 +382,21 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
         }
         return directly ? MacroExpantionMethod::kDirectlyCopyable : MacroExpantionMethod::kNormal;
     }
+}
+
+
+HeaderSpec::HeaderSpec(const std::string& header_name)
+    : header_name_(header_name) {
+}
+
+// HeaderSpec::~HeaderSpec() = default;
+
+std::string HeaderSpec::name() const {
+    return header_name_.substr(1, header_name_.length() - 2);
+}
+
+bool HeaderSpec::include_source_dir() const {
+    return header_name_[0] == '"';
 }
 
 
@@ -567,6 +585,8 @@ void Preprocessor::prepare_predefined_macro() {
 
     //  マクロではないが、マクロ定義の対象にならない？ようなのでここで追加する。
     predef_macro_names_.push_back(kIdentDefined);
+    predef_macro_names_.push_back(kIdentHasCAttribute);
+    predef_macro_names_.push_back(kIdentHasInclude);
 
     //  仕様的な定義済みマクロはここまでとして、後の検索の為にソートしておく。
     sort(predef_macro_names_.begin(), predef_macro_names_.end());
@@ -603,6 +623,18 @@ void Preprocessor::prepare_predefined_macro() {
             Macro::ParamList{ "content" },
             TokenList{ Token("content", TokenType::kIdentifier) }, "", kTokenNull);
         auto result = macros_.insert({ op_has_c_attribute->name(), op_has_c_attribute });
+        if (!result.second) {
+            fatal_error(kTokenNull, as_internal(__func__));
+        }
+    }
+
+    // __has_includeは特別なマクロとして扱う。
+    {
+        auto op_has_include = Macro::create_macro(
+            kIdentHasInclude,
+            Macro::ParamList{ "header_name" },
+            TokenList{}, "", kTokenNull);
+        auto result = macros_.insert({ op_has_include->name(), op_has_include });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__));
         }
@@ -788,12 +820,24 @@ TokenList Preprocessor::make_constant_expression() {
     Token t;
     while (!peek(1).is_eol() && !bad_expr) {
         t = peek(1);
-        consume();
 
         if (t.type() != TokenType::kIdentifier) {
+            consume();      // XXX: これ。
             expr.push_back(t);
             continue;
         }
+
+        bool invoke_has_include = (t.string() == kIdentHasInclude);
+        if (invoke_has_include) {
+            current_source().scanner_hint(ScannerHint::kHeaderName);
+        }
+
+        consume();      // XXX: これも。
+
+        if (invoke_has_include) {
+            current_source().scanner_hint(ScannerHint::kInitial);
+        }
+
         if (t.string() == kIdentVaArgs) {
             error(t, kVaArgsIdentifierUsageError);
             bad_expr = true;
@@ -1390,7 +1434,7 @@ void Preprocessor::control_line(TokenType directive) {
 
     switch (directive) {
     case TokenType::kInclude: {
-        src.scanner_hint(ScannerHint::kIncludeDirective);
+        src.scanner_hint(ScannerHint::kHeaderName);
         match("include");
         src.scanner_hint(ScannerHint::kInitial);
         skip_ws();
@@ -1669,6 +1713,12 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             output_text(t.string());
             continue;
         }
+        if (t.string() == kIdentHasInclude) {
+            error(t, kOpHasIncludeIdentifierUsageError);
+            output_text(t.string());
+            continue;
+        }
+
         MacroPtr m = find_macro(t.string());
         if (m == nullptr) {
             output_text(t.string());
@@ -2030,7 +2080,7 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
     return false;
 }
 
-bool Preprocessor::expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+bool Preprocessor::expand_op_has_c_attribute(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
     if (macro_args.empty() || macro_args[0].empty()) {
         error(kTokenNull, kOpHasCAttributeNeedsAnAttribute);
         result_expanded.push_back(Token("0", TokenType::kPpNumber));
@@ -2056,6 +2106,80 @@ bool Preprocessor::expand_op_has_c_attribute(const Macro& macro, const Macro::Ar
     }
 
     return true;
+}
+
+
+
+bool Preprocessor::expand_op_has_include(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+    Macro::ArgList expanded_args(macro_args.size());
+
+    if (macro_args.size() != 1 || macro_args[0].empty()) {
+        error(kTokenNull, kOpHasIncludeParameterTypeMismatchError);
+        return true;
+    }
+
+    get_expanded_arg(0, macro_args[0], expanded_args);
+
+    auto& arg = expanded_args[0];
+    string header_name;
+    if (arg.size() == 1 && arg[0].type() == TokenType::kHeaderName) {
+        header_name = arg[0].string();
+    } else {
+        if (!arg.empty() && ((arg[0].string() == "<" && arg[arg.size() - 1].string() == ">") || arg[0].type() == TokenType::kStringLiteral)) {
+            header_name = Token::concat_string(arg);
+        } else {
+            error(macro_args[0][0], kOpHasIncludeParameterTypeMismatchError);
+            return true;
+        }
+    }
+
+    HeaderSpec spec(header_name);
+    if (search_header_file(spec, nullptr)) {
+        result_expanded.push_back(kTokenPpNumberOne);
+    } else {
+        result_expanded.push_back(kTokenPpNumberZero);
+    }
+
+    return true;
+}
+
+bool Preprocessor::search_header_file(const HeaderSpec& header_spec, pp::String* header_file_path_str) {
+    String name = internal_from_source(header_spec.name());
+    if (name.empty()) {
+        return false;
+    }
+    String path_str;
+    bool exist = false;
+
+    if (header_spec.include_source_dir()) {
+        auto source_dir = current_source().parent_dir();
+        if (!source_dir.empty()) {
+            path_str = source_dir + kPathDelimiter + name;
+        } else {
+            path_str = name;
+        }
+        path_str = normalize_path(path_str);
+        exist = file_exists(path_string(path_str));
+    }
+
+    if (!exist) {
+        for (const auto& dir : include_dirs_) {
+            path_str = dir + kPathDelimiter + name;
+            path_str = normalize_path(path_str);
+            exist = file_exists(path_string(path_str));
+            if (exist) {
+                break;
+            }
+        }
+    }
+
+    if (exist) {
+        if (header_file_path_str) {
+            *header_file_path_str = move(path_str);
+        }
+    }
+
+    return exist;
 }
 
 TokenList Preprocessor::substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token) {
@@ -2601,51 +2725,24 @@ std::string Preprocessor::execute_stringize(const Macro::ArgList& args, Macro::A
 }
 
 bool Preprocessor::execute_include(const std::string& header_name, const Token& header_name_token) {
-    bool include_source_dir = (header_name[0] == '"');
-    String name = internal_from_source(header_name.substr(1, header_name.length() - 2));
+    HeaderSpec spec(header_name);
+    String path_str;
     ifstream next_input;
-    String path;
-
-    if (include_source_dir) {
-        auto source_dir = current_source().parent_dir();
-        if (!source_dir.empty()) {
-            path = source_dir + kPathDelimiter + name;
-        } else {
-            path = name;
-        }
-        path = normalize_path(path);
-        auto input_path = path_string(path);
-
-        if (file_exists(input_path)) {
-            DEBUG(header_name_token, T_("Try open \"{}\""), path);
-            next_input.open(input_path, ios_base::binary);
-        }
-    }
-    if (!next_input.is_open()) {
-        for (const auto& dir : include_dirs_) {
-            path = dir + kPathDelimiter + name;
-            path = normalize_path(path);
-            auto input_path = path_string(path);
-
-            if (file_exists(input_path)) {
-                DEBUG(header_name_token, T_("Try open <{}>"), path);
-                next_input.open(input_path, ios_base::binary);
-                break;
-            }
-        }
+    if (search_header_file(spec, &path_str)) {
+        next_input.open(path_string(path_str), ios_base::binary);
     }
 
     if (!next_input.is_open()) {
-        fatal_error(header_name_token, kNoSuchFileError, name.c_str());
+        fatal_error(header_name_token, kNoSuchFileError, spec.name().c_str());
         return false;
     }
 
-    DEBUG(header_name_token, T_("Open file {}"), path);
+    DEBUG(header_name_token, T_("Open file {}"), path_str);
     included_files_++;
     if (included_files_ > kMinSpecSourceFileInclusion) {
         info(header_name_token, kMinSpecSourceFileInclusionWarning, kMinSpecSourceFileInclusion, included_files_);
     }
-    preprocessing_file(&next_input, path);
+    preprocessing_file(&next_input, path_str);
     included_files_--;
 
     return true;
@@ -2862,10 +2959,6 @@ bool Preprocessor::is_valid_macro_name(const Token& name) {
     }
     if (name.string() == kIdentVaOpt) {
         error(name, kVaOptIdentifierUsageError);
-        return false;
-    }
-    if (name.string() == kIdentHasCAttribute) {
-        error(name, kOpHasCAttributeIdentifierUsageError);
         return false;
     }
 

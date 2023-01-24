@@ -386,7 +386,7 @@ Token Scanner::next_token() {
                 break;
 
             case '"':
-                if (hint_ == ScannerHint::kIncludeDirective) {
+                if (hint_ == ScannerHint::kHeaderName) {
                     transit(ScannerState::kStateHeaderNameInitial, c_);
                 } else {
                     transit(ScannerState::kState273_274_270_271, c_);
@@ -450,7 +450,7 @@ Token Scanner::next_token() {
                 break;
 
             case '<':
-                if (hint_ == ScannerHint::kIncludeDirective) {
+                if (hint_ == ScannerHint::kHeaderName) {
                     transit(ScannerState::kStateHeaderNameInitial, c_);
                 } else {
                     transit(ScannerState::kState162_163_122_123_44_45_52_56_57_154_155, c_);

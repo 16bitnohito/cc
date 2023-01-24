@@ -33,6 +33,8 @@ extern const StringView kVaArgsIdentifierUsageError;
 extern const StringView kVaOptIdentifierUsageError;
 extern const StringView kOpHasCAttributeIdentifierUsageError;
 extern const StringView kOpHasCAttributeNeedsAnAttribute;
+extern const StringView kOpHasIncludeIdentifierUsageError;
+extern const StringView kOpHasIncludeParameterTypeMismatchError;
 extern const StringView kStdcReservedMacroName;
 extern const StringView kStdcReservedIdentifierDoubleUnderscore;
 extern const StringView kStdcReservedIdentifierUnderscoreAndUppercase;

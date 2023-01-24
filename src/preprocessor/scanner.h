@@ -22,7 +22,7 @@ namespace pp {
  */
 enum class ScannerHint {
     kInitial,
-    kIncludeDirective,
+    kHeaderName,
 };
 
 /**

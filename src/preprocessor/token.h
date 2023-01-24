@@ -189,6 +189,8 @@ bool token_list_equal(const TokenList& lhs, const TokenList& rhs);
 
 extern const Token kTokenNull;
 extern const Token kTokenEndOfFile;
+extern const Token kTokenPpNumberZero;
+extern const Token kTokenPpNumberOne;
 
 }   // namespace pp
 

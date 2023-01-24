@@ -47,6 +47,7 @@ enum class MacroExpantionMethod {
     kOpPragma,
     kVaOpt,
     kOpHasCAttribute,
+    kOpHasInclude,
 
     kNumElements,
 };
@@ -127,6 +128,20 @@ private:
 
 /**
  */
+class HeaderSpec {
+public:
+    explicit HeaderSpec(const std::string& header_name);
+    ~HeaderSpec() = default;
+
+    std::string name() const;
+    bool include_source_dir() const;
+
+private:
+    std::string header_name_;
+};
+
+/**
+ */
 class Preprocessor {
 public:
     explicit Preprocessor(const Options& opts);
@@ -188,6 +203,9 @@ private:
     bool expand_op_pragma(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_va_opt(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+    bool expand_op_has_include(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+
+    bool search_header_file(const HeaderSpec& header_spec, pp::String* header_file_pathstr);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
     static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {
@@ -196,6 +214,7 @@ private:
         &Preprocessor::expand_op_pragma,
         &Preprocessor::expand_va_opt,
         &Preprocessor::expand_op_has_c_attribute,
+        &Preprocessor::expand_op_has_include,
     };
 
     TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);

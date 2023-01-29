@@ -59,4 +59,18 @@ const StringView kMinSpecConditionalInclusionWarning = T_("条件分岐の入れ
 const StringView kMinSpecMacroParametersWarning = T_("マクロのパラメーターが {}個を超えた。({}個)");
 const StringView kMinSpecMacroArgumentsWarning = T_("マクロの引数が {}個を超えた。({}個)");
 
+const StringView kNoEmbedResourceIdentifierError = T_("リソース識別子が指定されていない。");
+const StringView kEmbedResoruceNotFoundError = T_("リソース {} が見つからない。");
+const StringView kEmbedResoruceOpeningFailureError = T_("リソース {} が開けない。");
+const StringView kEmbedResoruceReadingFailureError = T_("リソース {} が読み取れない。");
+const StringView kEmbedUsingDefinedInLimitParameterError = T_("limitの定数式に definedは使えない。");
+const StringView kEmbedLimitParameterLessThan0Error = T_("limitは 0以上でなければならない。");
+const StringView kEmbedResourceWidthCanBeDividedByEmbedElementWidth = T_("リソースのサイズ（ビット数）は {}で割り切れなければならない。");
+const StringView kBadEmbedParameterError = T_("パラメーター名が無い。");
+const StringView kBadPrefixedEmbedParameterError = T_("接頭辞付きパラメーター名にならない。");
+const StringView kSameEmbedParameterSpecifiedError = T_("{}は 0または 1つだけ指定できる。");
+const StringView kEmbedParameterClauseUnspecifiedError = T_("{}のパラメーター句が無い。");
+
+const StringView kUnclosedBracketError = T_("括弧が閉じていない。");
+
 }   //  namespace pp

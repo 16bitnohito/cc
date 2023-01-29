@@ -25,6 +25,7 @@ const char* Token::type_to_string(TokenType type) {
     CASE(TokenType::kComment);
 
     CASE(TokenType::kInclude);
+    CASE(TokenType::kEmbed);
     CASE(TokenType::kDefine);
     CASE(TokenType::kUndef);
     CASE(TokenType::kIf);

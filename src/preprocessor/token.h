@@ -27,6 +27,7 @@ enum class TokenType {
     kComment,
 
     kInclude,
+    kEmbed,
     kDefine,
     kUndef,
     kIf,
@@ -191,6 +192,58 @@ extern const Token kTokenNull;
 extern const Token kTokenEndOfFile;
 extern const Token kTokenPpNumberZero;
 extern const Token kTokenPpNumberOne;
+
+inline
+bool is_bracket(TokenType type) {
+    switch (type) {
+    case TokenType::kLeftParenthesis:
+    case TokenType::kLeftBracket:
+    case TokenType::kLeftBrace:
+    case TokenType::kRightParenthesis:
+    case TokenType::kRightBracket:
+    case TokenType::kRightBrace:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline
+bool is_left_bracket(TokenType type) {
+    switch (type) {
+    case TokenType::kLeftParenthesis:
+    case TokenType::kLeftBracket:
+    case TokenType::kLeftBrace:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline
+TokenType get_right_bracket(TokenType type) {
+    switch (type) {
+    case TokenType::kLeftParenthesis:
+        return TokenType::kRightParenthesis;
+
+    case TokenType::kLeftBracket:
+        return TokenType::kRightBracket;
+
+    case TokenType::kLeftBrace:
+        return TokenType::kLeftBrace;
+
+    default:
+        return TokenType::kNull;
+    }
+}
+
+inline
+bool is_matched_bracket(TokenType left, TokenType right) {
+    return (left == TokenType::kLeftParenthesis && right == TokenType::kRightParenthesis) ||
+        (left == TokenType::kLeftBracket && right == TokenType::kRightBracket) ||
+        (left == TokenType::kLeftBrace && right == TokenType::kRightBrace);
+}
+
 
 }   // namespace pp
 

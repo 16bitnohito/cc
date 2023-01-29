@@ -9,6 +9,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <stack>
 #include <sstream>
 #include <tuple>
@@ -142,6 +143,102 @@ private:
 
 /**
  */
+class EmbedParameter {
+public:
+    static bool is_standard_parameter_name(std::string_view name) {
+        return name == "limit" || name == "prefix" || name == "suffix" || name == "if_empty";
+    }
+
+    EmbedParameter() = default;
+
+    explicit EmbedParameter(const std::string& name)
+        : name_(name)
+        , value_()
+        , has_value_(false) {
+
+    }
+
+    EmbedParameter(EmbedParameter&&) = default;
+
+    ~EmbedParameter() {
+    }
+
+
+    EmbedParameter& operator=(EmbedParameter&&) = default;
+
+    const std::string& name() const {
+        return name_;
+    }
+
+    const TokenList& value() const {
+        return value_;
+    }
+
+    void set_value(TokenList&& tokens) {
+        value_ = std::move(tokens);
+        has_value_ = true;
+    }
+
+    bool has_value() const {
+        return has_value_;
+    }
+
+private:
+    std::string name_;
+    TokenList value_;
+    bool has_value_;
+};
+
+inline
+bool operator<(const EmbedParameter& lhs, std::string_view rhs) {
+    return lhs.name() < rhs;
+}
+
+inline
+bool operator<(std::string_view lhs, const EmbedParameter& rhs) {
+    return lhs < rhs.name();
+}
+
+inline
+bool operator<(const EmbedParameter& lhs, const EmbedParameter& rhs) {
+    return lhs.name() < rhs.name();
+}
+
+/**
+ */
+class EmbedSpec {
+public:
+    explicit EmbedSpec(const std::string& resource_id)
+        : resource_id_(resource_id) {
+    }
+
+    ~EmbedSpec() = default;
+
+    const std::string& resource_id() const {
+        return resource_id_;
+    }
+
+    std::optional<std::reference_wrapper<const EmbedParameter>> parameter(std::string_view name) const {
+        auto it = parameters_.find(name);
+        if (it != parameters_.end()) {
+            return *it;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    void add_parameter(EmbedParameter&& param) {
+        // XXX: 同じ名前のパラメーターが複数指定できる場合について考えていない。
+        parameters_.insert(std::move(param));
+    }
+
+private:
+    std::string resource_id_;
+    std::set<EmbedParameter, std::less<>> parameters_;
+};
+
+/**
+ */
 class Preprocessor {
 public:
     explicit Preprocessor(const Options& opts);
@@ -158,7 +255,7 @@ private:
     bool group_part();
     void if_section();
     TokenList make_constant_expression();
-    target_intmax_t constant_expression(TokenList&& expr_tokens, const Token& dir_token);
+    target_intmax_t constant_expression(const TokenList& expr_tokens, const Token& dir_token);
     void calc(std::stack<Operator>& ops, std::stack<target_intmax_t>& nums, const Operator& next_op);
     bool if_group();
     bool elif_groups(bool processed);
@@ -205,6 +302,8 @@ private:
     bool expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_include(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
+    TokenList expand_directive_line();
+
     bool search_header_file(const HeaderSpec& header_spec, pp::String* header_file_pathstr);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
@@ -233,6 +332,13 @@ private:
     //void pp_tokens(bool output);
 
     void new_line();
+
+    bool pp_balanced_token(TokenList* tokens);
+    bool pp_balanced_token_sequence(TokenType left_bracket, TokenList* result_tokens);
+    bool pp_parameter_name(std::string* result_name);
+    bool pp_paramter_clause(EmbedParameter* parameter);
+    bool pp_parameter(EmbedSpec* spec);
+    bool embed_parameter_sequence(EmbedSpec* spec);
 
     void skip_directive_line(TokenList* skipped_tokens = nullptr);
     void skip_ws(TokenList* read_tokens = nullptr);
@@ -275,6 +381,7 @@ private:
 
     std::string execute_stringize(const Macro::ArgList& args, Macro::ArgList::size_type first, Macro::ArgList::size_type last);
     bool execute_include(const std::string& header_name, const Token& header_name_token);
+    bool execute_embed(EmbedSpec& spec);
     bool execute_define();
     bool execute_undef();
     bool execute_pragma(const TokenList& tokens, const Token& location);

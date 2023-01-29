@@ -21,6 +21,7 @@ using namespace pp;
 
 std::vector<std::tuple<std::string, pp::TokenType>> directives = {
     { "include", TokenType::kInclude },
+    { "embed", TokenType::kEmbed },
     { "define", TokenType::kDefine },
     { "undef", TokenType::kUndef },
     { "if", TokenType::kIf },
@@ -273,6 +274,22 @@ String normalize_path(const String& path) {
     } while (i != String::npos);
 
     return result;
+}
+
+std::string to_short_pp_parameter_name(const std::string& name) {
+    constexpr string_view two_underscores = "__";
+
+    if (name.length() <= (two_underscores.length() * 2)) {
+        return name;
+    }
+    if (!name.starts_with(two_underscores) || !name.ends_with(two_underscores)) {
+        return name;
+    }
+
+    // アンダースコアを取り除いた結果が識別子になっていない可能性が有るが、そういったものを
+    // パラメーター名として用意することは無く、execute_embedでも単に無視されるだけなので
+    // 何か実害が有るまでは気にしないでおく。
+    return name.substr(two_underscores.length(), name.length() - two_underscores.length() * 2);
 }
 
 }   // anonymous namespace
@@ -742,6 +759,7 @@ bool Preprocessor::group_part() {
             if_section();
         } else if (
             dir == TokenType::kInclude ||
+            dir == TokenType::kEmbed ||
             dir == TokenType::kDefine ||
             dir == TokenType::kUndef ||
             dir == TokenType::kLine ||
@@ -859,7 +877,7 @@ TokenList Preprocessor::make_constant_expression() {
                 bad_expr = true;
             } else {
                 MacroPtr m = find_macro(macro_name.string());
-                Token v((m != nullptr) ? "1" : "0", TokenType::kPpNumber);
+                const Token& v = (m != nullptr) ? kTokenPpNumberOne : kTokenPpNumberZero;
                 expr.push_back(v);
 
                 if (open) {
@@ -874,7 +892,7 @@ TokenList Preprocessor::make_constant_expression() {
         } else {
             MacroPtr m = find_macro(t.string());
             if (m == nullptr) {
-                expr.push_back(Token("0", TokenType::kPpNumber));
+                expr.push_back(kTokenPpNumberZero);
             } else {
                 TokenList replaced;
                 if (!m->is_function()) {
@@ -905,13 +923,13 @@ TokenList Preprocessor::make_constant_expression() {
     if (expr.empty() || bad_expr) {
         skip_directive_line();
         expr.clear();
-        expr.push_back(Token("0", TokenType::kPpNumber));
+        expr.push_back(kTokenPpNumberZero);
     }
 
     return expr;
 }
 
-target_intmax_t Preprocessor::constant_expression(TokenList&& expr_tokens, const Token& dir_token) {
+target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, const Token& dir_token) {
     //  TODO: make_constant_expressionの中身をここに移して、ここの中身は calculator.cppにしたい。
 
 #if !defined(NDEBUG)
@@ -1485,6 +1503,72 @@ void Preprocessor::control_line(TokenType directive) {
         } else {
             execute_include(header_name, header_name_token);
         }
+        break;
+    }
+    case TokenType::kEmbed: {
+        src.scanner_hint(ScannerHint::kHeaderName);
+        match("embed");
+        src.scanner_hint(ScannerHint::kInitial);
+        skip_ws();
+
+        // 規格的にどうなのか分からないが、とりあえず他のディレクティブとは異なり、一気に展開しておく。
+        // もしかすると、今後、まず展開無しでリソースとパラメーターの解析を試みて、それに失敗すれば展開して
+        // 再度、解析を試みるようになるかもしれない。何か変わるにせよ、変わらないにせよ、いずれは、他の
+        // ディレクティブもこのように変更して統一したい。その場合、恐らく動作が変わる。
+        TokenList expanded = expand_directive_line();
+        SourceTokenList source(expanded);
+        TokenStream stream(source);
+        push_stream(stream);
+
+        Token resource_id_token = peek(1);
+        if (resource_id_token.type() == TokenType::kStringLiteral) {
+            // NOTE: 文字列であっても、execute_embed内でエスケープシーケンスなどは解釈されない。
+            resource_id_token = Token(resource_id_token.string(), TokenType::kHeaderName);
+
+            match(TokenType::kStringLiteral);
+        } else if (resource_id_token.string() == "<") {
+            Token t = resource_id_token;
+            TokenList ts;
+            while (t.string() != ">" && !t.is_eol()) {
+                ts.push_back(move(t));
+
+                consume();
+                t = peek(1);
+            }
+            if (t.string() == ">") {
+                ts.push_back(move(t));
+                resource_id_token = Token(Token::concat_string(ts), TokenType::kHeaderName);
+
+                match(">");
+            }
+        } else if (resource_id_token.type() == TokenType::kHeaderName) {
+            match(TokenType::kHeaderName);
+        }
+
+        if (resource_id_token.type() == TokenType::kHeaderName) {
+            skip_ws();
+
+            bool succeeded = true;
+            EmbedSpec spec(resource_id_token.string());
+            if (peek(1).type() == TokenType::kIdentifier) {
+                succeeded = embed_parameter_sequence(&spec);
+            }
+
+            if (!peek(1).is_eol()) {
+                skip_directive_line();
+            }
+
+            if (succeeded) {
+                execute_embed(spec);
+            }
+        } else {
+            error(peek(1), kNoEmbedResourceIdentifierError);
+            skip_directive_line();
+        }
+
+        pop_stream();
+
+        new_line();
         break;
     }
     case TokenType::kDefine: {
@@ -2083,13 +2167,13 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
 bool Preprocessor::expand_op_has_c_attribute(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
     if (macro_args.empty() || macro_args[0].empty()) {
         error(kTokenNull, kOpHasCAttributeNeedsAnAttribute);
-        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+        result_expanded.push_back(kTokenPpNumberZero);
         return true;
     }
 
     // 標準の属性
     if (macro_args.size() == 1) {
-        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+        result_expanded.push_back(kTokenPpNumberZero);
 
         //const auto& attr_name = macro_args[0][0].string();
         //if (attr_name.string() == "nodiscard") {
@@ -2099,10 +2183,10 @@ bool Preprocessor::expand_op_has_c_attribute(const Macro& /*macro*/, const Macro
         //    attr_name.string() == "fallthrough") {
         //    expr.push_back(Token("201904L", TokenType::kPpNumber));
         //} else {
-        //    expr.push_back(Token("0", TokenType::kPpNumber));
+        //    expr.push_back(kTokenPpNumberZero);
         //}
     } else {
-        result_expanded.push_back(Token("0", TokenType::kPpNumber));
+        result_expanded.push_back(kTokenPpNumberZero);
     }
 
     return true;
@@ -2141,6 +2225,22 @@ bool Preprocessor::expand_op_has_include(const Macro& /*macro*/, const Macro::Ar
     }
 
     return true;
+}
+
+TokenList Preprocessor::expand_directive_line() {
+    TokenList tokens;
+    skip_directive_line(&tokens);
+
+    SourceTokenList source(tokens);
+    TokenStream stream(source);
+    push_stream(stream);
+
+    TokenList result;
+    scan(result);
+
+    pop_stream();
+
+    return result;
 }
 
 bool Preprocessor::search_header_file(const HeaderSpec& header_spec, pp::String* header_file_path_str) {
@@ -2630,6 +2730,154 @@ void Preprocessor::new_line() {
     }
 }
 
+bool Preprocessor::pp_balanced_token(TokenList* tokens) {
+    Token left = peek(1);
+    if (is_left_bracket(left.type())) {
+        tokens->push_back(left);
+        match(left.type());
+        skip_ws();
+
+        Token right = peek(1);
+        if (!is_matched_bracket(left.type(), right.type())) {
+            if (!pp_balanced_token_sequence(left.type(), tokens)) {
+                return false;
+            }
+
+            if (!is_matched_bracket(left.type(), peek(1).type())) {
+                error(left, kUnclosedBracketError);
+                return false;
+            }
+        }
+
+        tokens->push_back(right);
+        match(right.type());
+        skip_ws();
+    } else {
+        Token t = peek(1);
+        while (!is_bracket(t.type()) && !t.is_eol()) {
+            tokens->push_back(t);
+
+            consume();
+            t = peek(1);
+        }
+    }
+
+    return true;
+}
+
+bool Preprocessor::pp_balanced_token_sequence(TokenType left_bracket, TokenList* result_tokens) {
+    const TokenType right_bracket = get_right_bracket(left_bracket);
+
+    while (peek(1).type() != right_bracket && !peek(1).is_eol()) {
+        if (!pp_balanced_token(result_tokens)) {
+            return false;
+        }
+    }
+
+    return !peek(1).is_eol();
+}
+
+bool Preprocessor::pp_parameter_name(std::string* result_name) {
+    assert(result_name != nullptr);
+
+    *result_name = to_short_pp_parameter_name(peek(1).string());
+
+    match(TokenType::kIdentifier);
+    skip_ws();
+
+    if (!(peek(1).type() == TokenType::kPunctuator && peek(1).string() == "::")) {
+        return true;
+    }
+
+    match(TokenType::kPunctuator);
+    skip_ws();
+
+    if (peek(1).type() != TokenType::kIdentifier) {
+        error(peek(1), kBadPrefixedEmbedParameterError);
+        return false;
+    }
+
+    *result_name += "::";
+    *result_name += to_short_pp_parameter_name(peek(1).string());
+
+    match(TokenType::kIdentifier);
+    skip_ws();
+
+    return true;
+}
+
+bool Preprocessor::pp_paramter_clause(EmbedParameter* parameter) {
+    Token left = peek(1);
+    match(TokenType::kLeftParenthesis);
+    skip_ws();
+
+    // pp-parameter-clauseは丸括弧だけなので、ここでは tokensに丸括弧は含めていない。
+    TokenList tokens;
+    if (peek(1).type() != TokenType::kRightParenthesis) {
+        if (!pp_balanced_token_sequence(TokenType::kLeftParenthesis, &tokens)) {
+            return false;
+        }
+
+        if (peek(1).type() != TokenType::kRightParenthesis) {
+            error(left, kUnclosedBracketError);
+            return false;
+        }
+    }
+    parameter->set_value(move(tokens));
+
+    match(TokenType::kRightParenthesis);
+    skip_ws();
+
+    return true;
+}
+
+bool Preprocessor::pp_parameter(EmbedSpec* spec) {
+    Token t = peek(1);
+    if (t.type() != TokenType::kIdentifier) {
+        error(t, kBadEmbedParameterError);
+        return false;
+    }
+
+    std::string name;
+    if (!pp_parameter_name(&name)) {
+        return false;
+    }
+
+    EmbedParameter param(name);
+    if (peek(1).type() == TokenType::kLeftParenthesis) {
+        if (!pp_paramter_clause(&param)) {
+            return false;
+        }
+    }
+
+    if (EmbedParameter::is_standard_parameter_name(name)) {
+        if (spec->parameter(name).has_value()) {
+            // XXX: 今のところ、全ての標準パラメーターは 0個か 1個かだけ。
+            error(peek(1), kSameEmbedParameterSpecifiedError, name);
+            return false;
+        }
+        if (!param.has_value()) {
+            error(peek(1), kEmbedParameterClauseUnspecifiedError, name);
+            return false;
+        }
+    }
+
+    spec->add_parameter(move(param));
+
+    return true;
+}
+
+bool Preprocessor::embed_parameter_sequence(EmbedSpec* spec) {
+    Token t;
+    while ((t = peek(1)).type() == TokenType::kIdentifier) {
+        if (!pp_parameter(spec)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void Preprocessor::skip_directive_line(TokenList* skipped_tokens /* = nullptr */) {
     const Token* t = &peek(1);
     while (!t->is_eol()) {
@@ -2744,6 +2992,122 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
     }
     preprocessing_file(&next_input, path_str);
     included_files_--;
+
+    return true;
+}
+
+bool Preprocessor::execute_embed(EmbedSpec& spec) {
+    constexpr auto kEmbedElementWidth = TARGET_CHAR_BIT;
+    // とりあえずこれで制限する。
+    constexpr auto kMaxResourceSizeInBytes = 0x10000;
+
+    // TODO: インクルードパスを流用しない方が良い？リソースパスを指定できるようにした方が良い？
+    // TODO: ヘッダーファイルの流用なのをどうにかする。名前だけ変えるとか。
+    HeaderSpec h_spec(spec.resource_id());
+    String path_str;
+    if (!search_header_file(h_spec, &path_str)) {
+        fatal_error(peek(1), kEmbedResoruceNotFoundError, spec.resource_id());
+        return false;
+    }
+
+    Path path = path_string(path_str);
+    ifstream resource_file(path, ios_base::binary);
+    if (!resource_file) {
+        fatal_error(peek(1), kEmbedResoruceOpeningFailureError, spec.resource_id());
+        return false;
+    }
+
+    auto size = filesystem::file_size(path);
+    if (size > (numeric_limits<int>::max() >> kEmbedElementWidth)) {
+        error(peek(1), __func__ /* 実装上の都合、オーバーフローしそう */);
+        return false;
+    }
+
+    // TODO: 上のチェックと合わせて、もうすこし、こう、型を考える。
+    const int file_size = static_cast<int>(size);
+    // この辺の用語の意味を勘違いしているような気がしてならない。
+    const int implementation_resource_width = file_size * kEmbedElementWidth;
+    int resource_width = 0;     // in bits
+
+    auto limit_ref = spec.parameter("limit");
+    if (limit_ref.has_value()) {
+        auto& limit = limit_ref->get();
+        for (auto& t : limit.value()) {
+            if (t.string() == kIdentDefined) {
+                error(t, kEmbedUsingDefinedInLimitParameterError);
+                return false;
+            }
+        }
+
+        int limit_result = constant_expression(limit.value(), peek(1));    // in bytes
+        if (limit_result < 0) {
+            error(limit.value().front(), kEmbedLimitParameterLessThan0Error);
+            resource_width = 0;
+        } else if (limit_result > kMaxResourceSizeInBytes) {
+            error(limit.value().front(), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+            resource_width = 0;
+        } else {
+            resource_width = min(implementation_resource_width, kEmbedElementWidth * limit_result);
+        }
+    } else {
+        if (file_size > kMaxResourceSizeInBytes) {
+            error(peek(0), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+            resource_width = 0;
+        } else {
+            resource_width = implementation_resource_width;
+        }
+    }
+
+    if ((resource_width % kEmbedElementWidth) != 0) {
+        error(peek(1), kEmbedResourceWidthCanBeDividedByEmbedElementWidth, kEmbedElementWidth);
+        return false;
+    }
+
+    if (resource_width == 0) {
+        auto if_empty_ref = spec.parameter("if_empty");
+        if (if_empty_ref.has_value()) {
+            auto& if_empty = if_empty_ref->get();
+            for (auto& t : if_empty.value()) {
+                output_text(t.string());
+            }
+        }
+    } else {
+        auto prefix_ref = spec.parameter("prefix");
+        if (prefix_ref.has_value()) {
+            auto& prefix = prefix_ref->get();
+            for (auto& t : prefix.value()) {
+                output_text(t.string());
+            }
+        }
+
+        const int bytes = resource_width / kEmbedElementWidth;
+        unique_ptr<char[]> buf(new char[bytes]);
+        resource_file.read(buf.get(), bytes);
+        if (resource_file.gcount() != bytes) {
+            error(peek(1), kEmbedResoruceReadingFailureError);
+            return false;
+        }
+
+        char dec[6] = ", XXX";
+        sprintf_s(dec, "%d", (static_cast<unsigned char>(buf[0])));
+        output_text(dec);
+        for (int i = 1; i < bytes; ++i) {
+            if ((i % 16) == 0) {
+                sprintf_s(dec, ",\n%d", (static_cast<unsigned char>(buf[i])));
+            } else {
+                sprintf_s(dec, ", %d", (static_cast<unsigned char>(buf[i])));
+            }
+            output_text(dec);
+        }
+
+        auto suffix_ref = spec.parameter("suffix");
+        if (suffix_ref.has_value()) {
+            auto& suffix = suffix_ref->get();
+            for (auto& t : suffix.value()) {
+                output_text(t.string());
+            }
+        }
+    }
 
     return true;
 }

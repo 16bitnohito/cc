@@ -82,6 +82,19 @@ extern const StringView kMinSpecConditionalInclusionWarning;
 extern const StringView kMinSpecMacroParametersWarning;
 extern const StringView kMinSpecMacroArgumentsWarning;
 
+extern const StringView kNoEmbedResourceIdentifierError;
+extern const StringView kEmbedResoruceNotFoundError;
+extern const StringView kEmbedResoruceOpeningFailureError;
+extern const StringView kEmbedResoruceReadingFailureError;
+extern const StringView kEmbedUsingDefinedInLimitParameterError;
+extern const StringView kEmbedLimitParameterLessThan0Error;
+extern const StringView kEmbedResourceWidthCanBeDividedByEmbedElementWidth;
+extern const StringView kBadEmbedParameterError;
+extern const StringView kBadPrefixedEmbedParameterError;
+extern const StringView kSameEmbedParameterSpecifiedError;
+extern const StringView kEmbedParameterClauseUnspecifiedError;
+
+extern const StringView kUnclosedBracketError;
 
 #if defined(NDEBUG)
 #define DEBUG(t, ...)

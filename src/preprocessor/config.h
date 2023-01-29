@@ -17,6 +17,8 @@ namespace pp {
 using target_intmax_t = std::int32_t;
 using target_uintmax_t = std::uint32_t;
 
+#define TARGET_CHAR_BIT     8
+
 // BUILD
 //#if USE_STD_FILESYSTEM
 //using Path = std::filesystem::path;

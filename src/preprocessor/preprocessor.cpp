@@ -307,6 +307,7 @@ constexpr char kIdentVaArgs[] = "__VA_ARGS__";
 constexpr char kIdentVaOpt[] = "__VA_OPT__";
 constexpr char kIdentHasCAttribute[] = "__has_c_attribute";
 constexpr char kIdentHasInclude[] = "__has_include";
+constexpr char kIdentHasEmbed[] = "__has_embed";
 constexpr char kPunctEllipsis[] = "...";
 
 // static
@@ -387,6 +388,8 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
         return MacroExpantionMethod::kOpHasCAttribute;
     } else if (name == kIdentHasInclude) {
         return MacroExpantionMethod::kOpHasInclude;
+    } else if (name == kIdentHasEmbed) {
+        return MacroExpantionMethod::kOpHasEmbed;
     } else {
         bool directly = true;
         for (const auto& t : replist) {
@@ -604,6 +607,7 @@ void Preprocessor::prepare_predefined_macro() {
     predef_macro_names_.push_back(kIdentDefined);
     predef_macro_names_.push_back(kIdentHasCAttribute);
     predef_macro_names_.push_back(kIdentHasInclude);
+    predef_macro_names_.push_back(kIdentHasEmbed);
 
     //  仕様的な定義済みマクロはここまでとして、後の検索の為にソートしておく。
     sort(predef_macro_names_.begin(), predef_macro_names_.end());
@@ -652,6 +656,19 @@ void Preprocessor::prepare_predefined_macro() {
             Macro::ParamList{ "header_name" },
             TokenList{}, "", kTokenNull);
         auto result = macros_.insert({ op_has_include->name(), op_has_include });
+        if (!result.second) {
+            fatal_error(kTokenNull, as_internal(__func__));
+        }
+    }
+
+    // __has_embed
+    // パラメーターは複数指定できるが、コンマ区切りではないので 1つだけ。read_macro_argsを使わず特別扱い。
+    {
+        auto op_has_embed = Macro::create_macro(
+            kIdentHasEmbed,
+            Macro::ParamList{ "header_name" },
+            TokenList{}, "", kTokenNull);
+        auto result = macros_.insert({ op_has_embed->name(), op_has_embed });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__));
         }
@@ -845,14 +862,14 @@ TokenList Preprocessor::make_constant_expression() {
             continue;
         }
 
-        bool invoke_has_include = (t.string() == kIdentHasInclude);
-        if (invoke_has_include) {
+        bool needs_header_name = (t.string() == kIdentHasInclude) || (t.string() == kIdentHasEmbed);
+        if (needs_header_name) {
             current_source().scanner_hint(ScannerHint::kHeaderName);
         }
 
         consume();      // XXX: これも。
 
-        if (invoke_has_include) {
+        if (needs_header_name) {
             current_source().scanner_hint(ScannerHint::kInitial);
         }
 
@@ -887,6 +904,52 @@ TokenList Preprocessor::make_constant_expression() {
                         bad_expr = true;
                     }
                     match(TokenType::kRightParenthesis);
+                }
+            }
+        } else if (t.string() == kIdentHasEmbed) {
+            skip_ws();
+
+            if (peek(1).type() != TokenType::kLeftParenthesis) {
+                expr.push_back(kTokenPpNumberZero);
+            } else {
+                match(TokenType::kLeftParenthesis);
+                skip_ws();
+
+                MacroPtr m = find_macro(t.string());
+                if (!m) {
+                    bad_expr = true;
+                    fatal_error(t, as_internal(__func__) /* マクロ追加忘れ。 */);
+                }
+
+                int depth = 0;
+                TokenList tokens;
+                t = peek(1);
+                while (!(depth == 0 && t.type() == TokenType::kRightParenthesis) && !t.is_eol()) {
+                    if (t.type() == TokenType::kLeftParenthesis) {
+                        ++depth;
+                    }
+                    if (depth > 0 && t.type() == TokenType::kRightParenthesis) {
+                        --depth;
+                    }
+                    tokens.push_back(move(t));
+
+                    consume();
+                    t = peek(1);
+                }
+                if (t.type() != TokenType::kRightParenthesis) {
+                    error(peek(1), as_internal(__func__) /* 閉じ括弧が無い。構文がおかしいので失敗 */);
+                    bad_expr = true;
+                } else {
+                    match(TokenType::kRightParenthesis);
+                }
+
+                if (!bad_expr) {
+                    Macro::ArgList args;
+                    args.push_back(move(tokens));
+
+                    TokenList replaced;
+                    expand(*m, args, replaced);
+                    expr.push_back(replaced.front());
                 }
             }
         } else {
@@ -1045,15 +1108,16 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
         skip_ws();
         t = peek(1);
     }
+
+    pop_stream();
+
     if (bad_expr) {
-        pop_stream();
         return 0;
     }
 
     calc(ops, nums, kOperatorCloseParen);
 
     if (nums.size() != 1) {
-        pop_stream();
         error(dir_token, as_internal(__func__));
         return 0;
     }
@@ -1061,7 +1125,6 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
     target_intmax_t result = nums.top();
     nums.pop();
 
-    pop_stream();
     return result;
 }
 
@@ -1559,7 +1622,7 @@ void Preprocessor::control_line(TokenType directive) {
             }
 
             if (succeeded) {
-                execute_embed(spec);
+                execute_embed(spec, false);
             }
         } else {
             error(peek(1), kNoEmbedResourceIdentifierError);
@@ -1792,13 +1855,8 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
             output_text(t.string());
             continue;
         }
-        if (t.string() == kIdentHasCAttribute) {
-            error(t, kOpHasCAttributeIdentifierUsageError);
-            output_text(t.string());
-            continue;
-        }
-        if (t.string() == kIdentHasInclude) {
-            error(t, kOpHasIncludeIdentifierUsageError);
+        if (t.string() == kIdentHasCAttribute || t.string() == kIdentHasInclude || t.string() == kIdentHasEmbed) {
+            error(t, kConditionalInclusionOperatorUsageError, t.string());
             output_text(t.string());
             continue;
         }
@@ -2178,7 +2236,8 @@ bool Preprocessor::expand_op_has_c_attribute(const Macro& /*macro*/, const Macro
         //const auto& attr_name = macro_args[0][0].string();
         //if (attr_name.string() == "nodiscard") {
         //    expr.push_back(Token("202003L", TokenType::kPpNumber));
-        //} else if (attr_name.string() == "maybe_unused" ||
+        //} else if (
+        //    attr_name.string() == "maybe_unused" ||
         //    attr_name.string() == "deprecated" ||
         //    attr_name.string() == "fallthrough") {
         //    expr.push_back(Token("201904L", TokenType::kPpNumber));
@@ -2223,6 +2282,88 @@ bool Preprocessor::expand_op_has_include(const Macro& /*macro*/, const Macro::Ar
     } else {
         result_expanded.push_back(kTokenPpNumberZero);
     }
+
+    return true;
+}
+
+bool Preprocessor::expand_op_has_embed(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+    Macro::ArgList expanded_args(macro_args.size());
+
+    if (macro_args.size() != 1 || macro_args[0].empty()) {
+        result_expanded.push_back(kTokenPpNumberZero);
+        fatal_error(kTokenNull, kOpHasIncludeParameterTypeMismatchError);
+        return true;
+    }
+
+    get_expanded_arg(0, macro_args[0], expanded_args);
+
+    const auto& arg = expanded_args[0];
+    SourceTokenList source(arg);
+    TokenStream stream(source);
+    push_stream(stream);
+
+    Token resource_id_token = peek(1);
+    if (resource_id_token.type() == TokenType::kStringLiteral) {
+        // NOTE: 文字列であっても、execute_embed内でエスケープシーケンスなどは解釈されない。
+        resource_id_token = Token(resource_id_token.string(), TokenType::kHeaderName);
+
+        match(TokenType::kStringLiteral);
+    } else if (resource_id_token.string() == "<") {
+        Token t = resource_id_token;
+        TokenList ts;
+        while (t.string() != ">" && !t.is_eol()) {
+            ts.push_back(move(t));
+
+            consume();
+            t = peek(1);
+        }
+        if (t.string() == ">") {
+            ts.push_back(move(t));
+            resource_id_token = Token(Token::concat_string(ts), TokenType::kHeaderName);
+
+            match(">");
+        }
+    } else if (resource_id_token.type() == TokenType::kHeaderName) {
+        match(TokenType::kHeaderName);
+    }
+
+    if (resource_id_token.type() == TokenType::kHeaderName) {
+        skip_ws();
+
+        bool succeeded = true;
+        EmbedSpec spec(resource_id_token.string());
+        if (peek(1).type() == TokenType::kIdentifier) {
+            succeeded = embed_parameter_sequence(&spec);
+        }
+
+        if (!peek(1).is_eol()) {
+            skip_directive_line();
+        }
+
+        if (!succeeded) {
+            result_expanded.push_back(kTokenPpNumberZero);
+        } else {
+            auto result = execute_embed(spec, true);
+            switch (result) {
+            case EmbedResult::kErrorOrUnsupportedParameter:
+                result_expanded.push_back(kTokenPpNumberZero);
+                break;
+
+            case EmbedResult::kComplete:
+                result_expanded.push_back(kTokenPpNumberOne);
+                break;
+
+            case EmbedResult::kResourceIsEmpty:
+                result_expanded.push_back(kTokenPpNumberTwo);
+                break;
+            }
+        }
+    } else {
+        result_expanded.push_back(kTokenPpNumberZero);
+        skip_directive_line();
+    }
+
+    pop_stream();
 
     return true;
 }
@@ -2996,7 +3137,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
     return true;
 }
 
-bool Preprocessor::execute_embed(EmbedSpec& spec) {
+EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context) {
     constexpr auto kEmbedElementWidth = TARGET_CHAR_BIT;
     // とりあえずこれで制限する。
     constexpr auto kMaxResourceSizeInBytes = 0x10000;
@@ -3006,21 +3147,27 @@ bool Preprocessor::execute_embed(EmbedSpec& spec) {
     HeaderSpec h_spec(spec.resource_id());
     String path_str;
     if (!search_header_file(h_spec, &path_str)) {
-        fatal_error(peek(1), kEmbedResoruceNotFoundError, spec.resource_id());
-        return false;
+        if (!has_embed_context) {
+            fatal_error(peek(1), kEmbedResoruceNotFoundError, spec.resource_id());
+        }
+        return EmbedResult::kErrorOrUnsupportedParameter;
     }
 
     Path path = path_string(path_str);
     ifstream resource_file(path, ios_base::binary);
     if (!resource_file) {
-        fatal_error(peek(1), kEmbedResoruceOpeningFailureError, spec.resource_id());
-        return false;
+        if (!has_embed_context) {
+            fatal_error(peek(1), kEmbedResoruceOpeningFailureError, spec.resource_id());
+        }
+        return EmbedResult::kErrorOrUnsupportedParameter;
     }
 
-    auto size = filesystem::file_size(path);
+    const auto size = filesystem::file_size(path);
     if (size > (numeric_limits<int>::max() >> kEmbedElementWidth)) {
-        error(peek(1), __func__ /* 実装上の都合、オーバーフローしそう */);
-        return false;
+        if (!has_embed_context) {
+            error(peek(1), __func__ /* 実装上の都合、オーバーフローしそう */);
+        }
+        return EmbedResult::kErrorOrUnsupportedParameter;
     }
 
     // TODO: 上のチェックと合わせて、もうすこし、こう、型を考える。
@@ -3029,87 +3176,109 @@ bool Preprocessor::execute_embed(EmbedSpec& spec) {
     const int implementation_resource_width = file_size * kEmbedElementWidth;
     int resource_width = 0;     // in bits
 
-    auto limit_ref = spec.parameter("limit");
+    auto limit_ref = spec.parameter(EmbedParameter::kIdentLimit);
     if (limit_ref.has_value()) {
         auto& limit = limit_ref->get();
         for (auto& t : limit.value()) {
             if (t.string() == kIdentDefined) {
-                error(t, kEmbedUsingDefinedInLimitParameterError);
-                return false;
+                if (!has_embed_context) {
+                    error(t, kEmbedUsingDefinedInLimitParameterError);
+                }
+                return EmbedResult::kErrorOrUnsupportedParameter;
             }
         }
 
-        int limit_result = constant_expression(limit.value(), peek(1));    // in bytes
+        const int limit_result = constant_expression(limit.value(), peek(1));    // in bytes
         if (limit_result < 0) {
-            error(limit.value().front(), kEmbedLimitParameterLessThan0Error);
-            resource_width = 0;
+            if (!has_embed_context) {
+                error(limit.value().front(), kEmbedLimitParameterLessThan0Error);
+            }
+            return EmbedResult::kErrorOrUnsupportedParameter;
         } else if (limit_result > kMaxResourceSizeInBytes) {
-            error(limit.value().front(), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
-            resource_width = 0;
-        } else {
-            resource_width = min(implementation_resource_width, kEmbedElementWidth * limit_result);
+            if (!has_embed_context) {
+                error(limit.value().front(), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+            }
+            return EmbedResult::kErrorOrUnsupportedParameter;
         }
+
+        resource_width = min(implementation_resource_width, kEmbedElementWidth * limit_result);
     } else {
         if (file_size > kMaxResourceSizeInBytes) {
-            error(peek(0), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
-            resource_width = 0;
-        } else {
-            resource_width = implementation_resource_width;
+            if (!has_embed_context) {
+                error(peek(0), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+            }
+            return EmbedResult::kErrorOrUnsupportedParameter;
         }
+
+        resource_width = implementation_resource_width;
     }
 
     if ((resource_width % kEmbedElementWidth) != 0) {
-        error(peek(1), kEmbedResourceWidthCanBeDividedByEmbedElementWidth, kEmbedElementWidth);
-        return false;
+        if (!has_embed_context) {
+            error(peek(1), kEmbedResourceWidthCanBeDividedByEmbedElementWidth, kEmbedElementWidth);
+        }
+        return EmbedResult::kErrorOrUnsupportedParameter;
     }
 
-    if (resource_width == 0) {
-        auto if_empty_ref = spec.parameter("if_empty");
-        if (if_empty_ref.has_value()) {
-            auto& if_empty = if_empty_ref->get();
-            for (auto& t : if_empty.value()) {
-                output_text(t.string());
-            }
-        }
+    if (!has_embed_context) {
+        // warning(/*パラメーター Xは無視される的な */);
     } else {
-        auto prefix_ref = spec.parameter("prefix");
-        if (prefix_ref.has_value()) {
-            auto& prefix = prefix_ref->get();
-            for (auto& t : prefix.value()) {
-                output_text(t.string());
-            }
-        }
-
-        const int bytes = resource_width / kEmbedElementWidth;
-        unique_ptr<char[]> buf(new char[bytes]);
-        resource_file.read(buf.get(), bytes);
-        if (resource_file.gcount() != bytes) {
-            error(peek(1), kEmbedResoruceReadingFailureError);
-            return false;
-        }
-
-        char dec[6] = ", XXX";
-        sprintf_s(dec, "%d", (static_cast<unsigned char>(buf[0])));
-        output_text(dec);
-        for (int i = 1; i < bytes; ++i) {
-            if ((i % 16) == 0) {
-                sprintf_s(dec, ",\n%d", (static_cast<unsigned char>(buf[i])));
-            } else {
-                sprintf_s(dec, ", %d", (static_cast<unsigned char>(buf[i])));
-            }
-            output_text(dec);
-        }
-
-        auto suffix_ref = spec.parameter("suffix");
-        if (suffix_ref.has_value()) {
-            auto& suffix = suffix_ref->get();
-            for (auto& t : suffix.value()) {
-                output_text(t.string());
+        for (auto& p : spec.parameters()) {
+            if (!EmbedParameter::is_supported_parameter_name(p.name())) {
+                return EmbedResult::kErrorOrUnsupportedParameter;
             }
         }
     }
 
-    return true;
+    if (!has_embed_context) {
+        if (resource_width == 0) {
+            auto if_empty_ref = spec.parameter(EmbedParameter::kIdentIfEmpty);
+            if (if_empty_ref.has_value()) {
+                auto& if_empty = if_empty_ref->get();
+                for (auto& t : if_empty.value()) {
+                    output_text(t.string());
+                }
+            }
+        } else {
+            auto prefix_ref = spec.parameter(EmbedParameter::kIdentPrefix);
+            if (prefix_ref.has_value()) {
+                auto& prefix = prefix_ref->get();
+                for (auto& t : prefix.value()) {
+                    output_text(t.string());
+                }
+            }
+
+            const int bytes = resource_width / kEmbedElementWidth;
+            unique_ptr<char[]> buf(new char[bytes]);
+            resource_file.read(buf.get(), bytes);
+            if (resource_file.gcount() != bytes) {
+                error(peek(1), kEmbedResoruceReadingFailureError);
+                return EmbedResult::kErrorOrUnsupportedParameter;
+            }
+
+            char dec[6] = ", XXX";
+            sprintf_s(dec, "%d", (static_cast<unsigned char>(buf[0])));
+            output_text(dec);
+            for (int i = 1; i < bytes; ++i) {
+                if ((i % 16) == 0) {
+                    sprintf_s(dec, ",\n%d", (static_cast<unsigned char>(buf[i])));
+                } else {
+                    sprintf_s(dec, ", %d", (static_cast<unsigned char>(buf[i])));
+                }
+                output_text(dec);
+            }
+
+            auto suffix_ref = spec.parameter(EmbedParameter::kIdentSuffix);
+            if (suffix_ref.has_value()) {
+                auto& suffix = suffix_ref->get();
+                for (auto& t : suffix.value()) {
+                    output_text(t.string());
+                }
+            }
+        }
+    }
+
+    return (resource_width == 0) ? EmbedResult::kResourceIsEmpty : EmbedResult::kComplete;
 }
 
 bool Preprocessor::execute_define() {

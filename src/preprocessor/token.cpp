@@ -111,5 +111,6 @@ const Token kTokenNull("", TokenType::kNull);
 const Token kTokenEndOfFile("", TokenType::kEndOfFile);
 const Token kTokenPpNumberZero("0", TokenType::kPpNumber);
 const Token kTokenPpNumberOne("1", TokenType::kPpNumber);
+const Token kTokenPpNumberTwo("2", TokenType::kPpNumber);
 
 }   //  namespace pp

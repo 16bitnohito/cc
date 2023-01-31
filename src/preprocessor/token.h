@@ -192,6 +192,7 @@ extern const Token kTokenNull;
 extern const Token kTokenEndOfFile;
 extern const Token kTokenPpNumberZero;
 extern const Token kTokenPpNumberOne;
+extern const Token kTokenPpNumberTwo;
 
 inline
 bool is_bracket(TokenType type) {

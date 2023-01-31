@@ -72,5 +72,6 @@ const StringView kSameEmbedParameterSpecifiedError = T_("{}は 0または 1つ�
 const StringView kEmbedParameterClauseUnspecifiedError = T_("{}のパラメーター句が無い。");
 
 const StringView kUnclosedBracketError = T_("括弧が閉じていない。");
+const StringView kConditionalInclusionOperatorUsageError = T_("識別子 {}はここでは使えない。");
 
 }   //  namespace pp

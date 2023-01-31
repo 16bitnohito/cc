@@ -95,6 +95,7 @@ extern const StringView kSameEmbedParameterSpecifiedError;
 extern const StringView kEmbedParameterClauseUnspecifiedError;
 
 extern const StringView kUnclosedBracketError;
+extern const StringView kConditionalInclusionOperatorUsageError;
 
 #if defined(NDEBUG)
 #define DEBUG(t, ...)

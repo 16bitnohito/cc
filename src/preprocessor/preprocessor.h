@@ -49,6 +49,7 @@ enum class MacroExpantionMethod {
     kVaOpt,
     kOpHasCAttribute,
     kOpHasInclude,
+    kOpHasEmbed,
 
     kNumElements,
 };
@@ -145,11 +146,18 @@ private:
  */
 class EmbedParameter {
 public:
+    static constexpr inline std::string_view kIdentLimit = "limit";
+    static constexpr inline std::string_view kIdentPrefix = "prefix";
+    static constexpr inline std::string_view kIdentSuffix = "suffix";
+    static constexpr inline std::string_view kIdentIfEmpty = "if_empty";
+
     static bool is_standard_parameter_name(std::string_view name) {
-        return name == "limit" || name == "prefix" || name == "suffix" || name == "if_empty";
+        return standard_embed_parameters_.find(name) != standard_embed_parameters_.end();
     }
 
-    EmbedParameter() = default;
+    static bool is_supported_parameter_name(const std::string& name) {
+        return supported_embed_parameters_.find(name) != supported_embed_parameters_.end();
+    }
 
     explicit EmbedParameter(const std::string& name)
         : name_(name)
@@ -184,6 +192,14 @@ public:
     }
 
 private:
+    static const inline std::set<std::string_view> standard_embed_parameters_ = {
+        kIdentLimit, kIdentPrefix, kIdentSuffix, kIdentIfEmpty,
+    };
+
+    static const inline std::set<std::string_view> supported_embed_parameters_ = {
+        kIdentLimit, kIdentPrefix, kIdentSuffix, kIdentIfEmpty,
+    };
+
     std::string name_;
     TokenList value_;
     bool has_value_;
@@ -208,6 +224,8 @@ bool operator<(const EmbedParameter& lhs, const EmbedParameter& rhs) {
  */
 class EmbedSpec {
 public:
+    using ParameterList = std::set<EmbedParameter, std::less<>>;
+
     explicit EmbedSpec(const std::string& resource_id)
         : resource_id_(resource_id) {
     }
@@ -232,10 +250,23 @@ public:
         parameters_.insert(std::move(param));
     }
 
+    const ParameterList& parameters() const {
+        return parameters_;
+    }
+
 private:
     std::string resource_id_;
-    std::set<EmbedParameter, std::less<>> parameters_;
+    ParameterList parameters_;
 };
+
+/**
+ */
+enum class EmbedResult {
+    kErrorOrUnsupportedParameter = 0,
+    kComplete = 1,
+    kResourceIsEmpty = 2,   // limit(0)も含む。
+};
+
 
 /**
  */
@@ -301,6 +332,7 @@ private:
     bool expand_va_opt(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_include(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+    bool expand_op_has_embed(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
     TokenList expand_directive_line();
 
@@ -314,6 +346,7 @@ private:
         &Preprocessor::expand_va_opt,
         &Preprocessor::expand_op_has_c_attribute,
         &Preprocessor::expand_op_has_include,
+        &Preprocessor::expand_op_has_embed,
     };
 
     TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);
@@ -381,7 +414,7 @@ private:
 
     std::string execute_stringize(const Macro::ArgList& args, Macro::ArgList::size_type first, Macro::ArgList::size_type last);
     bool execute_include(const std::string& header_name, const Token& header_name_token);
-    bool execute_embed(EmbedSpec& spec);
+    EmbedResult execute_embed(EmbedSpec& spec, bool has_embed_context);
     bool execute_define();
     bool execute_undef();
     bool execute_pragma(const TokenList& tokens, const Token& location);

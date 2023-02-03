@@ -292,6 +292,18 @@ std::string to_short_pp_parameter_name(const std::string& name) {
     return name.substr(two_underscores.length(), name.length() - two_underscores.length() * 2);
 }
 
+// 標準の属性
+const std::map<std::string, std::string> kSupportedAttributes = {
+    //{ "nodiscard",    "202003L" },
+    //{ "maybe_unused", "202106L" },
+    //{ "deprecated",   "201904L" },
+    //{ "fallthrough",  "201910L" },
+    //{ "noreturn",     "202202L" },
+    //{ "_Noreturn",    "202202L" },  // OBSOLESCENT
+    //{ "reproducible", "202207L" },
+    //{ "unsequenced",  "202207L" },
+};
+
 }   // anonymous namespace
 
 namespace pp {
@@ -2223,27 +2235,48 @@ bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& m
 }
 
 bool Preprocessor::expand_op_has_c_attribute(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
-    if (macro_args.empty() || macro_args[0].empty()) {
+    if (macro_args.size() != 1 || macro_args[0].empty()) {
         error(kTokenNull, kOpHasCAttributeNeedsAnAttribute);
         result_expanded.push_back(kTokenPpNumberZero);
         return true;
     }
 
-    // 標準の属性
-    if (macro_args.size() == 1) {
-        result_expanded.push_back(kTokenPpNumberZero);
+    Macro::ArgList expanded_args(macro_args.size());
+    get_expanded_arg(0, macro_args[0], expanded_args);
 
-        //const auto& attr_name = macro_args[0][0].string();
-        //if (attr_name.string() == "nodiscard") {
-        //    expr.push_back(Token("202003L", TokenType::kPpNumber));
-        //} else if (
-        //    attr_name.string() == "maybe_unused" ||
-        //    attr_name.string() == "deprecated" ||
-        //    attr_name.string() == "fallthrough") {
-        //    expr.push_back(Token("201904L", TokenType::kPpNumber));
-        //} else {
-        //    expr.push_back(kTokenPpNumberZero);
-        //}
+    const auto& arg = expanded_args[0];
+    SourceTokenList source(arg);
+    TokenStream stream(source);
+    push_stream(stream);
+
+    string attr_name;
+    bool parsed;
+    if (peek(1).type() == TokenType::kIdentifier) {
+        // 文法的には attribute-tokenだが、先に作った同じ処理の pp_parameter_nameを流用している。
+        parsed = pp_parameter_name(&attr_name);
+    } else {
+        error(peek(1), kOpHasCAttributeNeedsAnAttribute);
+        parsed = false;
+    }
+
+    if (!peek(1).is_eol()) {
+        if (parsed) {
+            error(peek(1), kOpHasCAttributeNeedsAnAttribute);
+        }
+
+        skip_directive_line();
+        parsed = false;
+    }
+
+    pop_stream();
+
+    if (parsed) {
+        auto it = kSupportedAttributes.find(attr_name);
+        if (it != kSupportedAttributes.end()) {
+            result_expanded.push_back(Token(it->second, TokenType::kPpNumber));
+        } else {
+            result_expanded.push_back(kTokenPpNumberZero);
+        }
     } else {
         result_expanded.push_back(kTokenPpNumberZero);
     }

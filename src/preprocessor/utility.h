@@ -230,6 +230,9 @@ void setup_console();
 [[noreturn]]
 void raise_generic_error(const char* message, int error);
 
+[[noreturn]]
+void raise_generic_error(const char* message, std::errc error);
+
 // system_categoryの system_errorに関しては、処理系によって messageの扱いが
 // 異なるので、そのまま取り扱わない事にしました。例えば VCは system_errorを
 // Win32エラー値で送出しますが、他はそうではありません。そこで、このアプリでは

@@ -96,4 +96,9 @@ void raise_generic_error(const char* message, int error) {
     throw std::system_error(ec, message);
 }
 
+void raise_generic_error(const char* message, std::errc error) {
+    std::error_code ec = make_error_code(error);
+    throw std::system_error(ec, message);
+}
+
 }   //  namespace pp

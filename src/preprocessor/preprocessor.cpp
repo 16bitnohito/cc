@@ -417,17 +417,17 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
 }
 
 
-HeaderSpec::HeaderSpec(const std::string& header_name)
+IncludeSpec::IncludeSpec(const std::string& header_name)
     : header_name_(header_name) {
 }
 
-// HeaderSpec::~HeaderSpec() = default;
+// IncludeSpec::~IncludeSpec() = default;
 
-std::string HeaderSpec::name() const {
+std::string IncludeSpec::header_name() const {
     return header_name_.substr(1, header_name_.length() - 2);
 }
 
-bool HeaderSpec::include_source_dir() const {
+bool IncludeSpec::is_includes_source_dir() const {
     return header_name_[0] == '"';
 }
 
@@ -2309,8 +2309,8 @@ bool Preprocessor::expand_op_has_include(const Macro& /*macro*/, const Macro::Ar
         }
     }
 
-    HeaderSpec spec(header_name);
-    if (search_header_file(spec, nullptr)) {
+    IncludeSpec spec(header_name);
+    if (search_include_file(spec, nullptr)) {
         result_expanded.push_back(kTokenPpNumberOne);
     } else {
         result_expanded.push_back(kTokenPpNumberZero);
@@ -2417,15 +2417,15 @@ TokenList Preprocessor::expand_directive_line() {
     return result;
 }
 
-bool Preprocessor::search_header_file(const HeaderSpec& header_spec, pp::String* header_file_path_str) {
-    String name = internal_from_source(header_spec.name());
+bool Preprocessor::search_include_file(const IncludeSpec& include_spec, pp::String* file_path_str) {
+    String name = internal_from_source(include_spec.header_name());
     if (name.empty()) {
         return false;
     }
     String path_str;
     bool exist = false;
 
-    if (header_spec.include_source_dir()) {
+    if (include_spec.is_includes_source_dir()) {
         auto source_dir = current_source().parent_dir();
         if (!source_dir.empty()) {
             path_str = source_dir + kPathDelimiter + name;
@@ -2448,8 +2448,8 @@ bool Preprocessor::search_header_file(const HeaderSpec& header_spec, pp::String*
     }
 
     if (exist) {
-        if (header_file_path_str) {
-            *header_file_path_str = move(path_str);
+        if (file_path_str) {
+            *file_path_str = move(path_str);
         }
     }
 
@@ -3147,15 +3147,15 @@ std::string Preprocessor::execute_stringize(const Macro::ArgList& args, Macro::A
 }
 
 bool Preprocessor::execute_include(const std::string& header_name, const Token& header_name_token) {
-    HeaderSpec spec(header_name);
+    IncludeSpec spec(header_name);
     String path_str;
     ifstream next_input;
-    if (search_header_file(spec, &path_str)) {
+    if (search_include_file(spec, &path_str)) {
         next_input.open(path_string(path_str), ios_base::binary);
     }
 
     if (!next_input.is_open()) {
-        fatal_error(header_name_token, kNoSuchFileError, spec.name().c_str());
+        fatal_error(header_name_token, kNoSuchFileError, spec.header_name().c_str());
         return false;
     }
 
@@ -3177,9 +3177,9 @@ EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context)
 
     // TODO: インクルードパスを流用しない方が良い？リソースパスを指定できるようにした方が良い？
     // TODO: ヘッダーファイルの流用なのをどうにかする。名前だけ変えるとか。
-    HeaderSpec h_spec(spec.resource_id());
+    IncludeSpec i_spec(spec.resource_id());
     String path_str;
-    if (!search_header_file(h_spec, &path_str)) {
+    if (!search_include_file(i_spec, &path_str)) {
         if (!has_embed_context) {
             fatal_error(peek(1), kEmbedResoruceNotFoundError, spec.resource_id());
         }

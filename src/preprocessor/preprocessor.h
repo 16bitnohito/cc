@@ -130,13 +130,13 @@ private:
 
 /**
  */
-class HeaderSpec {
+class IncludeSpec {
 public:
-    explicit HeaderSpec(const std::string& header_name);
-    ~HeaderSpec() = default;
+    explicit IncludeSpec(const std::string& header_name);
+    ~IncludeSpec() = default;
 
-    std::string name() const;
-    bool include_source_dir() const;
+    std::string header_name() const;
+    bool is_includes_source_dir() const;
 
 private:
     std::string header_name_;
@@ -336,7 +336,7 @@ private:
 
     TokenList expand_directive_line();
 
-    bool search_header_file(const HeaderSpec& header_spec, pp::String* header_file_pathstr);
+    bool search_include_file(const IncludeSpec& include_spec, pp::String* file_path_str);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
     static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {

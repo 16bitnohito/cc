@@ -417,6 +417,7 @@ private:
     EmbedResult execute_embed(EmbedSpec& spec, bool has_embed_context);
     bool execute_define();
     bool execute_undef();
+    bool execute_line(const std::string& line, const std::optional<std::string>& path);
     bool execute_pragma(const TokenList& tokens, const Token& location);
 
     void output_text(const StringView& text);

@@ -304,6 +304,40 @@ const std::map<std::string, std::string> kSupportedAttributes = {
     //{ "unsequenced",  "202207L" },
 };
 
+bool is_digit_sequence(const std::string& s) {
+    if (!isdigit(s[0])) {
+        return false;
+    }
+
+    int prev = 0;
+    for (auto c : s) {
+        if (!(c == '\'' || isdigit(c))) {
+            return false;
+        }
+        if (prev == '\'' && c == '\'') {
+            return false;
+        }
+        prev = c;
+    }
+
+    return true;
+}
+
+std::string strip_digit_separator(std::string_view s) {
+    string result;
+    if (s.empty()) {
+        return result;
+    }
+
+    result.reserve(s.length());
+    for (auto c : s) {
+        if (c != '\'') {
+            result.append(1, c);
+        }
+    }
+    return result;
+}
+
 }   // anonymous namespace
 
 namespace pp {
@@ -1660,111 +1694,45 @@ void Preprocessor::control_line(TokenType directive) {
         match("line");
         skip_ws();
 
-        bool has_num = false;
-        bool has_path = false;
+        TokenList expanded = expand_directive_line();
+        SourceTokenList source(expanded);
+        TokenStream stream(source);
+        push_stream(stream);
 
-        Token num_token = peek(1);
-        string numstr;
-        if (num_token.type() == TokenType::kIdentifier) {
-            match(TokenType::kIdentifier);
-
-            TokenList expanded;
-            MacroPtr m = find_macro(num_token.string());
-            if (m == nullptr) {
-                error(num_token, as_internal(__func__));
-            } else {
-                if (!m->is_function()) {
-                    expand(*m, Macro::kNoArgs, expanded);
-                } else {
-                    skip_ws();
-                    if (peek(1).type() != TokenType::kLeftParenthesis) {
-                        warning(num_token, kFuncTypeMacroUsageWarning);
-                    } else {
-                        auto args = read_macro_args(*m, nullptr);
-                        if (args.has_value()) {
-                            expand(*m, *args, expanded);
-                        }
-                    }
-                }
-            }
-            if (expanded.empty()) {
-                numstr.clear();
-            } else {
-                numstr = Token::concat_string(expanded);
-            }
-        } else if (num_token.type() == TokenType::kPpNumber) {
-            match(TokenType::kPpNumber);
-            numstr = num_token.string();
-        }
-
-        int ln = 0;
-        if (numstr.empty()) {
-            error(num_token, as_internal(__func__) /* マクロでも整数でもない */);
+        bool parsed = false;
+        Token line_token = peek(1);
+        optional<string> path;
+        if (line_token.type() != TokenType::kPpNumber) {
+            error(line_token, kLineNeedsDecimalConstantError);
             skip_directive_line();
         } else {
-            size_t next;
-            ln = stoul(numstr, &next);
-            if (next != numstr.length()) {
-                error(num_token, as_internal(__func__) /* 受け入れ可能な整数ではない */);
+            match(TokenType::kPpNumber);
+            skip_ws();
+
+            Token name_token = peek(1);
+            if (name_token.is_eol()) {
+                // 行だけ。
+                parsed = true;
+            } else if (name_token.type() == TokenType::kStringLiteral) {
+                // 行とパス。
+                match(TokenType::kStringLiteral);
+                skip_ws();
+
+                path = name_token.string();
+                parsed = true;
+            } else {
+                error(peek(1), kRedundantTokens);
                 skip_directive_line();
             }
-            has_num = true;
         }
 
-        skip_ws();
-        string path;
-        Token path_token = peek(1);
-        if (path_token.is_eol()) {
-            //  行番号のみの形式に合致したので、パスは無し。
-        } else if (path_token.type() == TokenType::kStringLiteral) {
-            //  行番号と名前の形式に合致した。
-            path = path_token.string();
-            consume();
-        } else if (path_token.type() == TokenType::kIdentifier) {
-            //  展開できれば名前になるかもしれないので、とりあえず展開してみる。
-            match(TokenType::kIdentifier);
+        pop_stream();
 
-            TokenList expanded;
-            MacroPtr m = find_macro(path_token.string());
-            if (m == nullptr) {
-                error(path_token, as_internal(__func__));
-            } else {
-                if (!m->is_function()) {
-                    expand(*m, Macro::kNoArgs, expanded);
-                } else {
-                    skip_ws();
-                    if (peek(1).type() != TokenType::kLeftParenthesis) {
-                        warning(path_token, kFuncTypeMacroUsageWarning);
-                    } else {
-                        auto args = read_macro_args(*m, nullptr);
-                        if (args.has_value()) {
-                            expand(*m, *args, expanded);
-                        }
-                    }
-                }
-            }
-            path = Token::concat_string(expanded);
-        }
-        if (!path.empty() && (path[0] == '"' && path[path.length() - 1] == '"')) {
-            has_path = true;
-        }
-
-        skip_ws();
-        if (!peek(1).is_eol()) {
-            error(peek(1), as_internal(__func__) /* どの形式にも合致しないフォーマットエラー */);
-            skip_directive_line();
-            has_num = false;
-            has_path = false;
-        }
         new_line();
 
-        if (has_num) {
-            current_source_line_number(ln);
+        if (parsed) {
+            execute_line(line_token.string(), path);
         }
-        if (has_path) {
-            current_source_path(internal_from_source(unquote_string(path)));
-        }
-
         break;
     }
     case TokenType::kError: {
@@ -3387,6 +3355,41 @@ bool Preprocessor::execute_undef() {
     return true;
 }
 
+bool Preprocessor::execute_line(const std::string& line, const std::optional<std::string>& path) {
+    if (!is_digit_sequence(line) || (line != "0" && line.starts_with("0"))) {
+        error(peek(1), kLineNeedsDecimalConstantError);
+        return false;
+    }
+
+    constexpr uint32_t kMinLine = 1;
+    constexpr uint32_t kMaxLine = 2147483647;
+
+    const auto s = strip_digit_separator(line);
+    uint32_t l = 0;
+    const auto r = from_chars(&s[0], &s[s.length()], l);
+    if (r.ec != errc{} || r.ptr != &s[s.length()]) {
+        if (r.ec == errc::result_out_of_range) {
+            error(peek(1), kLineOutOfRangeError, kMinLine, kMaxLine);
+        } else {
+            error(peek(1), as_internal(__func__));
+        }
+        return false;
+    }
+
+    if (!(kMinLine <= l && l <= kMaxLine)) {
+        error(peek(1), kLineOutOfRangeError, kMinLine, kMaxLine);
+        return false;
+    }
+
+    current_source_line_number(l);
+
+    if (path) {
+        current_source_path(internal_from_source(unquote_string(path.value())));
+    }
+
+    return true;
+}
+
 bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location) {
     if (tokens.empty()) {
         //  空のプラグマは何もしない。
@@ -3394,8 +3397,14 @@ bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location
     //} else if (tokens[0].string() == "STDC") {
     //    "FP_CONTRACT"
     //    "FENV_ACCESS"
+    //    "FENV_DEC_ROUND"
+    //    "FENV_ROUND"
     //    "CX_LIMITED_RANGE"
     //    "ON" "OFF" "DEFAULT"
+    //    "FE_DOWNWARD", "FE_TONEAREST", "FE_TONEARESTFROMZERO",
+    //    "FE_TOWARDZERO", "FE_UPWARD", "FE_DYNAMIC",
+    //    "FE_DEC_DOWNWARD", "FE_DEC_TONEAREST", "FE_DEC_TONEARESTFROMZERO",
+    //    "FE_DEC_TOWARDZERO", "FE_DEC_UPWARD", "FE_DEC_DYNAMIC",
     } else {
         info(location, kPragmaIsIgnoredWarning, Token::concat_string(tokens));
         return false;
@@ -3499,7 +3508,7 @@ void Preprocessor::current_source_line_number(std::uint32_t value) {
             [&source](TokenStream& stream) {
                 return stream.input_source() == &source;
             });
-    if (it != stream_stack_.rend()) {
+    if (it == stream_stack_.rend()) {
         throw runtime_error(__func__);
     }
     (*it).get().reset_line_number(value);

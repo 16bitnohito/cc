@@ -74,4 +74,7 @@ const StringView kEmbedParameterClauseUnspecifiedError = T_("{}のパラメー�
 const StringView kUnclosedBracketError = T_("括弧が閉じていない。");
 const StringView kConditionalInclusionOperatorUsageError = T_("識別子 {}はここでは使えない。");
 
+const StringView kLineNeedsDecimalConstantError = T_("#lineには 10進整数（接尾辞無し）を指定しなければならない。");
+const StringView kLineOutOfRangeError = T_("#lineに指定する行数は [{}, {}]の範囲でなければならない。");
+
 }   //  namespace pp

@@ -97,6 +97,9 @@ extern const StringView kEmbedParameterClauseUnspecifiedError;
 extern const StringView kUnclosedBracketError;
 extern const StringView kConditionalInclusionOperatorUsageError;
 
+extern const StringView kLineNeedsDecimalConstantError;
+extern const StringView kLineOutOfRangeError;
+
 #if defined(NDEBUG)
 #define DEBUG(t, ...)
 #define DEBUG_EXPR(expr)

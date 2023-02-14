@@ -1,10 +1,10 @@
-#ifndef PREPROCESSOR_CALCULATOR_H_
-#define PREPROCESSOR_CALCULATOR_H_
+#ifndef CC_PREPROCESSOR_CALCULATOR_H_
+#define CC_PREPROCESSOR_CALCULATOR_H_
 
 #include <cstdint>
 #include <string>
-#include <preprocessor/config.h>
 
+#include "preprocessor/pp_config.h"
 
 namespace pp {
 
@@ -52,4 +52,4 @@ bool parse_int(const std::string& s, target_intmax_t* result);
 
 }   // namespace pp
 
-#endif  // PREPROCESSOR_CALCULATOR_H_
+#endif  // CC_PREPROCESSOR_CALCULATOR_H_

@@ -6,20 +6,19 @@ cmake_minimum_required(VERSION 3.8)
 # ソースをこのプロジェクトの実行可能ファイルに追加します。
 add_executable(cpp
                "calculator.cpp" "calculator.h"
-               "config.h"
                "diagnostics.cpp" "diagnostics.h"
                "main.cpp"
                "input.cpp" "input.h"
-               "logger.cpp" "logger.h"
                "options.cpp" "options.h"
+			   "pp_config.h"
                "preprocessor.cpp" "preprocessor.h"
                "scanner.cpp" "scanner.h"
-               "token.cpp" "token.h"
-               "utility.cpp" "utility.h")
+               "token.cpp" "token.h")
 
 target_include_directories(cpp PRIVATE "../../src")
+target_link_libraries(cpp PRIVATE util)
 if (WIN32)
-target_link_libraries (cpp PRIVATE win32util)
+target_link_libraries(cpp PRIVATE win32util)
 endif()
 
 # TODO: テストを追加し、必要な場合は、ターゲットをインストールします。

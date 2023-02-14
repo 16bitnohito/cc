@@ -1,4 +1,4 @@
-#include <preprocessor/utility.h>
+#include "util/utility.h"
 
 #include <cassert>
 #include <iostream>
@@ -16,7 +16,7 @@ using namespace std;
 using namespace lib::win32util;
 #endif
 
-namespace pp {
+namespace lib::util {
 
 String get_current_dir() {
     String result;
@@ -101,4 +101,4 @@ void raise_generic_error(const char* message, std::errc error) {
     throw std::system_error(ec, message);
 }
 
-}   //  namespace pp
+}   //  namespace lib::util

@@ -1,10 +1,10 @@
-#include <preprocessor/logger.h>
+#include "util/logger.h"
 
 #include <iostream>
 
 using namespace std;
 
-namespace pp {
+namespace lib::util {
 
 Logger& Logger::instance() {
     static Logger main_instance;
@@ -38,4 +38,4 @@ Logger::Logger()
     , output_() {
 }
 
-}   // namespace pp
+}   // namespace lib::util

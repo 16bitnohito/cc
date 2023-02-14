@@ -1,13 +1,13 @@
-#ifndef PREPROCESSOR_TOKEN_H_
-#define PREPROCESSOR_TOKEN_H_
+#ifndef CC_PREPROCESSOR_TOKEN_H_
+#define CC_PREPROCESSOR_TOKEN_H_
 
 #include <cstdint>
 #include <list>
 #include <memory>
 #include <string>
 #include <vector>
-#include <preprocessor/config.h>
 
+#include "preprocessor/pp_config.h"
 
 namespace pp {
 
@@ -248,4 +248,4 @@ bool is_matched_bracket(TokenType left, TokenType right) {
 
 }   // namespace pp
 
-#endif  // PREPROCESSOR_TOKEN_H_
+#endif  // CC_PREPROCESSOR_TOKEN_H_

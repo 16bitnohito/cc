@@ -1,9 +1,11 @@
-#ifndef PREPROCESSOR_OPTIONS_H_
-#define PREPROCESSOR_OPTIONS_H_
+#ifndef CC_PREPROCESSOR_OPTIONS_H_
+#define CC_PREPROCESSOR_OPTIONS_H_
 
 #include <string>
 #include <vector>
-#include <preprocessor/utility.h>
+
+#include "preprocessor/pp_config.h"
+#include "util/utility.h"
 
 namespace pp {
 
@@ -68,4 +70,4 @@ private:
 
 }   // namespace pp
 
-#endif  // PREPROCESSOR_OPTIONS_H_
+#endif  // CC_PREPROCESSOR_OPTIONS_H_

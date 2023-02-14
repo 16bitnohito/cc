@@ -6,8 +6,9 @@
 #include <string>
 #include <variant>
 #include <Windows.h>
-#include <win32util/error.h>
-#include <win32util/heap.h>
+
+#include "win32util/error.h"
+#include "win32util/heap.h"
 
 namespace lib::win32util {
 

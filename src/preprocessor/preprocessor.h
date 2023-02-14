@@ -1,5 +1,5 @@
-#ifndef PREPROCESSOR_PREPROCESSOR_H_
-#define PREPROCESSOR_PREPROCESSOR_H_
+#ifndef CC_PREPROCESSOR_PREPROCESSOR_H_
+#define CC_PREPROCESSOR_PREPROCESSOR_H_
 
 #include <algorithm>
 #include <cassert>
@@ -17,13 +17,14 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <preprocessor/calculator.h>
-#include <preprocessor/config.h>
-#include <preprocessor/diagnostics.h>
-#include <preprocessor/input.h>
-#include <preprocessor/options.h>
-#include <preprocessor/scanner.h>
-#include <preprocessor/utility.h>
+
+#include "preprocessor/pp_config.h"
+#include "preprocessor/calculator.h"
+#include "preprocessor/diagnostics.h"
+#include "preprocessor/input.h"
+#include "preprocessor/options.h"
+#include "preprocessor/scanner.h"
+#include "util/utility.h"
 
 
 namespace pp {
@@ -54,7 +55,7 @@ enum class MacroExpantionMethod {
     kNumElements,
 };
 
-constexpr auto kNumOfMacroExpantionMethod = enum_ordinal(MacroExpantionMethod::kNumElements);
+constexpr auto kNumOfMacroExpantionMethod = lib::util::enum_ordinal(MacroExpantionMethod::kNumElements);
 
 class Macro;
 using MacroPtr = std::shared_ptr<Macro>;
@@ -522,4 +523,4 @@ void init_preprocessor();
 
 }   //  namespace pp
 
-#endif  //  PREPROCESSOR_PREPROCESSOR_H_
+#endif  // CC_PREPROCESSOR_PREPROCESSOR_H_

@@ -1,5 +1,6 @@
-#ifndef PREPROCESSOR_CONFIG_H_
-#define PREPROCESSOR_CONFIG_H_
+// 全体的なもの
+#ifndef CC_CONFIG_H_
+#define CC_CONFIG_H_
 
 // HOST
 #define PLATFORM_UNKNOWN    0
@@ -11,7 +12,7 @@
 #define HOST_PLATFORM   PLATFORM_UNKNOWN
 #endif
 
-namespace pp {
+namespace cc {
 
 // TARGET
 using target_intmax_t = std::int32_t;
@@ -26,6 +27,6 @@ using target_uintmax_t = std::uint32_t;
 //using Path = std::wstring;
 //#endif
 
-}   // namespace pp
+}   // namespace cc
 
-#endif  // PREPROCESSOR_CONFIG_H_
+#endif  // CC_CONFIG_H_

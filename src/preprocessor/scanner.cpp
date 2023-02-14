@@ -1,10 +1,12 @@
-#include <preprocessor/scanner.h>
+#include "preprocessor/scanner.h"
 
 #include <algorithm>
 #include <cassert>
-#include <preprocessor/diagnostics.h>
-#include <preprocessor/utility.h>
 
+#include "preprocessor/diagnostics.h"
+#include "util/utility.h"
+
+using namespace lib::util;
 using namespace std;
 
 namespace {
@@ -230,7 +232,7 @@ bool contains_invalid_ucn_for_identifier(const std::string& s) {
             uint32_t n = 0;
             auto r = from_chars(&s[kUcnDigitStart], &s[kUcnDigitStart + digits], n, 16);
             if (r.ec != errc{}) {
-                pp::raise_generic_error(__func__, r.ec);
+                raise_generic_error(__func__, r.ec);
             }
             if (!is_valid_ucn_for_identifier_initially(n)) {
                 return true;
@@ -265,7 +267,7 @@ bool contains_invalid_ucn_for_identifier(const std::string& s) {
                 uint32_t n = 0;
                 auto r = from_chars(&s[i + kUcnDigitStart], &s[i + kUcnDigitStart + digits], n, 16);
                 if (r.ec != errc{}) {
-                    pp::raise_generic_error(__func__, r.ec);
+                    raise_generic_error(__func__, r.ec);
                 }
                 if (!is_valid_ucn_for_identifier(n)) {
                     return true;

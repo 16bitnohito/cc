@@ -1,10 +1,11 @@
-#ifndef PREPROCESSOR_DIAGNOSTICS_H_
-#define PREPROCESSOR_DIAGNOSTICS_H_
+#ifndef CC_PREPROCESSOR_DIAGNOSTICS_H_
+#define CC_PREPROCESSOR_DIAGNOSTICS_H_
 
 #include <cinttypes>
 #include <cstdio>
-#include <preprocessor/config.h>
-#include <preprocessor/utility.h>
+
+#include "preprocessor/pp_config.h"
+#include "util/utility.h"
 
 namespace pp {
 
@@ -115,4 +116,4 @@ class Diagnostics {
 
 }   // namespace pp
 
-#endif  // PREPROCESSOR_DIAGNOSTICS_H_
+#endif  // CC_PREPROCESSOR_DIAGNOSTICS_H_

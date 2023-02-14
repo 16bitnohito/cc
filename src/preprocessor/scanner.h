@@ -1,5 +1,5 @@
-#ifndef PREPROCESSOR_SCANNER_H_
-#define PREPROCESSOR_SCANNER_H_
+#ifndef CC_PREPROCESSOR_SCANNER_H_
+#define CC_PREPROCESSOR_SCANNER_H_
 
 #include <cinttypes>
 #include <cstdint>
@@ -7,8 +7,9 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <preprocessor/config.h>
-#include <preprocessor/token.h>
+
+#include "preprocessor/pp_config.h"
+#include "preprocessor/token.h"
 
 namespace pp {
 
@@ -218,4 +219,4 @@ private:
 
 }   // namespace pp
 
-#endif  // PREPROCESSOR_SCANNER_H_
+#endif  // CC_PREPROCESSOR_SCANNER_H_

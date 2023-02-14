@@ -3,11 +3,12 @@
 
 #include <sstream>
 #include <stack>
-#include <preprocessor/config.h>
-#include <preprocessor/options.h>
-#include <preprocessor/scanner.h>
-#include <preprocessor/token.h>
-#include <preprocessor/utility.h>
+
+#include "preprocessor/pp_config.h"
+#include "preprocessor/options.h"
+#include "preprocessor/scanner.h"
+#include "preprocessor/token.h"
+#include "util/utility.h"
 
 namespace pp {
 

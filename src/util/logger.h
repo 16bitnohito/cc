@@ -1,14 +1,15 @@
-#ifndef CC_PREPROCESSOR_LOGGER_H_
-#define CC_PREPROCESSOR_LOGGER_H_
+#ifndef CC_UTIL_LOGGER_H_
+#define CC_UTIL_LOGGER_H_
 
 #include <format>
 #include <iostream>
 #include <iterator>
 #include <memory>
-#include <preprocessor/config.h>
-#include <preprocessor/utility.h>
 
-namespace pp {
+#include "config.h"
+#include "util/utility.h"
+
+namespace lib::util {
 
 /**
  */
@@ -94,39 +95,39 @@ private:
 template <class... Ts>
 inline
 void log_fatal(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().fatal(format, args...);
+    Logger::instance().fatal(format, args...);
 }
 
 template <class... Ts>
 inline
 void log_error(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().error(format, args...);
+    Logger::instance().error(format, args...);
 }
 
 template <class... Ts>
 inline
 void log_warning(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().warning(format, args...);
+    Logger::instance().warning(format, args...);
 }
 
 template <class... Ts>
 inline
 void log_info(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().info(format, args...);
+    Logger::instance().info(format, args...);
 }
 
 template <class... Ts>
 inline
 void log_debug(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().debug(format, args...);
+    Logger::instance().debug(format, args...);
 }
 
 template <class... Ts>
 inline
 void log_trace(const StringView& format, const Ts&... args) {
-    pp::Logger::instance().trace(format, args...);
+    Logger::instance().trace(format, args...);
 }
 
-}   // namespace pp
+}   // namespace lib::util
 
-#endif  // CC_PREPROCESSOR_LOGGER_H_
+#endif  // CC_UTIL_LOGGER_H_

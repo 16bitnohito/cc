@@ -10,9 +10,11 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
-#include <preprocessor/logger.h>
-#include <preprocessor/utility.h>
 
+#include "util/logger.h"
+#include "util/utility.h"
+
+using namespace lib::util;
 using namespace std;
 
 namespace {

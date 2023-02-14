@@ -1,6 +1,6 @@
-#include <win32util/heap.h>
+#include "win32util/heap.h"
 
-#include <win32util/error.h>
+#include "win32util/error.h"
 
 namespace lib::win32util {
 

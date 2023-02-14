@@ -1,5 +1,5 @@
-#ifndef PREPROCESSOR_UTILITY_H_
-#define PREPROCESSOR_UTILITY_H_
+#ifndef CC_UTIL_UTILITY_H_
+#define CC_UTIL_UTILITY_H_
 
 #include <algorithm>
 #include <array>
@@ -7,13 +7,13 @@
 #include <string>
 #include <type_traits>
 #include <vector>
-#include <preprocessor/config.h>
+
+#include "config.h"
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-#include <win32util/win32util.h>
+#include "win32util/win32util.h"
 #endif
 
-
-namespace pp {
+namespace lib::util {
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 using Char = lib::win32util::Utf8Char;
@@ -239,6 +239,6 @@ void raise_generic_error(const char* message, std::errc error);
 // Win32エラーは、win32util内でwin32_categoryを定義し、それをエラー値と共に
 // lib::win32util::raise_win32_errorから送出しています。
 
-}   // namespace pp
+}   // namespace lib::util
 
-#endif  // PREPROCESSOR_UTILITY_H_
+#endif  // CC_UTIL_UTILITY_H_

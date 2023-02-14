@@ -28,7 +28,7 @@ String get_current_dir() {
     }
 
     Win32String temp(needs - 1, WIN32TEXT('\0'));
-    DWORD written = GetCurrentDirectory(needs + 1, as_native(temp.data()));
+    DWORD written = GetCurrentDirectory(needs, as_native(temp.data()));
     if (written == 0) {
         raise_win32_error("GetCurrentDirectory");
     }

@@ -575,6 +575,8 @@ extern std::array<Win32Char, kMaxFormatErrorMessageSize> format_error_message_bu
 
 }
 
+WideString normalize_string(const WideString& s);
+
 }   // namespace lib::win32util
 
 #endif  // CC_WIN32UTIL_STRINGS_H_

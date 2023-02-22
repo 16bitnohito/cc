@@ -146,4 +146,21 @@ LocalHeapString last_error_string(DWORD error_code) noexcept {
     }
 }
 
+WideString normalize_string(const WideString& s) {
+    constexpr auto form = NormalizationC;
+    int needs = NormalizeString(form, s.c_str(), -1, nullptr, 0);
+    if (needs <= 0) {
+        raise_win32_error("NormalizeString");
+    }
+
+    WideString result(needs - 1, L'\0');
+    int written = NormalizeString(form, s.c_str(), -1, result.data(), needs);
+    if (written <= 0) {
+        raise_win32_error("NormalizeString");
+    }
+
+    result.resize(written - 1);
+    return result;
+}
+
 }   // namespace win32util

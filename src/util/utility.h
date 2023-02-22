@@ -239,6 +239,8 @@ void raise_generic_error(const char* message, std::errc error);
 // Win32エラーは、win32util内でwin32_categoryを定義し、それをエラー値と共に
 // lib::win32util::raise_win32_errorから送出しています。
 
+std::string normalize_string(const std::string& s);
+
 }   // namespace lib::util
 
 #endif  // CC_UTIL_UTILITY_H_

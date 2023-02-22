@@ -12,7 +12,8 @@ using namespace std;
 namespace {
 
 enum {
-    kWsChar = 256,
+    kOther = 0,
+    kWsChar,
     kDigit,
     kLetter,
     kPunct,
@@ -37,61 +38,143 @@ constexpr int kInitial[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-int char_kind(int c) {
-    if (c == EOF) {
-        return EOF;
-    } else {
-        auto k = kInitial[c];
-        switch (k) {
-        case kWsChar:
-        case kDigit:
-        case kLetter:
-            return k;
-        default:
-            return c;
+constexpr inline
+pp::Scanner::Char32 to_c32(std::uint32_t c) {
+    return static_cast<pp::Scanner::Char32>(c);
+}
+
+constexpr inline
+char32_t to_int(pp::Scanner::Char32 c) {
+    return static_cast<std::underlying_type_t<pp::Scanner::Char32>>(c);
+}
+
+constexpr const uint8_t kUtf8Head[4] = {
+    0x7f, 0x1f, 0x0f, 0x07,
+};
+
+constexpr
+int c8_to_c32(const char* c8, size_t c8_bytes, pp::Scanner::Char32& c32) {
+    if (c8_bytes <= 0) {
+        return 0;
+    }
+
+    int c0 = c8[0] & 0xff;
+    if (c0 <= 0x7f) {
+        c32 = to_c32(c0);
+        return 1;
+    }
+
+    int n = 0;
+    uint8_t m = 0x80;
+    for (int i = 0; i < 5; ++i) {
+        if ((c0 & m) == 0) {
+            break;
         }
+        ++n;
+        m >>= 1;
+    }
+    if (!(2 <= n && n <= 4)) {
+        return 0;
+    }
+    if (n >= c8_bytes) {
+        return 0;
+    }
+
+    uint32_t r = c0 & kUtf8Head[n - 1];
+    for (int i = 1; i < n; ++i) {
+        int c = c8[i];
+        if ((c & 0xc0) != 0x80) {
+            return 0;
+        }
+
+        r <<= 6;
+        r |= (c & 0x3f);
+    }
+
+    c32 = to_c32(r);
+
+    return n;
+}
+
+constexpr
+int c32_to_c8(pp::Scanner::Char32 c32, char(&c8)[4]) {
+    auto c = to_int(c32);
+    if (c <= 0x7F) {
+        c8[0] = static_cast<char>(c);
+        return 1;
+    } else if (c <= 0x07FF) {
+        c8[0] = 0xc0 | ((c >> 6) & 0x1f);
+        c8[1] = 0x80 | (c & 0x3f);
+        return 2;
+    } else if (c <= 0xFFFF) {
+        c8[0] = 0xe0 | ((c >> 12) & 0x0f);
+        c8[1] = 0x80 | ((c >> 6) & 0x3f);
+        c8[2] = 0x80 | (c & 0x3f);
+        return 3;
+    } else if (c <= 0x10FFFF) {
+        c8[0] = 0xf0 | ((c >> 18) & 0x07);
+        c8[1] = 0x80 | ((c >> 12) & 0x3f);
+        c8[2] = 0x80 | ((c >> 6) & 0x3f);
+        c8[3] = 0x80 | (c & 0x3f);
+        return 4;
+    } else {
+        throw runtime_error(__func__);
+    }
+}
+
+int char_kind(pp::Scanner::Char32 c) {
+    const auto i = to_int(c);
+    if (i < 0 || size(kInitial) <= i) {
+        return kOther;
+    }
+
+    auto k = kInitial[i];
+    switch (k) {
+    case kWsChar:
+    case kDigit:
+    case kLetter:
+        return k;
+    default:
+        return kOther;
     }
 }
 
 inline
-bool is_hex(int c) {
-    return isxdigit(c) != 0;
+bool is_hex(pp::Scanner::Char32 c) {
+    auto n = to_int(c);
+    if (n > 255) {
+        return false;
+    }
+    return isxdigit(n) != 0;
 }
 
 inline
-bool is_dec(int c) {
-    return isdigit(c) != 0;
+bool is_oct(pp::Scanner::Char32 c) {
+    return (to_c32('0') <= c && c <= to_c32('7'));
 }
 
 inline
-bool is_oct(int c) {
-    return ('0' <= c && c <= '7');
+bool is_digit(pp::Scanner::Char32 c) {
+    return (to_c32('0') <= c && c <= to_c32('9'));
 }
 
 inline
-bool is_esc_seq(int c) {
-    return c == '\'' || c == '"' || c == '?' || c == '\\' ||
-            c == 'a' || c == 'b' || c == 'f' || c == 'n' || c == 'r' || c == 't' || c == 'v';
+bool is_nondigit(pp::Scanner::Char32 c) {
+    auto n = to_int(c);
+    if (n > 255) {
+        return false;
+    }
+    return (c == to_c32('_') || isalpha(n));
 }
 
 inline
-bool is_nondigit(int c) {
-    return (c == '_' || isalpha(c)) || (c == '\\');
+bool is_ws(pp::Scanner::Char32 c) {
+    return c == to_c32('\x09') || c == to_c32('\x0b') || c == to_c32('\x0c') || c == to_c32('\x20');
 }
 
 inline
-bool is_ws(int c) {
-    return c == '\x09' || c == '\x0b' || c == '\x0c' || c == '\x20';
-}
-
-inline
-bool is_nl(int c) {
-    return c == '\x0a' || c == '\x0d';
-}
-
-inline
-bool is_eol(int c) {
-    return is_nl(c) || c == EOF;
+bool is_nl(pp::Scanner::Char32 c) {
+    return c == to_c32('\x0a') || c == to_c32('\x0d');
 }
 
 //  D.1 Ranges of characters allowed
@@ -200,6 +283,16 @@ bool is_valid_ucn(std::uint32_t n) {
     return true;
 }
 
+uint32_t parse_ucn_digits(const char* first, const char* last) {
+    uint32_t n;
+    auto r = from_chars(first, last, n, 16);
+    if (r.ec != errc{}) {
+        raise_generic_error(__func__, r.ec);
+    }
+
+    return n;
+}
+
 bool contains_invalid_ucn_for_identifier(const std::string& s) {
     constexpr string::size_type kUcnDigitStart = 2;
     constexpr string::size_type kUcn16Digits = 4;
@@ -229,11 +322,7 @@ bool contains_invalid_ucn_for_identifier(const std::string& s) {
         }
 
         if (ucn) {
-            uint32_t n = 0;
-            auto r = from_chars(&s[kUcnDigitStart], &s[kUcnDigitStart + digits], n, 16);
-            if (r.ec != errc{}) {
-                raise_generic_error(__func__, r.ec);
-            }
+            uint32_t n = parse_ucn_digits(&s[kUcnDigitStart], &s[kUcnDigitStart + digits]);
             if (!is_valid_ucn_for_identifier_initially(n)) {
                 return true;
             }
@@ -264,11 +353,7 @@ bool contains_invalid_ucn_for_identifier(const std::string& s) {
             }
 
             if (ucn) {
-                uint32_t n = 0;
-                auto r = from_chars(&s[i + kUcnDigitStart], &s[i + kUcnDigitStart + digits], n, 16);
-                if (r.ec != errc{}) {
-                    raise_generic_error(__func__, r.ec);
-                }
+                uint32_t n = parse_ucn_digits(&s[i + kUcnDigitStart], &s[i + kUcnDigitStart + digits]);
                 if (!is_valid_ucn_for_identifier(n)) {
                     return true;
                 }
@@ -282,7 +367,7 @@ bool contains_invalid_ucn_for_identifier(const std::string& s) {
     return false;
 }
 
-inline
+constexpr inline
 char to_c(int c) {
     return static_cast<char>(c);
 }
@@ -314,7 +399,8 @@ Scanner::Scanner(std::istream& input, bool trigraph)
     , type_(TokenType::kNull)
     , match_()
     , buf_i_mark_()
-    , ucn_digit_start_() {
+    , ucn_digit_start_()
+    , eof_() {
     //  申し訳程度
     static constexpr char kUtf8Bom[] = "\xef\xbb\xbf";
     for (auto b : kUtf8Bom) {
@@ -333,7 +419,7 @@ Scanner::~Scanner() {
 }
 
 Token Scanner::next_token() {
-    if (c_ == EOF) {
+    if (eof()) {
         return Token("", TokenType::kEndOfFile);
     }
 
@@ -354,11 +440,10 @@ Token Scanner::next_token() {
             const int k = char_kind(c_);
             switch (k) {
             case kWsChar:
-                if (c_ == '\n') {
-                    cseq_ += to_c(c_);
-                    c_ = get();
+                if (c_ == to_c32('\n')) {
+                    consume(c_);
                     finish(TokenType::kNewLine);
-                } else if (c_ == '\r') {
+                } else if (c_ == to_c32('\r')) {
                     transit(ScannerState::kLineBreak, c_);
                 } else {
                     transit(ScannerState::kWhiteSpaces, c_);
@@ -370,187 +455,189 @@ Token Scanner::next_token() {
                 break;
 
             case kLetter:
-                if (c_ == 'L') {
+                if (c_ == to_c32('L')) {
                     transit(ScannerState::kState232_225_244_264_249_234_269, c_);
-                } else if (c_ == 'U') {
+                } else if (c_ == to_c32('U')) {
                     transit(ScannerState::kState242_262_232_249_234_269_223, c_);
-                } else if (c_ == 'u') {
+                } else if (c_ == to_c32('u')) {
                     transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
                 } else {
                     transit(ScannerState::kState232_234_227, c_);
                 }
                 break;
 
-            case '_':
-                transit(ScannerState::kState232_234_227, c_);
-                break;
-
-            case '\\':
-                transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_234_227);
-                break;
-
-            case '!':
-                transit(ScannerState::kState68_69_38, c_);
-                break;
-
-            case '"':
-                if (hint_ == ScannerHint::kHeaderName) {
-                    transit(ScannerState::kStateHeaderNameInitial, c_);
-                } else {
-                    transit(ScannerState::kState273_274_270_271, c_);
-                }
-                break;
-
-            case '#':
-                transit(ScannerState::kState148_150_151, c_);
-                break;
-
-            case '%':
-                transit(ScannerState::kState166_167_170_42_171_174_110_175_111, c_);
-                break;
-
-            case '&':
-                transit(ScannerState::kState28_134_135_76_77, c_);
-                break;
-
-            case '\'':
-                transit(ScannerState::kState250_251, c_);
-                break;
-
-            case '(':
-                transit(ScannerState::kState6, c_);
-                break;
-
-            case ')':
-                transit(ScannerState::kState8, c_);
-                break;
-
-            case '*':
-                transit(ScannerState::kState103_102_30, c_);
-                break;
-
-            case '+':
-                transit(ScannerState::kState32_114_115_20_21, c_);
-                break;
-
-            case ',':
-                transit(ScannerState::kState146, c_);
-                break;
-
-            case '-':
-                transit(ScannerState::kState16_17_34_118_119_24_25, c_);
-                break;
-
-            case '.':
-                transit(ScannerState::kState182_184_94_14_95, c_);
-                break;
-
-            case '/':
-                transit(ScannerState::kState40_106_107, c_);
-                break;
-
-            case ':':
-                transit(ScannerState::kState86_88_89_158_159, c_);
-                break;
-
-            case ';':
-                transit(ScannerState::kState92, c_);
-                break;
-
-            case '<':
-                if (hint_ == ScannerHint::kHeaderName) {
-                    transit(ScannerState::kStateHeaderNameInitial, c_);
-                } else {
-                    transit(ScannerState::kState162_163_122_123_44_45_52_56_57_154_155, c_);
-                }
-                break;
-
-            case '=':
-                transit(ScannerState::kState64_65_100, c_);
-                break;
-
-            case '>':
-                transit(ScannerState::kState128_129_48_49_54_60_61, c_);
-                break;
-
-            case '?':
-                transit(ScannerState::kState84, c_);
-                break;
-
-            //case 'D':
-            //    transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
-            //    break;
-
-            //case 'L':
-            //    transit(ScannerState::kState232_225_244_264_249_234_269, c_);
-            //    break;
-
-            //case 'S':
-            //    transit(ScannerState::kState232_234_227, c_);
-            //    break;
-
-            //case 'U':
-            //    transit(ScannerState::kState242_262_232_249_234_269_223, c_);
-            //    break;
-
-            case '[':
-                transit(ScannerState::kState2, c_);
-                break;
-
-            case ']':
-                transit(ScannerState::kState4, c_);
-                break;
-
-            case '^':
-                transit(ScannerState::kState72_138_139, c_);
-                break;
-
-            //case 'u':
-            //    transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
-            //    break;
-
-            case '{':
-                transit(ScannerState::kState10, c_);
-                break;
-
-            case '|':
-                transit(ScannerState::kState80_81_74_142_143, c_);
-                break;
-
-            case '}':
-                transit(ScannerState::kState12, c_);
-                break;
-
-            case '~':
-                transit(ScannerState::kState36, c_);
-                break;
-
             default:
-                cseq_ += to_c(c_);
-                c_ = get();
-                finish(TokenType::kNonWhiteSpaceCharacter);
-                break;
+                switch (c_) {
+                case to_c32('_'):
+                    transit(ScannerState::kState232_234_227, c_);
+                    break;
+
+                case to_c32('\\'):
+                    transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_234_227);
+                    break;
+
+                case to_c32('!'):
+                    transit(ScannerState::kState68_69_38, c_);
+                    break;
+
+                case to_c32('"'):
+                    if (hint_ == ScannerHint::kHeaderName) {
+                        transit(ScannerState::kStateHeaderNameInitial, c_);
+                    } else {
+                        transit(ScannerState::kState273_274_270_271, c_);
+                    }
+                    break;
+
+                case to_c32('#'):
+                    transit(ScannerState::kState148_150_151, c_);
+                    break;
+
+                case to_c32('%'):
+                    transit(ScannerState::kState166_167_170_42_171_174_110_175_111, c_);
+                    break;
+
+                case to_c32('&'):
+                    transit(ScannerState::kState28_134_135_76_77, c_);
+                    break;
+
+                case to_c32('\''):
+                    transit(ScannerState::kState250_251, c_);
+                    break;
+
+                case to_c32('('):
+                    transit(ScannerState::kState6, c_);
+                    break;
+
+                case to_c32(')'):
+                    transit(ScannerState::kState8, c_);
+                    break;
+
+                case to_c32('*'):
+                    transit(ScannerState::kState103_102_30, c_);
+                    break;
+
+                case to_c32('+'):
+                    transit(ScannerState::kState32_114_115_20_21, c_);
+                    break;
+
+                case to_c32(','):
+                    transit(ScannerState::kState146, c_);
+                    break;
+
+                case to_c32('-'):
+                    transit(ScannerState::kState16_17_34_118_119_24_25, c_);
+                    break;
+
+                case to_c32('.'):
+                    transit(ScannerState::kState182_184_94_14_95, c_);
+                    break;
+
+                case to_c32('/'):
+                    transit(ScannerState::kState40_106_107, c_);
+                    break;
+
+                case to_c32(':'):
+                    transit(ScannerState::kState86_88_89_158_159, c_);
+                    break;
+
+                case to_c32(';'):
+                    transit(ScannerState::kState92, c_);
+                    break;
+
+                case to_c32('<'):
+                    if (hint_ == ScannerHint::kHeaderName) {
+                        transit(ScannerState::kStateHeaderNameInitial, c_);
+                    } else {
+                        transit(ScannerState::kState162_163_122_123_44_45_52_56_57_154_155, c_);
+                    }
+                    break;
+
+                case to_c32('='):
+                    transit(ScannerState::kState64_65_100, c_);
+                    break;
+
+                case to_c32('>'):
+                    transit(ScannerState::kState128_129_48_49_54_60_61, c_);
+                    break;
+
+                case to_c32('?'):
+                    transit(ScannerState::kState84, c_);
+                    break;
+
+                //case to_c32('D'):
+                //    transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
+                //    break;
+
+                //case to_c32('L'):
+                //    transit(ScannerState::kState232_225_244_264_249_234_269, c_);
+                //    break;
+
+                //case to_c32('S'):
+                //    transit(ScannerState::kState232_234_227, c_);
+                //    break;
+
+                //case to_c32('U'):
+                //    transit(ScannerState::kState242_262_232_249_234_269_223, c_);
+                //    break;
+
+                case to_c32('['):
+                    transit(ScannerState::kState2, c_);
+                    break;
+
+                case to_c32(']'):
+                    transit(ScannerState::kState4, c_);
+                    break;
+
+                case to_c32('^'):
+                    transit(ScannerState::kState72_138_139, c_);
+                    break;
+
+                //case to_c32('u'):
+                //    transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
+                //    break;
+
+                case to_c32('{'):
+                    transit(ScannerState::kState10, c_);
+                    break;
+
+                case to_c32('|'):
+                    transit(ScannerState::kState80_81_74_142_143, c_);
+                    break;
+
+                case to_c32('}'):
+                    transit(ScannerState::kState12, c_);
+                    break;
+
+                case to_c32('~'):
+                    transit(ScannerState::kState36, c_);
+                    break;
+
+                default:
+                    consume(c_);
+                    finish(TokenType::kNonWhiteSpaceCharacter);
+                    break;
+                }
             }
 
             break;
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "D"
@@ -559,9 +646,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState86_88_89_158_159: {
             mark();
-            if (c_ == ':') {
+            if (c_ == to_c32(':')) {
                 transit(ScannerState::kState90, c_);
-            } else if (c_ == '>') {
+            } else if (c_ == to_c32('>')) {
                 transit(ScannerState::kState160, c_);
             } else {
                 finish(TokenType::kPunctuator); // ":"
@@ -570,15 +657,15 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221: {
             mark();
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState273_274_270_271, c_);
-            } else if (c_ == '\'') {
+            } else if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState250_251, c_);
-            } else if (c_ == '8') {
+            } else if (c_ == to_c32('8')) {
                 transit(ScannerState::kState258_232_249_234_219_269_238, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 finish(TokenType::kIdentifier); // "u"
@@ -587,9 +674,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState80_81_74_142_143: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState144, c_);
-            } else if (c_ == '|') {
+            } else if (c_ == to_c32('|')) {
                 transit(ScannerState::kState82, c_);
             } else {
                 finish(TokenType::kPunctuator); // "|"
@@ -603,7 +690,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState64_65_100: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState66, c_);
             } else {
                 finish(TokenType::kPunctuator); // "="
@@ -621,11 +708,11 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState207_199: {
-            if (c_ == '+' || c_ == '-') {   // 'g'
+            if (c_ == to_c32('+') || c_ == to_c32('-')) {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
             } else {
                 error = true;
@@ -633,9 +720,9 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState193_194_189_190: {
-            if (isdigit(c_)) {  // 'D'
+            if (is_digit(c_)) {  // 'D'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191, c_);
-            } else if (c_ == '_' || isalpha(c_)) {  // 'N'
+            } else if (is_nondigit(c_)) {  // 'N'
                 transit(ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188, c_);
             } else {
                 error = true;
@@ -644,7 +731,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState68_69_38: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState70, c_);
             } else {
                 finish(TokenType::kPunctuator); // "!"
@@ -653,7 +740,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState103_102_30: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState104, c_);
             } else {
                 finish(TokenType::kPunctuator); // "*"
@@ -666,11 +753,11 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState197_207: {
-            if (c_ == '+' || c_ == '-') {   // 'g'
+            if (c_ == to_c32('+') || c_ == to_c32('-')) {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
             } else {
                 error = true;
@@ -679,9 +766,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState28_134_135_76_77: {
             mark();
-            if (c_ == '&') {
+            if (c_ == to_c32('&')) {
                 transit(ScannerState::kState78, c_);
-            } else if (c_ == '=') {
+            } else if (c_ == to_c32('=')) {
                 transit(ScannerState::kState136, c_);
             } else {
                 finish(TokenType::kPunctuator); // "&"
@@ -690,13 +777,13 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState258_232_249_234_219_269_238: {
             mark();
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState273_274_270_271, c_);
-            } else if (c_ == '\'') {
+            } else if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 finish(TokenType::kIdentifier); // "u8"
@@ -705,11 +792,11 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState16_17_34_118_119_24_25: {
             mark();
-            if (c_ == '-') {
+            if (c_ == to_c32('-')) {
                 transit(ScannerState::kState26, c_);
-            } else if (c_ == '=') {
+            } else if (c_ == to_c32('=')) {
                 transit(ScannerState::kState120, c_);
-            } else if (c_ == '>') {
+            } else if (c_ == to_c32('>')) {
                 transit(ScannerState::kState18, c_);
             } else {
                 finish(TokenType::kPunctuator); // "-"
@@ -728,21 +815,21 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_188_191: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "D\'D"
@@ -756,11 +843,11 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState166_167_170_42_171_174_110_175_111: {
             mark();
-            if (c_ == ':') {
+            if (c_ == to_c32(':')) {
                 transit(ScannerState::kState176_177_172, c_);
-            } else if (c_ == '=') {
+            } else if (c_ == to_c32('=')) {
                 transit(ScannerState::kState112, c_);
-            } else if (c_ == '>') {
+            } else if (c_ == to_c32('>')) {
                 transit(ScannerState::kState168, c_);
             } else {
                 finish(TokenType::kPunctuator); // "%"
@@ -768,11 +855,11 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState201_207: {
-            if (c_ == '+' || c_ == '-') {   // 'g'
+            if (c_ == to_c32('+') || c_ == to_c32('-')) {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
             } else {
                 error = true;
@@ -780,12 +867,12 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState273_274_270_271: {
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState275, c_);
-            } else if (c_ == '\\') {    // 's'
+            } else if (c_ == to_c32('\\')) {    // 's'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
             } else {    // 's'
-                if (is_eol(c_)) {
+                if (is_nl(c_) || eof()) {
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -816,21 +903,21 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "D..."
@@ -839,7 +926,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState72_138_139: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState140, c_);
             } else {
                 finish(TokenType::kPunctuator); // "^"
@@ -848,9 +935,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState128_129_48_49_54_60_61: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState62, c_);
-            } else if (c_ == '>') {
+            } else if (c_ == to_c32('>')) {
                 transit(ScannerState::kState130_131_50, c_);
             } else {
                 finish(TokenType::kPunctuator); // ">"
@@ -859,9 +946,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState182_184_94_14_95: {
             mark();
-            if (c_ == '.') {
+            if (c_ == to_c32('.')) {
                 transit(ScannerState::kState96_97, c_);
-            } else if (isdigit(c_)) {   // 'D'
+            } else if (is_digit(c_)) {   // 'D'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
             } else {
                 finish(TokenType::kPunctuator); // "."
@@ -869,7 +956,7 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState96_97: {
-            if (c_ == '.') {
+            if (c_ == to_c32('.')) {
                 transit(ScannerState::kState98, c_);
             } else {
                 error = true;
@@ -878,21 +965,21 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "DCCCC"
@@ -906,7 +993,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState148_150_151: {
             mark();
-            if (c_ == '#') {
+            if (c_ == to_c32('#')) {
                 transit(ScannerState::kState152, c_);
             } else {
                 finish(TokenType::kHash); // "#"
@@ -920,13 +1007,13 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState232_225_244_264_249_234_269: {
             mark();
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState273_274_270_271, c_);
-            } else if (c_ == '\'') {
+            } else if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 finish(TokenType::kIdentifier); // "L"
@@ -940,13 +1027,13 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState242_262_232_249_234_269_223: {
             mark();
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState273_274_270_271, c_);
-            } else if (c_ == '\'') {
+            } else if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState250_251, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 finish(TokenType::kIdentifier); // "U"
@@ -965,21 +1052,21 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState192_195_196_198_200_202_204_205_206_209_211_212_213_214_186_188: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "D\'N"
@@ -993,9 +1080,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState232_234_227: {
             mark();
-            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {  // 'C'
+            if (is_digit(c_) || is_nondigit(c_)) {  // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 error = contains_invalid_ucn_for_identifier(cseq_);
@@ -1004,10 +1091,10 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState250_251: {
-            if (c_ == '\\') {   // 'c'
+            if (c_ == to_c32('\\')) {   // 'c'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
             } else {    // 'c'
-                if (is_eol(c_)) {
+                if (is_nl(c_) || eof()) {
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -1018,9 +1105,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState32_114_115_20_21: {
             mark();
-            if (c_ == '+') {
+            if (c_ == to_c32('+')) {
                 transit(ScannerState::kState22, c_);
-            } else if (c_ == '=') {
+            } else if (c_ == to_c32('=')) {
                 transit(ScannerState::kState116, c_);
             } else {
                 finish(TokenType::kPunctuator); // "+"
@@ -1029,11 +1116,11 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState40_106_107: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState108, c_);
-            } else if (c_ == '/') {
+            } else if (c_ == to_c32('/')) {
                 transit(ScannerState::kLineComment, c_);
-            } else if (c_ == '*') {
+            } else if (c_ == to_c32('*')) {
                 transit(ScannerState::kBlockComment, c_);
             } else {
                 finish(TokenType::kPunctuator); // "/"
@@ -1057,13 +1144,13 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState162_163_122_123_44_45_52_56_57_154_155: {
             mark();
-            if (c_ == '%') {
+            if (c_ == to_c32('%')) {
                 transit(ScannerState::kState164, c_);
-            } else if (c_ == ':') {
+            } else if (c_ == to_c32(':')) {
                 transit(ScannerState::kState156, c_);
-            } else if (c_ == '<') {
+            } else if (c_ == to_c32('<')) {
                 transit(ScannerState::kState124_125_46, c_);
-            } else if (c_ == '=') {
+            } else if (c_ == to_c32('=')) {
                 transit(ScannerState::kState58, c_);
             } else {
                 finish(TokenType::kPunctuator); // "<"
@@ -1097,7 +1184,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState176_177_172: {
             mark();
-            if (c_ == '%') {
+            if (c_ == to_c32('%')) {
                 transit(ScannerState::kState178_179, c_);
             } else {
                 finish(TokenType::kHash);    // "%:"
@@ -1105,11 +1192,11 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState203_207: {
-            if (c_ == '+' || c_ == '-') {   // 'g'
+            if (c_ == to_c32('+') || c_ == to_c32('-')) {   // 'g'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188);
             } else {
                 error = true;
@@ -1128,9 +1215,9 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState232_233: {
             mark();
-            if (isdigit(c_) || c_ == '_' || isalpha(c_)) {  // 'C'
+            if (is_digit(c_) || is_nondigit(c_)) {  // 'C'
                 transit(ScannerState::kState232_233, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_233);
             } else {
                 error = contains_invalid_ucn_for_identifier(cseq_);
@@ -1145,7 +1232,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState124_125_46: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState126, c_);
             } else {
                 finish(TokenType::kPunctuator); // "<<"
@@ -1169,21 +1256,21 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188: {
             mark();
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState193_194_189_190, c_);
-            } else if (c_ == '.') {
+            } else if (c_ == to_c32('.')) {
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_210_211_212_213_214_186_188, c_);
-            } else if (c_ == 'E') {
+            } else if (c_ == to_c32('E')) {
                 transit(ScannerState::kState207_199, c_);
-            } else if (c_ == 'P') {
+            } else if (c_ == to_c32('P')) {
                 transit(ScannerState::kState203_207, c_);
-            } else if (c_ == 'e') {
+            } else if (c_ == to_c32('e')) {
                 transit(ScannerState::kState197_207, c_);
-            } else if (c_ == 'p') {
+            } else if (c_ == to_c32('p')) {
                 transit(ScannerState::kState201_207, c_);
-            } else if (isdigit(c_) || c_ == '_' || isalpha(c_)) {   // 'C'
+            } else if (is_digit(c_) || is_nondigit(c_)) {   // 'C'
                 transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188, c_);
-            } else if (c_ == '\\') {
+            } else if (c_ == to_c32('\\')) {
                 transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188);
             } else {
                 finish(TokenType::kPpNumber);   // "DEgggg"
@@ -1202,7 +1289,7 @@ Token Scanner::next_token() {
         }
         case ScannerState::kState130_131_50: {
             mark();
-            if (c_ == '=') {
+            if (c_ == to_c32('=')) {
                 transit(ScannerState::kState132, c_);
             } else {
                 finish(TokenType::kPunctuator); // ">>"
@@ -1210,12 +1297,12 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState272_274_271: {
-            if (c_ == '"') {
+            if (c_ == to_c32('"')) {
                 transit(ScannerState::kState275, c_);
-            } else if (c_ == '\\') {    // 's'
+            } else if (c_ == to_c32('\\')) {    // 's'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
             } else {    // 's'
-                if (is_eol(c_)) {
+                if (is_nl(c_) || eof()) {
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -1225,12 +1312,12 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState251_252_253: {
-            if (c_ == '\'') {
+            if (c_ == to_c32('\'')) {
                 transit(ScannerState::kState254, c_);
-            } else if (c_ == '\\') {    // 'c'
+            } else if (c_ == to_c32('\\')) {    // 'c'
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
             } else {    // 'c'
-                if (is_eol(c_)) {
+                if (is_nl(c_) || eof()) {
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -1265,7 +1352,7 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kState178_179: {
-            if (c_ == ':') {
+            if (c_ == to_c32(':')) {
                 transit(ScannerState::kState180, c_);
             } else {
                 error = true;
@@ -1279,28 +1366,26 @@ Token Scanner::next_token() {
         }
 
         case ScannerState::kLineComment: {
-            while (!is_eol(c_)) {
-                cseq_ += to_c(c_);
-                c_ = get();
+            while (!(is_nl(c_) || eof())) {
+                consume(c_);
             }
 
             finish(TokenType::kComment);
             break;
         }
         case ScannerState::kBlockComment: {
-            int prev = '\0';
+            Char32 prev = to_c32('\0');
             while (true) {
-                if (c_ == EOF) {
+                if (eof()) {
                     // error(Token(Token::kNullTokenValue, line, column), /* コメントが終了しなかった。 */);
                     break;
                 }
-                cseq_ += to_c(c_);
-                if (c_ == '/' && prev == '*') {
-                    c_ = get();
+                if (c_ == to_c32('/') && prev == to_c32('*')) {
+                    consume(c_);
                     break;
                 }
                 prev = c_;
-                c_ = get();
+                consume(c_);
             }
 
             finish(TokenType::kComment);
@@ -1308,28 +1393,29 @@ Token Scanner::next_token() {
         }
         case ScannerState::kWhiteSpaces: {
             while (is_ws(c_)) {
-                cseq_ += to_c(c_);
-                c_ = get();
+                consume(c_);
             }
 
             finish(TokenType::kWhiteSpace);
             break;
         }
         case ScannerState::kLineBreak: {
-            if (c_ == '\n') {
-                cseq_ += to_c(c_);
-                c_ = get();
+            if (c_ == to_c32('\n')) {
+                consume(c_);
             }
 
             finish(TokenType::kNewLine);
             break;
         }
         case ScannerState::kStateUniversalCharacterNameInitial: {
-            if (c_ == 'U') {
-                ucn_digit_start_ = cseq_.length() + 1;
+            if (cseq_.length() >= numeric_limits<decltype(ucn_digit_start_)>::max() - 1) {
+                throw runtime_error(__func__);
+            }
+            ucn_digit_start_ = static_cast<uint32_t>(cseq_.length() + 1);
+
+            if (c_ == to_c32('U')) {
                 transit(ScannerState::kStateUniversalCharacterName16_17, c_);
-            } else if (c_ == 'u') {
-                ucn_digit_start_ = cseq_.length() + 1;
+            } else if (c_ == to_c32('u')) {
                 transit(ScannerState::kStateUniversalCharacterName4_5, c_);
             } else {
                 error = true;
@@ -1435,8 +1521,7 @@ Token Scanner::next_token() {
         case ScannerState::kStateUniversalCharacterName12: {
             mark();
 
-            uint32_t n;
-            auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+            uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], & cseq_[cseq_.length()]);
             error = !is_valid_ucn(n);
 
             finish();   // \uXXXX
@@ -1445,8 +1530,7 @@ Token Scanner::next_token() {
         case ScannerState::kStateUniversalCharacterName32: {
             mark();
 
-            uint32_t n;
-            auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+            uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
             error = !is_valid_ucn(n);
 
             finish();   // \UXXXXXXXX
@@ -1454,31 +1538,37 @@ Token Scanner::next_token() {
         }
         case ScannerState::kStateEscapeSequenceInitial: {
             switch (c_) {
-            case '"':   // 6
-            case '\'':  // 4
-            case '?':   // 8
-            case '\\':  // 10
-            case 'a':   // 12
-            case 'b':   // 14
-            case 'f':   // 16
-            case 'n':   // 18
-            case 'r':   // 20
-            case 't':   // 22
-            case 'v':   // 24
+            case to_c32('"'):   // 6
+            case to_c32('\''):  // 4
+            case to_c32('?'):   // 8
+            case to_c32('\\'):  // 10
+            case to_c32('a'):   // 12
+            case to_c32('b'):   // 14
+            case to_c32('f'):   // 16
+            case to_c32('n'):   // 18
+            case to_c32('r'):   // 20
+            case to_c32('t'):   // 22
+            case to_c32('v'):   // 24
                 finish(c_);
                 break;
 
-            case 'u':
-                ucn_digit_start_ = cseq_.length() + 1;
+            case to_c32('u'):
+                if (cseq_.length() >= numeric_limits<decltype(ucn_digit_start_)>::max() - 1) {
+                    throw runtime_error(__func__);
+                }
+                ucn_digit_start_ = static_cast<uint32_t>(cseq_.length() + 1);
                 transit(ScannerState::kStateEscapeSequence42_43, c_);
                 break;
 
-            case 'U':
-                ucn_digit_start_ = cseq_.length() + 1;
+            case to_c32('U'):
+                if (cseq_.length() >= numeric_limits<decltype(ucn_digit_start_)>::max() - 1) {
+                    throw runtime_error(__func__);
+                }
+                ucn_digit_start_ = static_cast<uint32_t>(cseq_.length() + 1);
                 transit(ScannerState::kStateEscapeSequence52_53, c_);
                 break;
 
-            case 'x':
+            case to_c32('x'):
                 transit(ScannerState::kStateEscapeSequence38_39, c_);
                 break;
 
@@ -1597,8 +1687,7 @@ Token Scanner::next_token() {
                 // \uXXXX
                 finish(c_); // ScannerState::kStateEscapeSequence50
 
-                uint32_t n;
-                auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+                uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
                 error = !is_valid_ucn(n);
             } else {
                 error = true;
@@ -1627,8 +1716,7 @@ Token Scanner::next_token() {
                 // \UXXXXXXXX
                 finish(c_); // ScannerState::kStateEscapeSequence68);
 
-                uint32_t n;
-                auto r = from_chars(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()], n, 16);
+                uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
                 error = !is_valid_ucn(n);
             } else {
                 error = true;
@@ -1637,11 +1725,11 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kStateHeaderNameInitial: {
-            int close_char = (cseq_[0] == '<') ? '>' : '"';
+            Char32 close_char = (cseq_[0] == '<') ? to_c32('>') : to_c32('"');
             if (c_ == close_char) {
                 transit(ScannerState::kStateHeaderNameA1, c_);
             } else {
-                if (is_eol(c_)) {
+                if (is_nl(c_) || eof()) {
                     // 行末まで読み取ったので、ヘッダー名としては不正で、このままエラーで返す。
                     error = true;
                 } else {
@@ -1688,10 +1776,35 @@ std::uint32_t Scanner::column() {
     return buf_i_;
 }
 
-int Scanner::getline(std::string& result) {
-    istream& input = input_.get();
+bool Scanner::eof() const {
+    return eof_;
+}
 
-    int c = input.get();
+Scanner::Char32 Scanner::get() {
+    if (buf_i_ >= buf_.length()) {
+        if (readline() != 0) {
+            eof_ = true;
+            return to_c32(0);
+        }
+    }
+
+    if (buf_i_ >= buf_.length()) {
+        eof_ = true;
+        return to_c32(0);
+    }
+
+    Char32 c;
+    auto size = c8_to_c32(&buf_[buf_i_], buf_.length() - buf_i_, c);
+    if (size == 0) {
+        return to_c32(0);
+    }
+    buf_i_ += size;
+
+    return c;
+}
+
+int Scanner::getline(std::string& result) {
+    int c = input_.get();
     if (c == EOF) {
         return -1;
     }
@@ -1701,10 +1814,10 @@ int Scanner::getline(std::string& result) {
         result += to_c(c);
 
         if (c == '\r') {
-            int c2 = input.get();
+            int c2 = input_.get();
 
             if (c2 == EOF) {
-                if (input.eof()) {
+                if (input_.eof()) {
                     // 一旦、ここまでに読み取れた分を呼び出し元に返す。
                     break;
                 } else {
@@ -1714,7 +1827,7 @@ int Scanner::getline(std::string& result) {
             } else if (c2 == '\n') {
                 result += to_c(c2);
             } else {
-                input.putback(to_c(c2));
+                input_.putback(to_c(c2));
             }
             break;
         }
@@ -1722,8 +1835,8 @@ int Scanner::getline(std::string& result) {
             break;
         }
 
-        c = input.get();
-        if (c == EOF && !input.eof()) {
+        c = input_.get();
+        if (c == EOF && !input_.eof()) {
             return -1;
         }
     } while (c != EOF);
@@ -1732,9 +1845,7 @@ int Scanner::getline(std::string& result) {
 }
 
 int Scanner::readline() {
-    istream& input = input_.get();
-
-    if (input.eof()) {
+    if (input_.eof()) {
         return EOF;
     }
 
@@ -1768,6 +1879,7 @@ int Scanner::readline() {
         line_number_++;
     } while (more_splicing);
 
+    buf_ = normalize_string(buf_);
     buf_i_ = 0;
 
     return 0;
@@ -1847,12 +1959,12 @@ std::string Scanner::replace_trigraphs(std::string& s) {
 bool Scanner::splice_source_line(std::string& logical_line, std::string& physical_line) {
     bool more_splicing = false;
 
-    auto not_nl = find_if(physical_line.rbegin(), physical_line.rend(), [](const auto& c) { return !is_nl(c); });
+    auto not_nl = find_if(physical_line.rbegin(), physical_line.rend(), [](const auto& c) { return !is_nl(to_c32(c)); });
     if (not_nl == physical_line.rend()) {
         // TODO: 改行で終わらないのでエラー。尚、空のファイルは初回の getlineで弾かれる。
     }
     if (not_nl != physical_line.rend()) {
-        auto last_c = find_if(not_nl, physical_line.rend(), [](const auto& c) { return !is_ws(c); });
+        auto last_c = find_if(not_nl, physical_line.rend(), [](const auto& c) { return !is_ws(to_c32(c)); });
         if (not_nl == last_c && *last_c == '\\') {
             auto back_slash = prev(last_c.base());
             physical_line.erase(back_slash, physical_line.end());
@@ -1868,21 +1980,26 @@ bool Scanner::splice_source_line(std::string& logical_line, std::string& physica
     return more_splicing;
 }
 
-void Scanner::transit(ScannerState next_state, int c) {
-    cseq_ += to_c(c);
-    state_ = next_state;
+void Scanner::consume(Char32 c) {
+    char u8[4] = {};
+    int len = c32_to_c8(c, u8);
+    cseq_.append(u8, len);
     c_ = get();
 }
 
-void Scanner::transit(ScannerState next_state, int c, ScannerState return_state) {
+void Scanner::transit(ScannerState next_state, Char32 c) {
+    consume(c);
+    state_ = next_state;
+}
+
+void Scanner::transit(ScannerState next_state, Char32 c, ScannerState return_state) {
     if (return_state_ != ScannerState::kInitial) {
         throw runtime_error(__func__);
     }
 
-    cseq_ += to_c(c);
+    consume(c);
     state_ = next_state;
     return_state_ = return_state;
-    c_ = get();
 }
 
 void Scanner::finish(TokenType token_type) {
@@ -1899,22 +2016,21 @@ void Scanner::finish() {
     return_state_ = ScannerState::kInitial;
 }
 
-void Scanner::finish(int c) {
+void Scanner::finish(Char32 c) {
     if (return_state_ == ScannerState::kInitial) {
         throw runtime_error(__func__);
     }
 
-    cseq_ += to_c(c);
+    consume(c);
     state_ = return_state_;
     return_state_ = ScannerState::kInitial;
-    c_ = get();
 }
 
 void Scanner::mark() {
     buf_i_mark_ = buf_i_;
 }
 
-void Scanner::reset(std::string& cseq) {
+void Scanner::reset(Char32String& cseq) {
     if (buf_i_mark_ == 0) {
         throw std::runtime_error(__func__);
     }

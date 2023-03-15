@@ -1,6 +1,24 @@
 #include "preprocessor/diagnostics.h"
 
+#include <format>
+#include <iostream>
+
+#include "util/utility.h"
+
+using namespace lib::util;
 using namespace std;
+
+namespace {
+
+const char* const kLevelTag[] = {
+    "デバッグ",
+    "情報",
+    "警告",
+    "エラー",
+    "致命的エラー",
+};
+
+}   // namespace
 
 namespace pp {
 
@@ -76,5 +94,76 @@ const StringView kConditionalInclusionOperatorUsageError = T_("識別子 {}は�
 
 const StringView kLineNeedsDecimalConstantError = T_("#lineには 10進整数（接尾辞無し）を指定しなければならない。");
 const StringView kLineOutOfRangeError = T_("#lineに指定する行数は [{}, {}]の範囲でなければならない。");
+
+const StringView kUnknownEscapeSequenceWarning = T_("エスケープシーケンスとして認識されない。");
+const StringView kInvalidUniversalCharacterNameError = T_("ユニバーサル文字名で指定できないコードポイントである。");
+
+
+Diagnostics::Diagnostics()
+    : output_()
+    , error_count_()
+    , warning_count_() {
+}
+
+Diagnostics::~Diagnostics() {
+}
+
+void Diagnostics::set_output(std::ostream* output) {
+    output_ = output;
+}
+
+int Diagnostics::warning_count() const {
+    return warning_count_;
+}
+
+int Diagnostics::error_count() const {
+    return error_count_;
+}
+
+void Diagnostics::output_diagnostic(
+        DiagLevel level,
+        SourceFile* source, const Token& token,
+        StringView format, const std::format_args& args) {
+    if (!output_) {
+        throw runtime_error(__func__);
+    }
+
+    if (level < kMinDiagLevel || level > kMaxDiagLevel) {
+        throw invalid_argument("level");
+    }
+
+    uint32_t l;
+    size_t c;
+    if (token.type() != TokenType::kNull) {
+        l = token.line();
+        c = token.column();
+    } else {
+        if (source) {
+            l = source->line();
+            c = source->column();
+        } else {
+            l = 0;
+            c = 0;
+        }
+    }
+
+    string s;
+    if (source) {
+        s = source_from_internal(source->source_path());
+    } else {
+        s = source_from_internal(T_("<init>"));
+    }
+
+    auto i = enum_ordinal(level);
+
+    //ErrorOutputIterator it(*error_output_);
+    //format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
+    //vformat_to(it, format, args);
+    //format_to(it, "\n");
+    auto log = std::format("{}:{}:{}: {}: {}\n", s, l, c, kLevelTag[i], vformat(format, args));
+    output_->write(log.data(), log.size());
+    output_->flush();
+}
+
 
 }   //  namespace pp

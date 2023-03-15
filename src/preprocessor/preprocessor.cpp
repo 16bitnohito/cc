@@ -77,16 +77,6 @@ bool is_elif_group_directive(pp::TokenType type) {
     }
 }
 
-const char* const kLevelTag[] = {
-    "",
-    "致命的エラー",
-    "エラー",
-    "警告",
-    "情報",
-    "トレース",
-    "デバッグ",
-};
-
 std::string escape_string(const std::string& s) {
     string result;
     result.reserve(s.length());
@@ -468,8 +458,9 @@ bool IncludeSpec::is_includes_source_dir() const {
 }
 
 
-Preprocessor::Preprocessor(const Options& opts)
+Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag)
     : opts_(opts)
+    , diag_(diag)
     , include_dirs_()
     , diag_level_(DiagLevel::kWarning)
     , clock_start_()
@@ -486,8 +477,6 @@ Preprocessor::Preprocessor(const Options& opts)
     , predef_macro_names_()
     , used_macro_names_()
     , error_location_()
-    , warning_count_()
-    , error_count_()
     , included_files_()
     , rescan_count_()
 {
@@ -503,7 +492,7 @@ Preprocessor::~Preprocessor() {
 }
 
 bool Preprocessor::has_error() {
-    return error_count_ > 0;
+    return diag_.error_count() > 0;
 }
 
 int Preprocessor::run() {
@@ -527,6 +516,7 @@ int Preprocessor::run() {
         error_output_ = error_file_.get();
         Logger::instance().set_output_stream(error_file_);
     }
+    diag_.set_output(error_output_);
 
     //
     String out_path = opts_.output_filepath();
@@ -570,10 +560,12 @@ int Preprocessor::run() {
         return 1;
     }
 
-    return has_error();
+    return has_error() ? EXIT_FAILURE : 0;
 }
 
 bool Preprocessor::cleanup() {
+    diag_.set_output(nullptr);
+
     if (output_) {
         output_->flush();
         output_ = nullptr;
@@ -587,7 +579,7 @@ bool Preprocessor::cleanup() {
 
         // TODO: いつもの簡易プロファイラー的なものにする。
         clock_end_ = clock() - clock_start_;
-        info(kTokenNull, T_("elapsed: {}"), clock_end_);
+        log_info(T_("elapsed: {}"), clock_end_);
         error_output_->flush();
 
         error_output_ = nullptr;
@@ -2582,7 +2574,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
     }
 
     //
-    int old_error_count = error_count_;
+    int old_error_count = diag_.error_count();
     if (macro_form == MacroForm::kFunctionLike) {
         for (auto it = result.begin(); it != result.end(); it++) {
             if (it->type() == TokenType::kHash) {
@@ -2647,7 +2639,7 @@ std::optional<TokenList> Preprocessor::replacement_list(
         }
     }
 
-    if (error_count_ > old_error_count) {
+    if (diag_.error_count() > old_error_count) {
         return nullopt;
     }
 
@@ -3432,52 +3424,13 @@ void Preprocessor::output_text(const char* text) {
 #endif
 }
 
-void Preprocessor::output_log_with_args(
-        DiagLevel level, const Token& token, const StringView& format,
-        //const std::format_args_t<Preprocessor::ErrorOutputIterator, char>& args) {
-        const std::format_args& args) {
-    if (!error_output_) {
-        return ;
-    }
-
-    if (level < kMinDiagLevel || level > kMaxDiagLevel) {
-        throw invalid_argument("level");
-    }
-
-    if (level > diag_level_) {
-        return;
-    }
-
-    uint32_t l;
-    size_t c;
-    if (token.type() != TokenType::kNull) {
-        l = token.line();
-        c = token.column();
-    } else {
-        if (!sources_.empty()) {
-            SourceFile& src = current_source();
-            l = src.line();
-            c = src.column();
-        } else {
-            l = 0;
-            c = 0;
-        }
-    }
-    string s = source_from_internal(current_source_path());
-
-    auto i = enum_ordinal(level);
-    //ErrorOutputIterator it(*error_output_);
-    //format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
-    //vformat_to(it, format, args);
-    //format_to(it, "\n");
-    auto log = std::format("{}:{}:{}: {}: {}\n", s, l, c, kLevelTag[i], std::vformat(format, args));
-    error_output_->write(log.data(), log.size());
-    error_output_->flush();
-}
-
 SourceFile& Preprocessor::current_source() {
     assert(!sources_.empty());
     return *sources_.top();
+}
+
+SourceFile* Preprocessor::current_source_pointer() {
+    return sources_.empty() ? nullptr : sources_.top();
 }
 
 String Preprocessor::current_source_path() {

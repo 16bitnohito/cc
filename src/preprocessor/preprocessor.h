@@ -26,6 +26,13 @@
 #include "preprocessor/scanner.h"
 #include "util/utility.h"
 
+#if defined(NDEBUG)
+#define DEBUG(t, ...)
+#define DEBUG_EXPR(expr)
+#else
+#define DEBUG(t, ...)       debug(t, __VA_ARGS__)
+#define DEBUG_EXPR(expr)    expr
+#endif
 
 namespace pp {
 
@@ -273,7 +280,7 @@ enum class EmbedResult {
  */
 class Preprocessor {
 public:
-    explicit Preprocessor(const Options& opts);
+    explicit Preprocessor(const Options& opts, Diagnostics& diag);
     ~Preprocessor();
 
     bool has_error();
@@ -424,47 +431,38 @@ private:
     void output_text(const StringView& text);
     void output_text(const char* text);
 
-    void output_log_with_args(
-            DiagLevel level, const Token& token, const StringView& format,
-            //const std::format_args_t<ErrorOutputIterator, char>& args);
-            const std::format_args& args);
-
-    template <class... Ts>
-    void output_log(DiagLevel level, const Token& token, const StringView& format, const Ts&... args) {
-        //using Context = std::basic_format_context<ErrorOutputIterator, char>;
-        //output_log_with_args(level, token, format, std::make_format_args<Context>(args...));
-        output_log_with_args(level, token, format, std::make_format_args(args...));
-    }
-
     template <class... Ts>
     void debug(const Token& token, const StringView& format, const Ts&... args) {
-        output_log(DiagLevel::kDebug, token, format, args...);
+        if (diag_level_ <= DiagLevel::kDebug) {
+            diag_.debug(current_source_pointer(), token, format, args...);
+        }
     }
 
     template <class... Ts>
     void info(const Token& token, const StringView& format, const Ts&... args) {
-        output_log(DiagLevel::kInfo, token, format, args...);
+        if (diag_level_ <= DiagLevel::kInfo) {
+            diag_.info(current_source_pointer(), token, format, args...);
+        }
     }
 
     template <class... Ts>
     void warning(const Token& token, const StringView& format, const Ts&... args) {
-        output_log(DiagLevel::kWarning, token, format, args...);
-        warning_count_++;
+        diag_.warning(current_source_pointer(), token, format, args...);
     }
 
     template <class... Ts>
     void error(const Token& token, const StringView& format, const Ts&... args) {
-        output_log(DiagLevel::kError, token, format, args...);
-        error_count_++;
+        diag_.error(current_source_pointer(), token, format, args...);
     }
 
     template <class... Ts>
-    [[noreturn]] void fatal_error(const Token& token, const StringView& format, const Ts&... args) {
-        output_log(DiagLevel::kFatalError, token, format, args...);
-        std::exit(EXIT_FAILURE);
+    [[noreturn]]
+    void fatal_error(const Token& token, const StringView& format, const Ts&... args) {
+        diag_.fatal_error(current_source_pointer(), token, format, args...);
     }
 
     SourceFile& current_source();
+    SourceFile* current_source_pointer();
     String current_source_path();
     void current_source_path(const String& value);
     std::uint32_t current_source_line_number();
@@ -484,6 +482,7 @@ private:
     void print_macros();
 
     const Options& opts_;
+    Diagnostics& diag_;
 
     std::vector<String> include_dirs_;
     DiagLevel diag_level_;
@@ -502,9 +501,6 @@ private:
     std::vector<std::string> predef_macro_names_;
     std::unordered_set<std::string> used_macro_names_;
     Token error_location_;
-
-    std::int32_t warning_count_;
-    std::int32_t error_count_;
 
     int included_files_;
     int rescan_count_;

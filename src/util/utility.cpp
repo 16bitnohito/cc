@@ -101,4 +101,13 @@ void raise_generic_error(const char* message, std::errc error) {
     throw std::system_error(ec, message);
 }
 
+std::string normalize_string(const std::string& s) {
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+    auto ws = lib::win32util::normalize_string(u8s_to_wcs(s));
+    return wcs_to_u8s(ws);
+#else
+    // TODO: NFCにする。
+#endif
+}
+
 }   //  namespace lib::util

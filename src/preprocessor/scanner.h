@@ -9,6 +9,8 @@
 #include <vector>
 
 #include "preprocessor/pp_config.h"
+#include "preprocessor/diagnostics.h"
+#include "preprocessor/sourcefilestack.h"
 #include "preprocessor/token.h"
 
 namespace pp {
@@ -159,7 +161,11 @@ enum class ScannerState {
  */
 class Scanner {
 public:
-    explicit Scanner(std::istream& input, bool trigraph);
+    enum class Char32 : char32_t;
+    //using Char32 = char32_t;
+    using Char32String = std::basic_string<Char32>;
+
+    explicit Scanner(std::istream& input, bool trigraph, Diagnostics& diag, SourceFileStack& sources);
     Scanner(const Scanner&) = delete;
     ~Scanner();
 
@@ -174,39 +180,32 @@ public:
     void line_number(std::uint32_t value);
     std::uint32_t column();
 
+    bool eof() const;
+
 private:
-    int get() {
-        if (buf_i_ >= buf_.length()) {
-            if (readline() != 0) {
-                return EOF;
-            }
-        }
-
-        int c = buf_[buf_i_] & 0xff;
-        buf_i_++;
-
-        return c;
-    }
-
+    Char32 get();
     std::string replace_trigraphs(std::string& s);
     bool splice_source_line(std::string& logical_line, std::string& physical_line);
     int getline(std::string& result);
     int readline();
-    void transit(ScannerState next_state, int c);
-    void transit(ScannerState next_state, int c, ScannerState return_state);
+    void consume(Char32 c);
+    void transit(ScannerState next_state, Char32 c);
+    void transit(ScannerState next_state, Char32 c, ScannerState return_state);
     void finish(TokenType token_type);
     void finish();
-    void finish(int c);
+    void finish(Char32 c);
     void mark();
-    void reset(std::string& cseq);
+    void reset(Char32String& cseq);
     void clear_mark();
 
-    std::reference_wrapper<std::istream> input_;
+    std::istream& input_;
+    Diagnostics& diag_;
+    SourceFileStack& sources_;
     std::string buf_;
     std::uint32_t buf_i_;
     std::uint32_t line_number_;
     bool trigraph_;
-    int c_;
+    Char32 c_;
     std::string cseq_;
     ScannerState state_;
     ScannerState return_state_;
@@ -215,6 +214,7 @@ private:
     bool match_;
     std::uint32_t buf_i_mark_;
     std::uint32_t ucn_digit_start_;
+    bool eof_;
 };
 
 }   // namespace pp

@@ -4,6 +4,8 @@
 #include <sstream>
 #include <vector>
 
+#include "preprocessor/sourcefilestack.h"
+
 using namespace std;
 
 namespace pp {
@@ -15,15 +17,18 @@ const String kPathDelimiter = T_("/");
 #endif
 
 
-SourceFile::SourceFile(std::istream& input, const String& filepath, const Options& opts)
-    : scanner_(input, opts.support_trigraphs())
+SourceFile::SourceFile(std::istream& input, const String& filepath, const Options& opts, Diagnostics& diag, SourceFileStack& sources)
+    : sources_(sources)
+    , scanner_(input, opts.support_trigraphs(), diag, sources)
     , path_(filepath)
     , condition_level_()
     , groups_()
     , line_(1) {
+    sources_.push(this);
 }
 
 SourceFile::~SourceFile() {
+    sources_.pop();
 }
 
 Token SourceFile::next_token() {
@@ -70,9 +75,9 @@ void SourceFile::reset_line_number(std::uint32_t new_line_number) {
 }
 
 
-SourceString::SourceString(const std::string& string, const Options& opts)
+SourceString::SourceString(const std::string& string, const Options& opts, Diagnostics& diag, SourceFileStack& sources)
     : in_(string, ios_base::binary)
-    , scanner_(in_, opts.support_trigraphs()) {
+    , scanner_(in_, opts.support_trigraphs(), diag, sources) {
 }
 
 SourceString::~SourceString() {

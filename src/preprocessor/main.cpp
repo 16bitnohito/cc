@@ -3,11 +3,13 @@
 #include <string>
 #include <system_error>
 #include <vector>
-#include <preprocessor/logger.h>
-#include <preprocessor/preprocessor.h>
-#include <preprocessor/utility.h>
+
+#include "util/logger.h"
+#include "util/utility.h"
+#include "preprocessor/preprocessor.h"
 
 using namespace pp;
+using namespace lib::util;
 using namespace std;
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
@@ -32,7 +34,8 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
-        Preprocessor pp(opts);
+        Diagnostics diag;
+        Preprocessor pp(opts, diag);
         return pp.run();
     } catch (const system_error& e) {
         auto& ec = e.code();

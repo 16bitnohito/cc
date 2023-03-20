@@ -5,6 +5,7 @@
 #include <stack>
 
 #include "preprocessor/pp_config.h"
+#include "preprocessor/diagnostics.h"
 #include "preprocessor/options.h"
 #include "preprocessor/scanner.h"
 #include "preprocessor/token.h"
@@ -42,6 +43,8 @@ struct Group {
     }
 };
 
+class SourceFileStack;
+
 /**
  */
 class SourceFile
@@ -49,7 +52,7 @@ class SourceFile
 public:
     friend class ConditionScope;
 
-    explicit SourceFile(std::istream& input, const String& filepath, const Options& opts);
+    explicit SourceFile(std::istream& input, const String& filepath, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
     virtual ~SourceFile() override;
 
     virtual Token next_token() override;
@@ -76,6 +79,7 @@ public:
     std::uint32_t column();
 
 private:
+    SourceFileStack& sources_;
     Scanner scanner_;
     String path_;
     int condition_level_;
@@ -88,7 +92,7 @@ private:
 class SourceString
     : public Source {
 public:
-    explicit SourceString(const std::string& string, const Options& opts);
+    explicit SourceString(const std::string& string, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
     virtual ~SourceString() override;
 
     virtual Token next_token() override;

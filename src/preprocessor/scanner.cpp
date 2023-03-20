@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 
-#include "preprocessor/diagnostics.h"
 #include "util/utility.h"
 
 using namespace lib::util;
@@ -2267,7 +2266,7 @@ bool is_valid_ucn(std::uint32_t n) {
     if (0xD800 <= n && n <= 0xDFFF) {
         return false;
     }
-    if (0x10FFFF < n) {
+    if (0x10FFFF > n) {
         return false;
     }
 
@@ -2378,8 +2377,10 @@ std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
 
 namespace pp {
 
-Scanner::Scanner(std::istream& input, bool trigraph)
+Scanner::Scanner(std::istream& input, bool trigraph, Diagnostics& diag, SourceFileStack& sources)
     : input_(input)
+    , diag_(diag)
+    , sources_(sources)
     , buf_()
     , buf_i_()
     , line_number_()
@@ -3521,17 +3522,21 @@ Token Scanner::next_token() {
             uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], & cseq_[cseq_.length()]);
             switch (return_state_) {
             case ScannerState::kState232_234_227:
-                error = !is_xid_start(to_c32(n));
+                if (!is_xid_start(to_c32(n))) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidIdentifierStartError);
+                }
                 break;
 
             case ScannerState::kState232_233:
             case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188:
             case ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188:
-                error = !is_xid_continue(to_c32(n));
+                if (!is_xid_continue(to_c32(n))) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidIdentifierContinueError);
+                }
                 break;
 
             default:
-                error = true;
+                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, __func__);
                 break;
             }
 
@@ -3544,17 +3549,21 @@ Token Scanner::next_token() {
             uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
             switch (return_state_) {
             case ScannerState::kState232_234_227:
-                error = !is_xid_start(to_c32(n));
+                if (!is_xid_start(to_c32(n))) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidIdentifierStartError);
+                }
                 break;
 
             case ScannerState::kState232_233:
             case ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_186_187_188:
             case ScannerState::kState192_196_198_200_202_204_205_206_208_209_211_212_213_214_186_188:
-                error = !is_xid_continue(to_c32(n));
+                if (!is_xid_continue(to_c32(n))) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidIdentifierContinueError);
+                }
                 break;
 
             default:
-                error = true;
+                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, __func__);
                 break;
             }
 
@@ -3601,7 +3610,8 @@ Token Scanner::next_token() {
                 if (is_oct(c_)) {
                     transit(ScannerState::kStateEscapeSequence32_33_26_28_29, c_);
                 } else {
-                    error = true;
+                    diag_.warning(sources_.current_source_pointer(), { line_number_, buf_i_ }, kUnknownEscapeSequenceWarning);
+                    finish();
                 }
                 break;
             }
@@ -3611,7 +3621,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence54_55, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3619,7 +3630,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence56_57, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3627,7 +3639,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence58_59, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3635,7 +3648,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence60_61, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3643,7 +3657,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence40_39, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidHexadecimalEscapeSequenceFormatError);
+                finish();
             }
             break;
         }
@@ -3651,7 +3666,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence44_45, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3668,7 +3684,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence46_47, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3676,7 +3693,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence48_49, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3693,7 +3711,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence62_63, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3713,9 +3732,11 @@ Token Scanner::next_token() {
                 finish(c_); // ScannerState::kStateEscapeSequence50
 
                 uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
-                error = !is_valid_ucn(n);
+                if (!is_valid_ucn(n)) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameCodePointError);
+                }
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
                 finish();
             }
             break;
@@ -3724,7 +3745,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence64_65, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3732,7 +3754,8 @@ Token Scanner::next_token() {
             if (is_hex(c_)) {
                 transit(ScannerState::kStateEscapeSequence66_67, c_);
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
+                finish();
             }
             break;
         }
@@ -3742,9 +3765,11 @@ Token Scanner::next_token() {
                 finish(c_); // ScannerState::kStateEscapeSequence68);
 
                 uint32_t n = parse_ucn_digits(&cseq_[ucn_digit_start_], &cseq_[cseq_.length()]);
-                error = !is_valid_ucn(n);
+                if (!is_valid_ucn(n)) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameCodePointError);
+                }
             } else {
-                error = true;
+                diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kInvalidUniversalCharacterNameFormatError);
                 finish();
             }
             break;
@@ -3756,6 +3781,7 @@ Token Scanner::next_token() {
             } else {
                 if (is_nl(c_) || eof()) {
                     // 行末まで読み取ったので、ヘッダー名としては不正で、このままエラーで返す。
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kUnclosedHeaderNameError);
                     error = true;
                 } else {
                     transit(ScannerState::kStateHeaderNameInitial, c_);

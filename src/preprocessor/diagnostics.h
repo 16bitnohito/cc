@@ -2,15 +2,17 @@
 #define CC_PREPROCESSOR_DIAGNOSTICS_H_
 
 #include <cinttypes>
+#include <cstdint>
 #include <cstdio>
 #include <iosfwd>
 
 #include "preprocessor/pp_config.h"
-#include "preprocessor/input.h"
 #include "preprocessor/token.h"
 #include "util/utility.h"
 
 namespace pp {
+
+class SourceFile;
 
 enum class DiagLevel {
     kDebug,
@@ -103,7 +105,39 @@ extern const StringView kLineNeedsDecimalConstantError;
 extern const StringView kLineOutOfRangeError;
 
 extern const StringView kUnknownEscapeSequenceWarning;
-extern const StringView kInvalidUniversalCharacterNameError;
+extern const StringView kInvalidHexadecimalEscapeSequenceFormatError;
+extern const StringView kInvalidUniversalCharacterNameCodePointError;
+extern const StringView kInvalidUniversalCharacterNameFormatError;
+extern const StringView kInvalidIdentifierStartError;
+extern const StringView kInvalidIdentifierContinueError;
+extern const StringView kUnclosedHeaderNameError;
+
+/**
+ */
+class Location {
+public:
+    static Location from_source(SourceFile* source, const Token& token);
+
+    Location(uint32_t line, uint32_t column)
+        : line_(line)
+        , column_(column) {
+    }
+
+    ~Location() {
+    }
+
+    uint32_t line() const {
+        return line_;
+    }
+
+    uint32_t column() const {
+        return column_;
+    }
+
+private:
+    uint32_t line_;
+    uint32_t column_;
+};
 
 /**
  */
@@ -121,38 +155,38 @@ public:
     int error_count() const;
 
     template <class... Args>
-    void debug(SourceFile* source, const Token& token, StringView message, Args... args) {
-        output_diagnostic(DiagLevel::kDebug, source, token, message, std::make_format_args(args...));
+    void debug(SourceFile* source, const Location& location, StringView message, Args... args) {
+        output_diagnostic(DiagLevel::kDebug, source, location, message, std::make_format_args(args...));
     }
 
     template <class... Args>
-    void info(SourceFile* source, const Token& token, StringView message, Args... args) {
-        output_diagnostic(DiagLevel::kInfo, source, token, message, std::make_format_args(args...));
+    void info(SourceFile* source, const Location& location, StringView message, Args... args) {
+        output_diagnostic(DiagLevel::kInfo, source, location, message, std::make_format_args(args...));
     }
 
     template <class... Args>
-    void warning(SourceFile* source, const Token& token, StringView message, Args... args) {
-        output_diagnostic(DiagLevel::kWarning, source, token, message, std::make_format_args(args...));
+    void warning(SourceFile* source, const Location& location, StringView message, Args... args) {
+        output_diagnostic(DiagLevel::kWarning, source, location, message, std::make_format_args(args...));
         ++warning_count_;
     }
 
     template <class... Args>
-    void error(SourceFile* source, const Token& token, StringView message, Args... args) {
-        output_diagnostic(DiagLevel::kError, source, token, message, std::make_format_args(args...));
+    void error(SourceFile* source, const Location& location, StringView message, Args... args) {
+        output_diagnostic(DiagLevel::kError, source, location, message, std::make_format_args(args...));
         ++error_count_;
     }
 
     template <class... Args>
     [[noreturn]]
-    void fatal_error(SourceFile* source, const Token& token, StringView message, Args... args) {
-        output_diagnostic(DiagLevel::kFatalError, source, token, message, std::make_format_args(args...));
+    void fatal_error(SourceFile* source, const Location& location, StringView message, Args... args) {
+        output_diagnostic(DiagLevel::kFatalError, source, location, message, std::make_format_args(args...));
         std::exit(EXIT_FAILURE);
     }
 
 private:
     void output_diagnostic(
             DiagLevel tag,
-            SourceFile* source, const Token& token,
+            SourceFile* source, const Location& location,
             StringView format, const std::format_args& args);
 
     std::ostream* output_;

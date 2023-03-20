@@ -13,6 +13,7 @@ add_executable(cpp
 			   "pp_config.h"
                "preprocessor.cpp" "preprocessor.h"
                "scanner.cpp" "scanner.h"
+			   "sourcefilestack.cpp" "sourcefilestack.h"
                "token.cpp" "token.h")
 
 target_include_directories(cpp PRIVATE "../../src")

@@ -9,6 +9,8 @@
 #include <vector>
 
 #include "preprocessor/pp_config.h"
+#include "preprocessor/diagnostics.h"
+#include "preprocessor/sourcefilestack.h"
 #include "preprocessor/token.h"
 
 namespace pp {
@@ -163,7 +165,7 @@ public:
     //using Char32 = char32_t;
     using Char32String = std::basic_string<Char32>;
 
-    explicit Scanner(std::istream& input, bool trigraph);
+    explicit Scanner(std::istream& input, bool trigraph, Diagnostics& diag, SourceFileStack& sources);
     Scanner(const Scanner&) = delete;
     ~Scanner();
 
@@ -197,6 +199,8 @@ private:
     void clear_mark();
 
     std::istream& input_;
+    Diagnostics& diag_;
+    SourceFileStack& sources_;
     std::string buf_;
     std::uint32_t buf_i_;
     std::uint32_t line_number_;

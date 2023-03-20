@@ -476,7 +476,6 @@ Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag)
     , macros_()
     , predef_macro_names_()
     , used_macro_names_()
-    , error_location_()
     , included_files_()
     , rescan_count_()
 {
@@ -735,7 +734,7 @@ void Preprocessor::prepare_predefined_macro() {
             }
 
             //  トークンのマッチングの都合上、改行を加えてから定義を実行している。
-            SourceString source(source_string(def), opts_);
+            SourceString source(source_string(def), opts_, diag_, sources_);
             TokenStream stream(source);
             push_stream(stream);
             execute_define();
@@ -744,7 +743,7 @@ void Preprocessor::prepare_predefined_macro() {
         }
         case MacroDefinitionOperationType::kUndefine: {
             const auto& name = op.operand();
-            SourceString source(source_string(name), opts_);
+            SourceString source(source_string(name), opts_, diag_, sources_);
             TokenStream stream(source);
             push_stream(stream);
             execute_undef();
@@ -756,19 +755,17 @@ void Preprocessor::prepare_predefined_macro() {
 }
 
 void Preprocessor::preprocessing_file(std::istream* input, const String& path) {
-    SourceFile source(*input, path, opts_);
+    SourceFile source(*input, path, opts_, diag_, sources_);
     TokenStream stream(source);
     push_stream(stream);
 
     Group root(true, TokenType::kNull);
-    sources_.push(&source);
 
     //group()?;
     while (peek(1).type() != TokenType::kEndOfFile) {
         group(current_source(), root);
     }
 
-    sources_.pop();
     pop_stream();
 }
 
@@ -2072,7 +2069,7 @@ bool Preprocessor::expand_normal(const Macro& macro, const Macro::ArgList& macro
 
             //
             istringstream in(l.string() + r.string(), ios_base::binary);
-            Scanner scanner(in, opts_.support_trigraphs());
+            Scanner scanner(in, opts_.support_trigraphs(), diag_, sources_);
             Token t = scanner.next_token();
             int count = 0;
             while (!t.is_eol()) {
@@ -2151,7 +2148,7 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
     auto pragma = destringize(pragma_text.string());
 
     istringstream in(pragma, ios_base::binary);
-    Scanner scanner(in, opts_.support_trigraphs());
+    Scanner scanner(in, opts_.support_trigraphs(), diag_, sources_);
     TokenList pragma_tokens;
     Token t = scanner.next_token();
     while (!t.is_eol()) {
@@ -3425,32 +3422,23 @@ void Preprocessor::output_text(const char* text) {
 }
 
 SourceFile& Preprocessor::current_source() {
-    assert(!sources_.empty());
-    return *sources_.top();
+    return sources_.current_source();
 }
 
 SourceFile* Preprocessor::current_source_pointer() {
-    return sources_.empty() ? nullptr : sources_.top();
+    return sources_.current_source_pointer();
 }
 
 String Preprocessor::current_source_path() {
-    if (sources_.empty()) {
-        return T_("<init>");
-    } else {
-        return current_source().source_path();
-    }
+    return sources_.current_source_path();
 }
 
 void Preprocessor::current_source_path(const String& value) {
-    current_source().source_path(value);
+    sources_.current_source_path(value);
 }
 
 std::uint32_t Preprocessor::current_source_line_number() {
-    if (sources_.empty()) {
-        return 0;
-    } else {
-        return current_source().line();
-    }
+    return sources_.current_source_line_number();
 }
 
 void Preprocessor::current_source_line_number(std::uint32_t value) {

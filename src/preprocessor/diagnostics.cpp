@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "util/utility.h"
+#include "preprocessor/input.h"
 
 using namespace lib::util;
 using namespace std;
@@ -96,7 +97,33 @@ const StringView kLineNeedsDecimalConstantError = T_("#lineには 10進整数（
 const StringView kLineOutOfRangeError = T_("#lineに指定する行数は [{}, {}]の範囲でなければならない。");
 
 const StringView kUnknownEscapeSequenceWarning = T_("エスケープシーケンスとして認識されない。");
-const StringView kInvalidUniversalCharacterNameError = T_("ユニバーサル文字名で指定できないコードポイントである。");
+const StringView kInvalidHexadecimalEscapeSequenceFormatError = T_("16進数エスケープシーケンスは少なくとも 1桁必要である。");
+const StringView kInvalidUniversalCharacterNameCodePointError = T_("ユニバーサル文字名では指定できないコードポイントである。");
+const StringView kInvalidUniversalCharacterNameFormatError = T_("ユニバーサル文字名の桁が足りない。");
+const StringView kInvalidIdentifierStartError = T_("この文字は識別子の開始文字としては使えない。");
+const StringView kInvalidIdentifierContinueError = T_("この文字は識別子には使えない。");
+const StringView kUnclosedHeaderNameError = T_("ヘッダー名が閉じていない。");
+
+
+Location Location::from_source(SourceFile* source, const Token& token) {
+    uint32_t l;
+    uint32_t c;
+
+    if (token.type() != TokenType::kNull) {
+        l = token.line();
+        c = token.column();
+    } else {
+        if (source) {
+            l = source->line();
+            c = source->column();
+        } else {
+            l = 0;
+            c = 0;
+        }
+    }
+
+    return { l, c };
+}
 
 
 Diagnostics::Diagnostics()
@@ -122,7 +149,7 @@ int Diagnostics::error_count() const {
 
 void Diagnostics::output_diagnostic(
         DiagLevel level,
-        SourceFile* source, const Token& token,
+        SourceFile* source, const Location& location,
         StringView format, const std::format_args& args) {
     if (!output_) {
         throw runtime_error(__func__);
@@ -130,21 +157,6 @@ void Diagnostics::output_diagnostic(
 
     if (level < kMinDiagLevel || level > kMaxDiagLevel) {
         throw invalid_argument("level");
-    }
-
-    uint32_t l;
-    size_t c;
-    if (token.type() != TokenType::kNull) {
-        l = token.line();
-        c = token.column();
-    } else {
-        if (source) {
-            l = source->line();
-            c = source->column();
-        } else {
-            l = 0;
-            c = 0;
-        }
     }
 
     string s;
@@ -160,7 +172,8 @@ void Diagnostics::output_diagnostic(
     //format_to(it, "{}:{}:{}: {}: ", s, l, c, kLevelTag[i]);
     //vformat_to(it, format, args);
     //format_to(it, "\n");
-    auto log = std::format("{}:{}:{}: {}: {}\n", s, l, c, kLevelTag[i], vformat(format, args));
+    auto log = std::format("{}:{}:{}: {}: {}\n",
+            s, location.line(), location.column(), kLevelTag[i], vformat(format, args));
     output_->write(log.data(), log.size());
     output_->flush();
 }

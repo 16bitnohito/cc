@@ -24,6 +24,7 @@
 #include "preprocessor/input.h"
 #include "preprocessor/options.h"
 #include "preprocessor/scanner.h"
+#include "preprocessor/sourcefilestack.h"
 #include "util/utility.h"
 
 #if defined(NDEBUG)
@@ -434,31 +435,36 @@ private:
     template <class... Ts>
     void debug(const Token& token, const StringView& format, const Ts&... args) {
         if (diag_level_ <= DiagLevel::kDebug) {
-            diag_.debug(current_source_pointer(), token, format, args...);
+            auto src = current_source_pointer();
+            diag_.debug(src, Location::from_source(src, token), format, args...);
         }
     }
 
     template <class... Ts>
     void info(const Token& token, const StringView& format, const Ts&... args) {
         if (diag_level_ <= DiagLevel::kInfo) {
-            diag_.info(current_source_pointer(), token, format, args...);
+            auto src = current_source_pointer();
+            diag_.info(src, Location::from_source(src, token), format, args...);
         }
     }
 
     template <class... Ts>
     void warning(const Token& token, const StringView& format, const Ts&... args) {
-        diag_.warning(current_source_pointer(), token, format, args...);
+        auto src = current_source_pointer();
+        diag_.warning(src, Location::from_source(src, token), format, args...);
     }
 
     template <class... Ts>
     void error(const Token& token, const StringView& format, const Ts&... args) {
-        diag_.error(current_source_pointer(), token, format, args...);
+        auto src = current_source_pointer();
+        diag_.error(src, Location::from_source(src, token), format, args...);
     }
 
     template <class... Ts>
     [[noreturn]]
     void fatal_error(const Token& token, const StringView& format, const Ts&... args) {
-        diag_.fatal_error(current_source_pointer(), token, format, args...);
+        auto src = current_source_pointer();
+        diag_.fatal_error(src, Location::from_source(src, token), format, args...);
     }
 
     SourceFile& current_source();
@@ -496,11 +502,10 @@ private:
     std::ostream* error_output_;
     std::vector<char> error_output_buffer_;
     std::shared_ptr<std::ofstream> error_file_;
-    std::stack<SourceFile*> sources_;
+    SourceFileStack sources_;
     MacroSet macros_;
     std::vector<std::string> predef_macro_names_;
     std::unordered_set<std::string> used_macro_names_;
-    Token error_location_;
 
     int included_files_;
     int rescan_count_;

@@ -347,6 +347,7 @@ constexpr char kIdentHasCAttribute[] = "__has_c_attribute";
 constexpr char kIdentHasInclude[] = "__has_include";
 constexpr char kIdentHasEmbed[] = "__has_embed";
 constexpr char kPunctEllipsis[] = "...";
+constexpr char kKeywordTrue[] = "true";
 
 // static
 MacroPtr Macro::create_macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token) {
@@ -992,7 +993,15 @@ TokenList Preprocessor::make_constant_expression() {
         } else {
             MacroPtr m = find_macro(t.string());
             if (m == nullptr) {
-                expr.push_back(kTokenPpNumberZero);
+                // true、falseがマクロとして定義されているバージョンであれば find_macroで見つかるはず。
+                // キーワードとして定義されているバージョンであればここで処理する。
+                // マクロ定義が存在しない識別子は "0"になり、"false"はいずれにしても "0"なので、ここでは
+                // "true"とだけ比較している。
+                if (t.string() == kKeywordTrue) {
+                    expr.push_back(kTokenPpNumberOne);
+                } else {
+                    expr.push_back(kTokenPpNumberZero);
+                }
             } else {
                 TokenList replaced;
                 if (!m->is_function()) {

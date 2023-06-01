@@ -35,7 +35,8 @@ int main(int argc, char* argv[]) {
         }
 
         Diagnostics diag;
-        Preprocessor pp(opts, diag);
+        SourceFileStack sources;
+        Preprocessor pp(opts, diag, sources);
         return pp.run();
     } catch (const system_error& e) {
         auto& ec = e.code();

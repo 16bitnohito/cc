@@ -459,9 +459,10 @@ bool IncludeSpec::is_includes_source_dir() const {
 }
 
 
-Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag)
+Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag, SourceFileStack& sources)
     : opts_(opts)
     , diag_(diag)
+    , sources_(sources)
     , include_dirs_()
     , diag_level_(DiagLevel::kWarning)
     , clock_start_()
@@ -473,7 +474,6 @@ Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag)
     , error_output_(&cerr)
     , error_output_buffer_()
     , error_file_()
-    , sources_()
     , macros_()
     , predef_macro_names_()
     , used_macro_names_()

@@ -281,7 +281,7 @@ enum class EmbedResult {
  */
 class Preprocessor {
 public:
-    explicit Preprocessor(const Options& opts, Diagnostics& diag);
+    explicit Preprocessor(const Options& opts, Diagnostics& diag, SourceFileStack& sources);
     ~Preprocessor();
 
     bool has_error();
@@ -489,6 +489,7 @@ private:
 
     const Options& opts_;
     Diagnostics& diag_;
+    SourceFileStack& sources_;
 
     std::vector<String> include_dirs_;
     DiagLevel diag_level_;
@@ -502,7 +503,6 @@ private:
     std::ostream* error_output_;
     std::vector<char> error_output_buffer_;
     std::shared_ptr<std::ofstream> error_file_;
-    SourceFileStack sources_;
     MacroSet macros_;
     std::vector<std::string> predef_macro_names_;
     std::unordered_set<std::string> used_macro_names_;

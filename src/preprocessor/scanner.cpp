@@ -38,12 +38,12 @@ constexpr int kInitial[256] = {
 };
 
 constexpr inline
-pp::Scanner::Char32 to_c32(std::uint32_t c) {
+pp::Scanner::Char32 to_c32(std::underlying_type_t<pp::Scanner::Char32> c) {
     return static_cast<pp::Scanner::Char32>(c);
 }
 
 constexpr inline
-char32_t to_int(pp::Scanner::Char32 c) {
+std::underlying_type_t<pp::Scanner::Char32> to_int(pp::Scanner::Char32 c) {
     return static_cast<std::underlying_type_t<pp::Scanner::Char32>>(c);
 }
 
@@ -96,7 +96,7 @@ int c8_to_c32(const char* c8, size_t c8_bytes, pp::Scanner::Char32& c32) {
 }
 
 constexpr
-int c32_to_c8(pp::Scanner::Char32 c32, char(&c8)[4]) {
+int c32_to_c8(pp::Scanner::Char32 c32, char (&c8)[4]) {
     auto c = to_int(c32);
     if (c <= 0x7F) {
         c8[0] = static_cast<char>(c);
@@ -2461,20 +2461,20 @@ Token Scanner::next_token() {
                 break;
 
             default:
-                switch (c_) {
-                case to_c32('_'):
+                switch (to_int(c_)) {
+                case '_':
                     transit(ScannerState::kState232_234_227, c_);
                     break;
 
-                case to_c32('\\'):
+                case  '\\':
                     transit(ScannerState::kStateUniversalCharacterNameInitial, c_, ScannerState::kState232_234_227);
                     break;
 
-                case to_c32('!'):
+                case '!':
                     transit(ScannerState::kState68_69_38, c_);
                     break;
 
-                case to_c32('"'):
+                case '"':
                     if (hint_ == ScannerHint::kHeaderName) {
                         transit(ScannerState::kStateHeaderNameInitial, c_);
                     } else {
@@ -2482,63 +2482,63 @@ Token Scanner::next_token() {
                     }
                     break;
 
-                case to_c32('#'):
+                case '#':
                     transit(ScannerState::kState148_150_151, c_);
                     break;
 
-                case to_c32('%'):
+                case '%':
                     transit(ScannerState::kState166_167_170_42_171_174_110_175_111, c_);
                     break;
 
-                case to_c32('&'):
+                case '&':
                     transit(ScannerState::kState28_134_135_76_77, c_);
                     break;
 
-                case to_c32('\''):
+                case '\'':
                     transit(ScannerState::kState250_251, c_);
                     break;
 
-                case to_c32('('):
+                case '(':
                     transit(ScannerState::kState6, c_);
                     break;
 
-                case to_c32(')'):
+                case ')':
                     transit(ScannerState::kState8, c_);
                     break;
 
-                case to_c32('*'):
+                case '*':
                     transit(ScannerState::kState103_102_30, c_);
                     break;
 
-                case to_c32('+'):
+                case '+':
                     transit(ScannerState::kState32_114_115_20_21, c_);
                     break;
 
-                case to_c32(','):
+                case ',':
                     transit(ScannerState::kState146, c_);
                     break;
 
-                case to_c32('-'):
+                case '-':
                     transit(ScannerState::kState16_17_34_118_119_24_25, c_);
                     break;
 
-                case to_c32('.'):
+                case '.':
                     transit(ScannerState::kState182_184_94_14_95, c_);
                     break;
 
-                case to_c32('/'):
+                case '/':
                     transit(ScannerState::kState40_106_107, c_);
                     break;
 
-                case to_c32(':'):
+                case ':':
                     transit(ScannerState::kState86_88_89_158_159, c_);
                     break;
 
-                case to_c32(';'):
+                case ';':
                     transit(ScannerState::kState92, c_);
                     break;
 
-                case to_c32('<'):
+                case '<':
                     if (hint_ == ScannerHint::kHeaderName) {
                         transit(ScannerState::kStateHeaderNameInitial, c_);
                     } else {
@@ -2546,63 +2546,63 @@ Token Scanner::next_token() {
                     }
                     break;
 
-                case to_c32('='):
+                case '=':
                     transit(ScannerState::kState64_65_100, c_);
                     break;
 
-                case to_c32('>'):
+                case '>':
                     transit(ScannerState::kState128_129_48_49_54_60_61, c_);
                     break;
 
-                case to_c32('?'):
+                case '?':
                     transit(ScannerState::kState84, c_);
                     break;
 
-                //case to_c32('D'):
+                //case 'D':
                 //    transit(ScannerState::kState192_196_198_200_202_204_205_206_209_211_212_213_214_215_185_186_188, c_);
                 //    break;
 
-                //case to_c32('L'):
+                //case 'L':
                 //    transit(ScannerState::kState232_225_244_264_249_234_269, c_);
                 //    break;
 
-                //case to_c32('S'):
+                //case 'S':
                 //    transit(ScannerState::kState232_234_227, c_);
                 //    break;
 
-                //case to_c32('U'):
+                //case 'U':
                 //    transit(ScannerState::kState242_262_232_249_234_269_223, c_);
                 //    break;
 
-                case to_c32('['):
+                case '[':
                     transit(ScannerState::kState2, c_);
                     break;
 
-                case to_c32(']'):
+                case ']':
                     transit(ScannerState::kState4, c_);
                     break;
 
-                case to_c32('^'):
+                case '^':
                     transit(ScannerState::kState72_138_139, c_);
                     break;
 
-                //case to_c32('u'):
+                //case 'u':
                 //    transit(ScannerState::kState256_257_260_249_232_234_236_269_237_240_217_218_221, c_);
                 //    break;
 
-                case to_c32('{'):
+                case '{':
                     transit(ScannerState::kState10, c_);
                     break;
 
-                case to_c32('|'):
+                case '|':
                     transit(ScannerState::kState80_81_74_142_143, c_);
                     break;
 
-                case to_c32('}'):
+                case '}':
                     transit(ScannerState::kState12, c_);
                     break;
 
-                case to_c32('~'):
+                case '~':
                     transit(ScannerState::kState36, c_);
                     break;
 
@@ -3571,22 +3571,22 @@ Token Scanner::next_token() {
             break;
         }
         case ScannerState::kStateEscapeSequenceInitial: {
-            switch (c_) {
-            case to_c32('"'):   // 6
-            case to_c32('\''):  // 4
-            case to_c32('?'):   // 8
-            case to_c32('\\'):  // 10
-            case to_c32('a'):   // 12
-            case to_c32('b'):   // 14
-            case to_c32('f'):   // 16
-            case to_c32('n'):   // 18
-            case to_c32('r'):   // 20
-            case to_c32('t'):   // 22
-            case to_c32('v'):   // 24
+            switch (to_int(c_)) {
+            case '"':   // 6
+            case '\'':  // 4
+            case '?':   // 8
+            case '\\':  // 10
+            case 'a':   // 12
+            case 'b':   // 14
+            case 'f':   // 16
+            case 'n':   // 18
+            case 'r':   // 20
+            case 't':   // 22
+            case 'v':   // 24
                 finish(c_);
                 break;
 
-            case to_c32('u'):
+            case 'u':
                 if (cseq_.length() >= numeric_limits<decltype(ucn_digit_start_)>::max() - 1) {
                     throw runtime_error(__func__);
                 }
@@ -3594,7 +3594,7 @@ Token Scanner::next_token() {
                 transit(ScannerState::kStateEscapeSequence42_43, c_);
                 break;
 
-            case to_c32('U'):
+            case 'U':
                 if (cseq_.length() >= numeric_limits<decltype(ucn_digit_start_)>::max() - 1) {
                     throw runtime_error(__func__);
                 }
@@ -3602,7 +3602,7 @@ Token Scanner::next_token() {
                 transit(ScannerState::kStateEscapeSequence52_53, c_);
                 break;
 
-            case to_c32('x'):
+            case 'x':
                 transit(ScannerState::kStateEscapeSequence38_39, c_);
                 break;
 

@@ -161,8 +161,7 @@ enum class ScannerState {
  */
 class Scanner {
 public:
-    enum class Char32 : char32_t;
-    //using Char32 = char32_t;
+    enum class Char32 : char32_t {};
     using Char32String = std::basic_string<Char32>;
 
     explicit Scanner(std::istream& input, bool trigraph, Diagnostics& diag, SourceFileStack& sources);

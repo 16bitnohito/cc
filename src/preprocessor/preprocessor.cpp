@@ -349,6 +349,10 @@ constexpr char kIdentHasEmbed[] = "__has_embed";
 constexpr char kPunctEllipsis[] = "...";
 constexpr char kKeywordTrue[] = "true";
 
+constexpr char kIdentStdcEmbedNotFound[] = "__STDC_EMBED_NOT_FOUND__";
+constexpr char kIdentStdcEmbedFound[] = "__STDC_EMBED_FOUND__";
+constexpr char kIdentStdcEmbedEmpty[] = "__STDC_EMBED_EMPTY__";
+
 // static
 MacroPtr Macro::create_macro(const std::string& name, const TokenList& replist, const std::string& source, const Token& name_token) {
     return make_shared<CreateHelper<Macro>>(name, replist, source, name_token);
@@ -642,6 +646,10 @@ void Preprocessor::prepare_predefined_macro() {
     add_predefined_macro("__STDC_NO_COMPLEX__", "1", TokenType::kPpNumber);
     add_predefined_macro("__STDC_NO_THREADS__", "1", TokenType::kPpNumber);
     add_predefined_macro("__STDC_NO_VLA__",     "1", TokenType::kPpNumber);
+
+    add_predefined_macro(kIdentStdcEmbedNotFound, "0", TokenType::kPpNumber);
+    add_predefined_macro(kIdentStdcEmbedFound,    "1", TokenType::kPpNumber);
+    add_predefined_macro(kIdentStdcEmbedEmpty,    "2", TokenType::kPpNumber);
 
     //  マクロではないが、マクロ定義の対象にならない？ようなのでここで追加する。
     predef_macro_names_.push_back(kIdentDefined);
@@ -2291,8 +2299,7 @@ bool Preprocessor::expand_op_has_embed(const Macro& /*macro*/, const Macro::ArgL
     Macro::ArgList expanded_args(macro_args.size());
 
     if (macro_args.size() != 1 || macro_args[0].empty()) {
-        result_expanded.push_back(kTokenPpNumberZero);
-        fatal_error(kTokenNull, kOpHasIncludeParameterTypeMismatchError);
+        error(kTokenNull, kOpHasEmbedParameterTypeMismatchError);
         return true;
     }
 
@@ -2341,26 +2348,32 @@ bool Preprocessor::expand_op_has_embed(const Macro& /*macro*/, const Macro::ArgL
             skip_directive_line();
         }
 
-        if (!succeeded) {
-            result_expanded.push_back(kTokenPpNumberZero);
-        } else {
+        const char* result_ident = nullptr;
+        if (succeeded) {
             auto result = execute_embed(spec, true);
             switch (result) {
             case EmbedResult::kErrorOrUnsupportedParameter:
-                result_expanded.push_back(kTokenPpNumberZero);
+                result_ident = kIdentStdcEmbedNotFound;
                 break;
 
             case EmbedResult::kComplete:
-                result_expanded.push_back(kTokenPpNumberOne);
+                result_ident = kIdentStdcEmbedFound;
                 break;
 
             case EmbedResult::kResourceIsEmpty:
-                result_expanded.push_back(kTokenPpNumberTwo);
+                result_ident = kIdentStdcEmbedEmpty;
+                break;
+
+            default:
+                fatal_error(kTokenNull, __func__);
                 break;
             }
         }
+        if (result_ident) {
+            result_expanded.push_back({ result_ident, TokenType::kIdentifier });
+        }
     } else {
-        result_expanded.push_back(kTokenPpNumberZero);
+        error(kTokenNull, kNoEmbedResourceIdentifierError);
         skip_directive_line();
     }
 

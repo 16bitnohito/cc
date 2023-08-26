@@ -37,6 +37,7 @@ const StringView kOpHasCAttributeIdentifierUsageError = T_("__has_c_attributeは
 const StringView kOpHasCAttributeNeedsAnAttribute = T_("__has_c_attributeには属性を 1つ指定しなければならない。");
 const StringView kOpHasIncludeIdentifierUsageError = T_("__has_includeはここでは使えない。");
 const StringView kOpHasIncludeParameterTypeMismatchError = T_("__has_includeの引数はヘッダー名として解釈できなければならない。");
+const StringView kOpHasEmbedParameterTypeMismatchError = T_("__has_embedの引数はヘッダー名として解釈できなければならない。");
 const StringView kStdcReservedMacroName = T_("__STDC_で始まるマクロ名は将来のために予約されている。");
 const StringView kStdcReservedIdentifierDoubleUnderscore = T_("2つのアンダースコアで始まる識別子は予約されている。");
 const StringView kStdcReservedIdentifierUnderscoreAndUppercase = T_("アンダースコアに続いて 1つの大文字で始まる識別子は予約されている。");

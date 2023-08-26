@@ -271,9 +271,9 @@ private:
 /**
  */
 enum class EmbedResult {
-    kErrorOrUnsupportedParameter = 0,
-    kComplete = 1,
-    kResourceIsEmpty = 2,   // limit(0)も含む。
+    kErrorOrUnsupportedParameter = 0,   // __STDC_EMBED_NOT_FOUND__
+    kComplete = 1,                      // __STDC_EMBED_FOUND__
+    kResourceIsEmpty = 2,               // __STDC_EMBED_EMPTY__, limit(0)も含む。
 };
 
 

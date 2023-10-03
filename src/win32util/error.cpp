@@ -21,7 +21,8 @@ const char* Win32ErrorCategory::name() const noexcept {
 
 std::string Win32ErrorCategory::message(int code) const {
     auto s = lib::win32util::last_error_string(code);
-    return lib::win32util::win32s_to_mbs({s.c_str(), s.length()});
+    string result;
+    return lib::win32util::win32s_to_mbs({ s.c_str(), s.length() }, result);
 }
 
 }   // anonymous namespace

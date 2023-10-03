@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
                     __func__, lib::win32util::as_native(message.c_str()),
                     ec.category().name(), ec.value());
         } else {
-            log_error("{}: {}({}:{})", __func__, e.what(), ec.category().name(), ec.value());
+            log_error(T_("{}: {}({}:{})"), __func__, e.what(), ec.category().name(), ec.value());
         }
 #else
         log_error("{}: {}({}{:x})", __func__, e.what(), ec.category().name(), ec.value());

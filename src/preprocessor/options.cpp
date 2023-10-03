@@ -71,13 +71,13 @@ bool Options::parse_options(const std::vector<String>& args) {
         const String& arg = args[i];
 
         if (arg[0] == T_('-')) {
-            switch (arg[1]) {
-            case T_('\0'):
+            switch (to_int(arg[1])) {
+            case '\0':
                 if (input_filepath_.empty()) {
                     input_filepath_ = arg;
                 }
                 break;
-            case T_('I'): {
+            case 'I': {
                 String path;
                 if (arg[2] != T_('\0')) {
                     path = &arg[2];
@@ -93,7 +93,7 @@ bool Options::parse_options(const std::vector<String>& args) {
                 additional_include_dirs_.push_back(path);
                 break;
             }
-            case T_('D'): {
+            case 'D': {
                 String macro;
                 if (arg[2] != T_('\0')) {
                     macro = &arg[2];
@@ -109,7 +109,7 @@ bool Options::parse_options(const std::vector<String>& args) {
                 macro_operations_.push_back({MacroDefinitionOperationType::kDefine, macro});
                 break;
             }
-            case T_('U'): {
+            case 'U': {
                 String name;
                 if (arg[2] != T_('\0')) {
                     name = &arg[2];
@@ -134,7 +134,7 @@ bool Options::parse_options(const std::vector<String>& args) {
             //    output_comment_ = true;
             //    break;
             //}
-            case T_('o'): {
+            case 'o': {
                 String path;
                 if (arg[2] != T_('\0')) {
                     path = &arg[2];
@@ -152,7 +152,7 @@ bool Options::parse_options(const std::vector<String>& args) {
                 }
                 break;
             }
-            case T_('e'): {
+            case 'e': {
                 String path;
                 if (arg[2] != T_('\0')) {
                     path = &arg[2];
@@ -168,12 +168,12 @@ bool Options::parse_options(const std::vector<String>& args) {
                 error_log_filepath_ = path;
                 break;
             }
-            case T_('t'):
+            case 't':
                 if (arg == T_("-trigraphs")) {
                     support_trigraphs_ = true;
                 }
                 break;
-            case T_('h'):
+            case 'h':
                 return false;
 
             default:

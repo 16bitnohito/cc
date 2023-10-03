@@ -64,26 +64,14 @@ endif ()
 
 # ターゲット
 if (WIN32)
-    # add_compile_definitions(WIN32UTIL_STRICT_CHAR_TYPE)
-
-    # Unicode版、内部文字列は WCHAR
+    # Unicode版
     add_compile_definitions (_UNICODE UNICODE)
-    # Unicode版、内部文字列の UTF-8 (charで扱う)に変換する。
-    ## add_compile_definitions (UNICODE _UNICODE CONSOLEIO_PLATFORM_STRING_TO_UTF8)
-    # Unicode版、内部文字列の UTF-8 (char8_tで扱う)に変換する。
-    ## add_compile_definitions (UNICODE _UNICODE CONSOLEIO_PLATFORM_STRING_TO_UTF8 CONSOLEIO_USE_CHAR8_T_FOR_UTF8)
-
-    # ANSI版、内部文字列は ANSI、何も定義しない。UNICODEか _UNICODEが無ければ /D _MBCSが自動で付くようだ。
-    ## add_compile_definitions ()
-    # ANSI版、内部文字列の UTF-8 (charで扱う)に変換する。
-    ## add_compile_definitions (CONSOLEIO_PLATFORM_STRING_TO_UTF8)
-    # ANSI版、内部文字列の UTF-8 (char8_tで扱う)に変換する。
-    ## add_compile_definitions (CONSOLEIO_PLATFORM_STRING_TO_UTF8 CONSOLEIO_USE_CHAR8_T_FOR_UTF8)
-
     # ANSI(UTF-8)版、内部文字列は ANSI(UTF-8) (charで扱う)
     ## add_compile_definitions (WIN32UTIL_UTF8_CODE_PAGE)
     # ANSI(UTF-8)版、内部文字列は ANSI(UTF-8) (char8_tで扱う)
-    ## add_compile_definitions (WIN32UTIL_UTF8_CODE_PAGE WIN32UTIL_USE_CHAR8_T_FOR_UTF8_CODE_PAGE CONSOLEIO_USE_CHAR8_T_FOR_UTF8)
+    ## add_compile_definitions (WIN32UTIL_UTF8_CODE_PAGE WIN32UTIL_USE_CHAR8_T_FOR_UTF8_CODE_PAGE)
+
+	#add_compile_definitions(CC_STRINGS_STRICT_CHAR_TYPE)
 
     add_compile_definitions(_CONSOLE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>

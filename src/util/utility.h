@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "config.h"
+#include "strings/strings.h"
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 #include "win32util/win32util.h"
 #endif
@@ -16,34 +17,35 @@
 namespace lib::util {
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
-using Char = lib::win32util::Utf8Char;
+using Char = lib::strings::Utf8Char;
 using PlatformChar = lib::win32util::Win32Char;
 using PathChar = std::filesystem::path::value_type;
-
-#if defined(WIN32UTIL_STRICT_CHAR_TYPE)
-#define T__(l)  as_internal(l)
-#else
-//#define T__(l)  L ## l
-#define T__(l)  l
-//#define T__(l)  u8 ## l
-#endif
 #else
 using Char = char;
 using PlatformChar = char;
 using PathChar = char;
-
-#define T__(l)  l
 #endif
 
-#define T_(l)   T__(l)
-
-using String = std::basic_string<Char>;
-using StringView = std::basic_string_view<Char>;
-using PlatformString = std::basic_string<PlatformChar>;
-using PlatformStringView = std::basic_string_view<PlatformChar>;
+using String = std::basic_string<lib::strings::Utf8Char>;
+using StringView = std::basic_string_view<lib::strings::Utf8Char>;
+using PlatformString =  lib::win32util::Win32String;
+using PlatformStringView = lib::win32util::Win32StringView;
 using Path = std::filesystem::path;
 //using Path = std::basic_string<PathChar>;
 
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+#define T__(l)  lib::util::as_internal(l)
+#else
+#define T__(l)  u8 ## l
+//#define T__(l)  l
+//#define T__(l)  L ## l
+#endif
+#else   // HOST_PLATFORM != PLATFORM_WINDOWS
+#define T__(l)  l
+#endif  // HOST_PLATFORM == PLATFORM_WINDOWS
+
+#define T_(l)   T__(l)
 
 /**
  */
@@ -55,8 +57,16 @@ Char as_internal(char c) noexcept {
 /**
  */
 [[nodiscard]] inline
-const Char* as_internal(const char* c) noexcept {
-    return reinterpret_cast<const Char*>(c);
+const Char* as_internal(const char* s) noexcept {
+    return reinterpret_cast<const Char*>(s);
+}
+
+/**
+ */
+template<std::size_t N>
+[[nodiscard]] inline
+const Char(& as_internal(const char(& a)[N]) noexcept)[N] {
+    return reinterpret_cast<const Char(&)[N]>(a);
 }
 
 /**
@@ -66,6 +76,12 @@ const char* as_narrow(const Char* c) noexcept {
     return reinterpret_cast<const char*>(c);
 }
 
+/**
+ */
+[[nodiscard]] inline
+const std::string_view as_narrow(StringView sv) noexcept {
+    return { as_narrow(sv.data()), sv.size() };
+}
 
 #if HOST_PLATFORM == PLATFORM_WINDOWS
 [[nodiscard]] inline
@@ -216,6 +232,19 @@ Iter binary_find(Iter first, Iter last, const T& x, Pred pred = Pred()) {
 constexpr
 auto enum_ordinal(auto value) {
     return static_cast<std::underlying_type_t<decltype(value)>>(value);
+}
+
+template<std::integral I>
+constexpr
+I to_int(I v) {
+    return v;
+}
+
+template<class E>
+requires(std::is_enum_v<E>)
+constexpr
+auto to_int(E v) {
+    return enum_ordinal(v);
 }
 
 /**

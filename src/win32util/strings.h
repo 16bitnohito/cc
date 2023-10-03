@@ -7,6 +7,7 @@
 #include <variant>
 #include <Windows.h>
 
+#include "strings/strings.h"
 #include "win32util/error.h"
 #include "win32util/heap.h"
 
@@ -30,31 +31,20 @@ namespace lib::win32util {
 #   endif
 #endif
 
-#if defined(WIN32UTIL_STRICT_CHAR_TYPE)
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+#if defined(WIN32UTIL_USE_CHAR8_T_FOR_UTF8_CODE_PAGE)
+enum class MultiByteChar : char8_t {};
+#else
 enum class MultiByteChar : char {};
-enum class Utf8Char : char8_t {};
+#endif
 #else
-#if defined(WIN32UTIL_CHAR____CHAR____FOR_UTF8_CODE_PAGE)
-using MultiByteChar = char;
-using Utf8Char = char;
-#elif defined(WIN32UTIL_CHAR____CHAR8_T_FOR_UTF8_CODE_PAGE)
-using MultiByteChar = char;
-using Utf8Char = char8_t;
-#elif defined(WIN32UTIL_CHAR8_T_CHAR____FOR_UTF8_CODE_PAGE)
+#if defined(WIN32UTIL_USE_CHAR8_T_FOR_UTF8_CODE_PAGE)
 #if !defined(WIN32UTIL_UTF8_CODE_PAGE)
 #error ANSI(UTF-8) Required
 #endif
 using MultiByteChar = char8_t;
-using Utf8Char = char;
-#elif defined(WIN32UTIL_CHAR8_T_CHAR8_T_FOR_UTF8_CODE_PAGE)
-#if !defined(WIN32UTIL_UTF8_CODE_PAGE)
-#error ANSI(UTF-8) Required
-#endif
-using MultiByteChar = char8_t;
-using Utf8Char = char8_t;
 #else
 using MultiByteChar = char;
-using Utf8Char = char;
 #endif
 #endif
 
@@ -65,9 +55,6 @@ using WideChar = wchar_t;
 using MultiByteString = std::basic_string<MultiByteChar>;
 using MultiByteStringView = std::basic_string_view<MultiByteChar>;
 
-using Utf8String = std::basic_string<Utf8Char>;
-using Utf8StringView = std::basic_string_view<Utf8Char>;
-
 using WideString = std::basic_string<WideChar>;
 using WideStringView = std::basic_string_view<WideChar>;
 
@@ -76,11 +63,7 @@ using WideStringView = std::basic_string_view<WideChar>;
 #ifdef UNICODE
 using Win32Char = WideChar;
 #else   // !UNICODE
-#if defined(WIN32UTIL_UTF8_CODE_PAGE) && defined(WIN32UTIL_USE_CHAR8_T_FOR_UTF8_CODE_PAGE)
-using Win32Char = Utf8Char;
-#else
 using Win32Char = MultiByteChar;
-#endif
 #endif  // UNICODE
 
 using Win32String = std::basic_string<Win32Char>;
@@ -129,7 +112,36 @@ struct Win32StringTraits<wchar_t> {
     }
 };
 
-#if defined(WIN32UTIL_STRICT_CHAR_TYPE)
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+template <>
+struct Win32StringTraits<char> {
+    using CharType = char;
+
+    static constexpr char* as_native(CharType* p) noexcept {
+        return p;
+    }
+
+    static constexpr const char* as_native(const CharType* p) noexcept {
+        return p;
+    }
+
+    static constexpr CharType* as_win32(char* p) noexcept {
+        return p;
+    }
+
+    static constexpr const CharType* as_win32(const char* p) noexcept {
+        return p;
+    }
+
+    static lib::strings::Utf8Char* as_u8(CharType* p) noexcept {
+        return reinterpret_cast<lib::strings::Utf8Char*>(p);
+    }
+
+    static const lib::strings::Utf8Char* as_u8(const CharType* p) noexcept {
+        return reinterpret_cast<const lib::strings::Utf8Char*>(p);
+    }
+};
+
 template <>
 struct Win32StringTraits<MultiByteChar> {
     using CharType = MultiByteChar;
@@ -150,18 +162,18 @@ struct Win32StringTraits<MultiByteChar> {
         return reinterpret_cast<const CharType*>(p);
     }
 
-    static Utf8Char* as_u8(CharType* p) noexcept {
-        return reinterpret_cast<Utf8Char*>(p);
+    static lib::strings::Utf8Char* as_u8(CharType* p) noexcept {
+        return reinterpret_cast<lib::strings::Utf8Char*>(p);
     }
 
-    static const Utf8Char* as_u8(const CharType* p) noexcept {
-        return reinterpret_cast<const Utf8Char*>(p);
+    static const lib::strings::Utf8Char* as_u8(const CharType* p) noexcept {
+        return reinterpret_cast<const lib::strings::Utf8Char*>(p);
     }
 };
 
 template <>
-struct Win32StringTraits<Utf8Char> {
-    using CharType = Utf8Char;
+struct Win32StringTraits<lib::strings::Utf8Char> {
+    using CharType = lib::strings::Utf8Char;
 
     static char* as_native(CharType* p) noexcept {
         return reinterpret_cast<char*>(p);
@@ -200,12 +212,12 @@ struct Win32StringTraits<char> {
         return p;
     }
 
-    static Utf8Char* as_u8(CharType* p) noexcept {
-        return reinterpret_cast<Utf8Char*>(p);
+    static lib::strings::Utf8Char* as_u8(CharType* p) noexcept {
+        return reinterpret_cast<lib::strings::Utf8Char*>(p);
     }
 
-    static const Utf8Char* as_u8(const CharType* p) noexcept {
-        return reinterpret_cast<const Utf8Char*>(p);
+    static const lib::strings::Utf8Char* as_u8(const CharType* p) noexcept {
+        return reinterpret_cast<const lib::strings::Utf8Char*>(p);
     }
 };
 
@@ -360,17 +372,26 @@ std::basic_string<CharT, CharTraits> wcs_to_mbs_impl(WideStringView from, DWORD 
 /**
  */
 WideString mbs_to_wcs(MultiByteStringView from, DWORD from_cp = CP_ACP);
-
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+WideString mbs_to_wcs(std::string_view from, DWORD from_cp = CP_ACP);
+#endif
 /**
  */
-Utf8String mbs_to_u8s(MultiByteStringView from, DWORD from_cp = CP_ACP);
-Utf8String mbs_to_u8s(MultiByteString&& from, DWORD from_cp = CP_ACP);
-Utf8String mbs_to_u8s(const MultiByteChar* from, DWORD from_cp = CP_ACP);
+lib::strings::Utf8String mbs_to_u8s(MultiByteStringView from, DWORD from_cp = CP_ACP);
+lib::strings::Utf8String mbs_to_u8s(MultiByteString&& from, DWORD from_cp = CP_ACP);
+lib::strings::Utf8String mbs_to_u8s(const MultiByteChar* from, DWORD from_cp = CP_ACP);
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+lib::strings::Utf8String mbs_to_u8s(std::string_view from, DWORD from_cp = CP_ACP);
+lib::strings::Utf8String mbs_to_u8s(std::string&& from, DWORD from_cp = CP_ACP);
+lib::strings::Utf8String mbs_to_u8s(const char* from, DWORD from_cp = CP_ACP);
+#endif
 
 /**
  */
 MultiByteString wcs_to_mbs(WideStringView from, DWORD to_cp = CP_ACP);
-Utf8String wcs_to_u8s(WideStringView from);
+std::string wcs_to_mbs(WideStringView from, std::string& to, DWORD to_cp = CP_ACP);
+lib::strings::Utf8String wcs_to_u8s(WideStringView from);
+std::string wcs_to_u8s(WideStringView from, std::string& to);
 
 /**
  * WIN32UTIL_UTF8_CODE_PAGEが定義され、且つ、UTF-8で動作している場合:
@@ -378,13 +399,14 @@ Utf8String wcs_to_u8s(WideStringView from);
  * それが定義されていない場合:
  *  fromは UTF-8の charr又は char8_t、戻り値は ACPの charです。
  */
-MultiByteString u8s_to_mbs(Utf8StringView from);
-MultiByteString u8s_to_mbs(Utf8String&& from);
-MultiByteString u8s_to_mbs(const Utf8Char* from);
+MultiByteString u8s_to_mbs(lib::strings::Utf8StringView from);
+MultiByteString u8s_to_mbs(lib::strings::Utf8String&& from);
+MultiByteString u8s_to_mbs(const lib::strings::Utf8Char* from);
 
 /**
  */
-WideString u8s_to_wcs(Utf8StringView from);
+WideString u8s_to_wcs(lib::strings::Utf8StringView from);
+WideString u8s_to_wcs(std::string_view from);
 
 /**
  */
@@ -402,7 +424,20 @@ MultiByteString win32s_to_mbs(Win32StringView s) {
 /**
  */
 inline
-Utf8String win32s_to_u8s(Win32StringView s) {
+std::string win32s_to_mbs(Win32StringView s, std::string& to) {
+#if defined(UNICODE)
+    return wcs_to_mbs(s, to);
+#elif defined(WIN32UTIL_UTF8_CODE_PAGE)
+    return u8s_to_mbs(s);
+#else
+    return s;
+#endif
+}
+
+/**
+ */
+inline
+lib::strings::Utf8String win32s_to_u8s(const Win32StringView& s) {
 #if defined(UNICODE)
     return wcs_to_u8s(s);
 #elif defined(WIN32UTIL_UTF8_CODE_PAGE)
@@ -413,7 +448,7 @@ Utf8String win32s_to_u8s(Win32StringView s) {
 }
 
 inline
-Utf8String win32s_to_u8s(Win32String&& s) {
+lib::strings::Utf8String win32s_to_u8s(Win32String&& s) {
 #if defined(UNICODE)
     return wcs_to_u8s(s);
 #elif defined(WIN32UTIL_UTF8_CODE_PAGE)
@@ -450,7 +485,7 @@ Utf8String win32s_to_u8s(Win32String&& s) {
  * 
  */
 inline
-Win32String u8s_to_win32s(Utf8StringView s) {
+Win32String u8s_to_win32s(lib::strings::Utf8StringView s) {
 #if defined(UNICODE)
     return u8s_to_wcs(s);
 #elif defined(WIN32UTIL_UTF8_CODE_PAGE)
@@ -465,7 +500,7 @@ Win32String u8s_to_win32s(Utf8StringView s) {
  * 
  */
 inline
-MultiByteString& u8s_to_win32s(Utf8String& s) {
+MultiByteString& u8s_to_win32s(lib::strings::Utf8String& s) {
     return s;
 }
 
@@ -473,7 +508,7 @@ MultiByteString& u8s_to_win32s(Utf8String& s) {
  * 
  */
 inline
-const MultiByteString& u8s_to_win32s(const Utf8String& s) {
+const MultiByteString& u8s_to_win32s(const lib::strings::Utf8String& s) {
     return s;
 }
 
@@ -481,7 +516,7 @@ const MultiByteString& u8s_to_win32s(const Utf8String& s) {
  * 
  */
 inline
-Win32String u8s_to_win32s(Utf8String&& s) {
+lib::strings::Win32String u8s_to_win32s(lib::strings::Utf8String&& s) {
     return std::move(s);
 }
 #endif

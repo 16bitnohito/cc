@@ -429,7 +429,7 @@ private:
     bool execute_line(const std::string& line, const std::optional<std::string>& path);
     bool execute_pragma(const TokenList& tokens, const Token& location);
 
-    void output_text(const StringView& text);
+    void output_text(std::string_view text);
     void output_text(const char* text);
 
     template <class... Ts>

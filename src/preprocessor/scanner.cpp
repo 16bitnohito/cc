@@ -42,11 +42,6 @@ pp::Scanner::Char32 to_c32(std::underlying_type_t<pp::Scanner::Char32> c) {
     return static_cast<pp::Scanner::Char32>(c);
 }
 
-constexpr inline
-std::underlying_type_t<pp::Scanner::Char32> to_int(pp::Scanner::Char32 c) {
-    return static_cast<std::underlying_type_t<pp::Scanner::Char32>>(c);
-}
-
 constexpr const uint8_t kUtf8Head[4] = {
     0x7f, 0x1f, 0x0f, 0x07,
 };
@@ -3536,7 +3531,7 @@ Token Scanner::next_token() {
                 break;
 
             default:
-                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, __func__);
+                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, as_internal(__func__));
                 break;
             }
 
@@ -3563,7 +3558,7 @@ Token Scanner::next_token() {
                 break;
 
             default:
-                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, __func__);
+                diag_.fatal_error(sources_.current_source_pointer(), { line_number_, buf_i_ }, as_internal(__func__));
                 break;
             }
 

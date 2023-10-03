@@ -1429,7 +1429,7 @@ bool Preprocessor::elif_groups(bool /*processed*/) {
 
     //return processed;
 
-    fatal_error(kTokenNull, "elif_groupsは if_sectionにおいて展開されている。");
+    fatal_error(kTokenNull, T_("elif_groupsは if_sectionにおいて展開されている。"));
 }
 
 bool Preprocessor::elif_group(bool processed) {
@@ -2181,12 +2181,12 @@ bool Preprocessor::expand_op_pragma(const Macro& /*macro*/, const Macro::ArgList
 
 bool Preprocessor::expand_va_opt(const Macro& /*macro*/, const Macro::ArgList& macro_args, TokenList& result_expanded) {
     if (macro_invocation_stack_.size() < 2) {
-        fatal_error(kTokenNull, __func__);
+        fatal_error(kTokenNull, as_internal(__func__));
     }
 
     const auto& parent_invocation = macro_invocation_stack_[macro_invocation_stack_.size() - 2];
     if (parent_invocation.macro->params().empty()) {
-        fatal_error(kTokenNull, __func__);
+        fatal_error(kTokenNull, as_internal(__func__));
     }
 
     // 可変引数が指定されていなければ、結果は空にする(何もしない)。
@@ -2365,7 +2365,7 @@ bool Preprocessor::expand_op_has_embed(const Macro& /*macro*/, const Macro::ArgL
                 break;
 
             default:
-                fatal_error(kTokenNull, __func__);
+                fatal_error(kTokenNull, as_internal(__func__));
                 break;
             }
         }
@@ -3179,7 +3179,7 @@ EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context)
     const auto size = filesystem::file_size(path);
     if (size > (numeric_limits<int>::max() >> kEmbedElementWidth)) {
         if (!has_embed_context) {
-            error(peek(1), __func__ /* 実装上の都合、オーバーフローしそう */);
+            error(peek(1), as_internal(__func__) /* 実装上の都合、オーバーフローしそう */);
         }
         return EmbedResult::kErrorOrUnsupportedParameter;
     }
@@ -3210,7 +3210,7 @@ EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context)
             return EmbedResult::kErrorOrUnsupportedParameter;
         } else if (limit_result > kMaxResourceSizeInBytes) {
             if (!has_embed_context) {
-                error(limit.value().front(), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+                error(limit.value().front(), as_internal(__func__) /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
             }
             return EmbedResult::kErrorOrUnsupportedParameter;
         }
@@ -3219,7 +3219,7 @@ EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context)
     } else {
         if (file_size > kMaxResourceSizeInBytes) {
             if (!has_embed_context) {
-                error(peek(0), __func__ /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
+                error(peek(0), as_internal(__func__) /* 独自の制限 {kMaxResourceSizeInBytes}以下のリソースしか取り扱えない */);
             }
             return EmbedResult::kErrorOrUnsupportedParameter;
         }
@@ -3424,7 +3424,7 @@ bool Preprocessor::execute_pragma(const TokenList& tokens, const Token& location
     }
 }
 
-void Preprocessor::output_text(const StringView& text) {
+void Preprocessor::output_text(std::string_view text) {
     output_->write(text.data(), text.length());
 #if !defined(NDEBUG)
     output_->flush();
@@ -3620,26 +3620,26 @@ MacroPtr Preprocessor::find_macro(const std::string& name) {
 void Preprocessor::print_macros() {
     for (const auto& kv : macros_) {
         auto& m = kv.second;
-        log_debug("{}", m->name());
+        log_debug(T_("{}"), m->name());
         if (m->is_function()) {
-            log_debug("(");
+            log_debug(T_("("));
             if (!m->params().empty()) {
                 auto it = m->params().begin();
-                log_debug("{}", (*it));
+                log_debug(T_("{}"), (*it));
                 ++it;
                 for (; it != m->params().end(); ++it) {
-                    log_debug(", {}", (*it));
+                    log_debug(T_(", {}"), (*it));
                 }
             }
-            log_debug(")");
+            log_debug(T_(")"));
         }
-        log_debug(": ");
+        log_debug(T_(": "));
 
         for (const auto& r : m->replist()) {
-            log_debug("{}", r.string());
+            log_debug(T_("{}"), r.string());
         }
 
-        log_debug("\n");
+        log_debug(T_("\n"));
     }
 }
 

@@ -12,19 +12,41 @@ WideString mbs_to_wcs(MultiByteStringView from, DWORD from_cp /*= CP_ACP*/) {
     return detail::mbs_to_wcs_impl(from, from_cp);
 }
 
-Utf8String mbs_to_u8s(MultiByteStringView from, DWORD from_cp /*= CP_ACP*/) {
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+WideString mbs_to_wcs(std::string_view from, DWORD from_cp /*= CP_ACP*/) {
+    return detail::mbs_to_wcs_impl(from, from_cp);
+}
+#endif  // CC_STRINGS_STRICT_CHAR_TYPE
+
+lib::strings::Utf8String mbs_to_u8s(MultiByteStringView from, DWORD from_cp /*= CP_ACP*/) {
 #if defined(WIN32UTIL_UTF8_CODE_PAGE)
     return from;
 #else
     if (from_cp == CP_UTF8) {
-        return Utf8String(reinterpret_cast<const Utf8Char*>(from.data()), from.length());
+        return lib::strings::Utf8String(reinterpret_cast<const lib::strings::Utf8Char*>(from.data()), from.length());
     } else {
         return wcs_to_u8s(mbs_to_wcs(from, from_cp));
     }
 #endif
 }
 
-Utf8String mbs_to_u8s(const MultiByteChar* from, DWORD from_cp /*= CP_ACP*/) {
+lib::strings::Utf8String mbs_to_u8s(MultiByteString&& from, DWORD from_cp /*= CP_ACP*/) {
+#if defined(WIN32UTIL_UTF8_CODE_PAGE)
+    return move(from);
+#else
+    if (from_cp == CP_UTF8) {
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+        return as_u8(from.c_str());
+#else
+        return as_u8(from.data());
+#endif
+    } else {
+        return wcs_to_u8s(mbs_to_wcs(from, from_cp));
+    }
+#endif
+}
+
+lib::strings::Utf8String mbs_to_u8s(const MultiByteChar* from, DWORD from_cp /*= CP_ACP*/) {
     if (from == nullptr) {
         throw invalid_argument(__func__);
     }
@@ -40,12 +62,25 @@ Utf8String mbs_to_u8s(const MultiByteChar* from, DWORD from_cp /*= CP_ACP*/) {
 #endif
 }
 
-Utf8String mbs_to_u8s(MultiByteString&& from, DWORD from_cp /*= CP_ACP*/) {
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
+lib::strings::Utf8String mbs_to_u8s(std::string_view from, DWORD from_cp /*= CP_ACP*/) {
+#if defined(WIN32UTIL_UTF8_CODE_PAGE)
+    return lib::strings::Utf8String(reinterpret_cast<const lib::strings::Utf8Char*>(from.data()), from.size());
+#else
+    if (from_cp == CP_UTF8) {
+        return lib::strings::Utf8String(reinterpret_cast<const lib::strings::Utf8Char*>(from.data()), from.size());
+    } else {
+        return wcs_to_u8s(mbs_to_wcs(from, from_cp));
+    }
+#endif
+}
+
+lib::strings::Utf8String mbs_to_u8s(std::string&& from, DWORD from_cp /*= CP_ACP*/) {
 #if defined(WIN32UTIL_UTF8_CODE_PAGE)
     return move(from);
 #else
     if (from_cp == CP_UTF8) {
-#if defined(WIN32UTIL_STRICT_CHAR_TYPE)
+#if defined(CC_STRINGS_STRICT_CHAR_TYPE)
         return as_u8(from.c_str());
 #else
         return as_u8(from.data());
@@ -56,15 +91,38 @@ Utf8String mbs_to_u8s(MultiByteString&& from, DWORD from_cp /*= CP_ACP*/) {
 #endif
 }
 
+lib::strings::Utf8String mbs_to_u8s(const char* from, DWORD from_cp /*= CP_ACP*/) {
+#if defined(WIN32UTIL_UTF8_CODE_PAGE)
+    return lib::strings::Utf8String(reinterpret_cast<const lib::strings::Utf8Char*>(from));
+#else
+    if (from_cp == CP_UTF8) {
+        return lib::strings::Utf8String(reinterpret_cast<const lib::strings::Utf8Char*>(from));
+    } else {
+        return wcs_to_u8s(mbs_to_wcs(from, from_cp));
+    }
+#endif
+}
+#endif  // CC_STRINGS_STRICT_CHAR_TYPE
+
 MultiByteString wcs_to_mbs(WideStringView from, DWORD to_cp /*= CP_ACP*/) {
     return detail::wcs_to_mbs_impl<MultiByteChar>(from, to_cp);
 }
 
-Utf8String wcs_to_u8s(WideStringView from) {
-    return detail::wcs_to_mbs_impl<Utf8Char>(from, CP_UTF8);
+std::string wcs_to_mbs(WideStringView from, std::string& to, DWORD to_cp /*= CP_ACP*/) {
+    to = detail::wcs_to_mbs_impl<char>(from, to_cp);
+    return to;
 }
 
-MultiByteString u8s_to_mbs(Utf8StringView from) {
+lib::strings::Utf8String wcs_to_u8s(WideStringView from) {
+    return detail::wcs_to_mbs_impl<lib::strings::Utf8Char>(from, CP_UTF8);
+}
+
+std::string wcs_to_u8s(WideStringView from, std::string& to) {
+    to = detail::wcs_to_mbs_impl<char>(from, CP_UTF8);
+    return to;
+}
+
+MultiByteString u8s_to_mbs(lib::strings::Utf8StringView from) {
 #if defined(WIN32UTIL_UTF8_CODE_PAGE)
     return from;
 #else
@@ -72,7 +130,7 @@ MultiByteString u8s_to_mbs(Utf8StringView from) {
 #endif
 }
 
-MultiByteString u8s_to_mbs(Utf8String&& from) {
+MultiByteString u8s_to_mbs(lib::strings::Utf8String&& from) {
 #if defined(WIN32UTIL_UTF8_CODE_PAGE)
     return move(from);
 #else
@@ -80,7 +138,7 @@ MultiByteString u8s_to_mbs(Utf8String&& from) {
 #endif
 }
 
-MultiByteString u8s_to_mbs(const Utf8Char* from) {
+MultiByteString u8s_to_mbs(const lib::strings::Utf8Char* from) {
     if (from == nullptr) {
         throw invalid_argument(__func__);
     }
@@ -92,7 +150,11 @@ MultiByteString u8s_to_mbs(const Utf8Char* from) {
 #endif
 }
 
-WideString u8s_to_wcs(Utf8StringView from) {
+WideString u8s_to_wcs(lib::strings::Utf8StringView from) {
+    return detail::mbs_to_wcs_impl(from, CP_UTF8);
+}
+
+WideString u8s_to_wcs(std::string_view from) {
     return detail::mbs_to_wcs_impl(from, CP_UTF8);
 }
 

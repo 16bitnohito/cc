@@ -174,7 +174,7 @@ void Diagnostics::output_diagnostic(
     //vformat_to(it, format, args);
     //format_to(it, "\n");
     auto log = std::format("{}:{}:{}: {}: {}\n",
-            s, location.line(), location.column(), kLevelTag[i], vformat(format, args));
+            s, location.line(), location.column(), kLevelTag[i], vformat(as_narrow(format), args));
     output_->write(log.data(), log.size());
     output_->flush();
 }

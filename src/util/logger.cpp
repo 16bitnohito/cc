@@ -25,7 +25,7 @@ void Logger::output_log_with_args(LogLevel level, const StringView& format,
     }
 
     //vformat_to(BufferedOutputIterator(cerr), format, args);
-    auto s = vformat(format, args);
+    auto s = vformat(as_narrow(format), args);
     if (output_) {
         output_->write(s.data(), ssize(s));
     } else {

@@ -2261,7 +2261,7 @@ bool is_valid_ucn(std::uint32_t n) {
     if (0xD800 <= n && n <= 0xDFFF) {
         return false;
     }
-    if (0x10FFFF > n) {
+    if (n > 0x10FFFF) {
         return false;
     }
 

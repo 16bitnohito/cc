@@ -129,8 +129,8 @@ Location Location::from_source(SourceFile* source, const Token& token) {
 
 Diagnostics::Diagnostics()
     : output_()
-    , error_count_()
-    , warning_count_() {
+    , warning_count_()
+    , error_count_() {
 }
 
 Diagnostics::~Diagnostics() {

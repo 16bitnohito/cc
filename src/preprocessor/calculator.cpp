@@ -21,8 +21,13 @@ constexpr std::string_view integer_suffixes_sorted[] = {
     "U",
     "UL",
     "ULL",
+    "UWB",
     "Ul",
     "Ull",
+    "Uwb",
+    "WB",
+    "WBU",
+    "WBu",
     "l",
     "lU",
     "ll",
@@ -32,8 +37,13 @@ constexpr std::string_view integer_suffixes_sorted[] = {
     "u",
     "uL",
     "uLL",
+    "uWB",
     "ul",
     "ull",
+    "uwb",
+    "wb",
+    "wbU",
+    "wbu",
 };
 
 }   //  anonymous namespace
@@ -50,16 +60,7 @@ bool parse_int(const std::string& s, target_intmax_t* result) {
         return false;
     }
 
-    // トークンに符号が含まれることはないが、書いてしまったので残しておく。
     string::size_type i = 0;
-    int sign = 1;
-    if (s[i] == '+') {
-        ++i;
-    } else if (s[i] == '-') {
-        sign = -1;
-        ++i;
-    }
-
     int base = 0;
     if (s[i] != '0') {
         if (isdigit(s[i])) {
@@ -79,9 +80,10 @@ bool parse_int(const std::string& s, target_intmax_t* result) {
         }
         default: {
             base = 8;
+            // 単体の 0かもしれないので先頭のゼロはスキップしない。
             break;
         }
-        }
+        }   // switch
     }
     if (base == 0) {
         return false;
@@ -91,16 +93,24 @@ bool parse_int(const std::string& s, target_intmax_t* result) {
     }
 
     constexpr char digits16[] = "0123456789abcdef";
-    target_intmax_t n = 0;
+    target_uintmax_t n = 0;
+    bool separator = false;
     while (i < s.length()) {
         auto it = binary_find(digits16, digits16 + base, tolower(s[i]));
         if (it != (digits16 + base)) {
             n *= base;
-            n += static_cast<target_intmax_t>(distance(digits16, it));
+            n += static_cast<decltype(n)>(distance(digits16, it));
+            separator = false;
         } else {
             if (s[i] == '\'') {
+                if (separator) {
+                    // 字句的エラー
+                    return false;
+                }
+                separator = true;
                 // skip
             } else {
+                // 不正な文字かもしれないし、接尾辞かもしれない。後続の処理に任せるので、returnではなく breakする。
                 break;
             }
         }
@@ -116,7 +126,7 @@ bool parse_int(const std::string& s, target_intmax_t* result) {
         }
     }
 
-    *result = sign * n;
+    *result = n;
     return true;
 }
 

@@ -112,6 +112,9 @@ extern const StringView kInvalidUniversalCharacterNameFormatError;
 extern const StringView kInvalidIdentifierStartError;
 extern const StringView kInvalidIdentifierContinueError;
 extern const StringView kUnclosedHeaderNameError;
+extern const StringView kEmptyCharacterConstant;
+extern const StringView kUnclosedCharacterConstant;
+extern const StringView kUnclosedStringLiteral;
 
 /**
  */

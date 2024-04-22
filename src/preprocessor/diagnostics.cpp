@@ -104,6 +104,9 @@ const StringView kInvalidUniversalCharacterNameFormatError = T_("ユニバーサ
 const StringView kInvalidIdentifierStartError = T_("この文字は識別子の開始文字としては使えない。");
 const StringView kInvalidIdentifierContinueError = T_("この文字は識別子には使えない。");
 const StringView kUnclosedHeaderNameError = T_("ヘッダー名が閉じていない。");
+const StringView kEmptyCharacterConstant = T_("文字定数が空である。");
+const StringView kUnclosedCharacterConstant = T_("文字定数が閉じていない。");
+const StringView kUnclosedStringLiteral = T_("文字列リテラルが閉じていない。");
 
 
 Location Location::from_source(SourceFile* source, const Token& token) {

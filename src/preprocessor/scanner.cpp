@@ -2866,6 +2866,7 @@ Token Scanner::next_token() {
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
             } else {    // 's'
                 if (is_nl(c_) || eof()) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kUnclosedStringLiteral);
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -3088,6 +3089,10 @@ Token Scanner::next_token() {
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState251_252_253);
             } else {    // 'c'
                 if (is_nl(c_) || eof()) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kUnclosedCharacterConstant);
+                    error = true;
+                } else if (c_ == to_c32('\'')) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kEmptyCharacterConstant);
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)
@@ -3296,6 +3301,7 @@ Token Scanner::next_token() {
                 transit(ScannerState::kStateEscapeSequenceInitial, c_, ScannerState::kState272_274_271);
             } else {    // 's'
                 if (is_nl(c_) || eof()) {
+                    diag_.error(sources_.current_source_pointer(), { line_number_, buf_i_ }, kUnclosedStringLiteral);
                     error = true;
                 } else {
                     // XXX: is_member_of_source_char_set(c_)

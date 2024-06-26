@@ -145,7 +145,7 @@ public:
     ~IncludeSpec() = default;
 
     std::string header_name() const;
-    bool is_includes_source_dir() const;
+    bool is_double_quoted_form() const;
 
 private:
     std::string header_name_;
@@ -290,7 +290,7 @@ public:
 private:
     bool cleanup();
     void prepare_predefined_macro();
-    void preprocessing_file(std::istream* input, const String& path);
+    void preprocessing_file(std::istream* input, const String& path, const IncludeDir& include_dir);
     void group(SourceFile& source, Group& group);
     bool group_part();
     void if_section();
@@ -345,7 +345,7 @@ private:
 
     TokenList expand_directive_line();
 
-    bool search_include_file(const IncludeSpec& include_spec, pp::String* file_path_str);
+    bool search_include_file(const IncludeSpec& include_spec, String* file_path_str, IncludeDir* include_dir);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);
     static constexpr MacroExpantionFuncPtr expantion_methods_[kNumOfMacroExpantionMethod] = {
@@ -491,7 +491,7 @@ private:
     Diagnostics& diag_;
     SourceFileStack& sources_;
 
-    std::vector<String> include_dirs_;
+    std::vector<IncludeDir> include_dirs_;
     DiagLevel diag_level_;
     clock_t clock_start_;
     clock_t clock_end_;

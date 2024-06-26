@@ -9,6 +9,7 @@ namespace pp {
 using target_intmax_t = cc::target_intmax_t;
 using target_uintmax_t = cc::target_uintmax_t;
 
+using Char = lib::util::Char;
 using String = lib::util::String;
 using StringView = lib::util::StringView;
 

@@ -43,6 +43,47 @@ struct Group {
     }
 };
 
+/**
+ */
+class IncludeDir {
+public:
+    /**
+     * 便宜的なインクルードパスの分類です。
+     */
+    enum Type {
+        // 環境変数の INCLUDEで指定されているものを、システムのインクルードディレクトリ扱いにします。
+        kSystem,
+        // コマンドラインオプションの Iで指定されるものは、これになります。
+        kUser,
+        // 最初のソースファイルと、ダブルクオート形式で指定されたヘッダーファイルが見つかったディレクトリは、これで扱います。
+        kSource,
+    };
+
+    static const Char* type_string(Type header_type);
+
+    IncludeDir()
+        : type_()
+        , path_() {
+    }
+
+    explicit IncludeDir(Type type, const String& path)
+        : type_(type)
+        , path_(path) {
+    }
+
+    const String& path() const {
+        return path_;
+    }
+
+    Type type() const {
+        return type_;
+    }
+
+private:
+    Type type_;
+    String path_;
+};
+
 class SourceFileStack;
 
 /**
@@ -52,12 +93,14 @@ class SourceFile
 public:
     friend class ConditionScope;
 
-    explicit SourceFile(std::istream& input, const String& filepath, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
+    explicit SourceFile(std::istream& input, const String& filepath, const IncludeDir& include_dir, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
     virtual ~SourceFile() override;
 
     virtual Token next_token() override;
 
     void scanner_hint(ScannerHint hint);
+
+    bool is_system_file() const { return include_dir_.type() == IncludeDir::kSystem; }
 
     const String& source_path() const { return path_; }
     void source_path(const String& value) { path_ = value; }
@@ -82,6 +125,7 @@ private:
     SourceFileStack& sources_;
     Scanner scanner_;
     String path_;
+    IncludeDir include_dir_;
     int condition_level_;
     std::stack<Group*> groups_;
     std::uint32_t line_;

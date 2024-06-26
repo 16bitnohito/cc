@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -269,6 +270,11 @@ void raise_generic_error(const char* message, std::errc error);
 // lib::win32util::raise_win32_errorから送出しています。
 
 std::string normalize_string(const std::string& s);
+
+
+/**
+ */
+std::optional<String>  get_env_var(const Char* name);
 
 }   // namespace lib::util
 

@@ -1,6 +1,8 @@
 #include "util/utility.h"
 
-#include <cassert>
+#if HOST_PLATFORM != PLATFORM_WINDOWS
+#include <cstdlib>
+#endif
 #include <iostream>
 #include <system_error>
 #if HOST_PLATFORM == PLATFORM_WINDOWS
@@ -108,6 +110,41 @@ std::string normalize_string(const std::string& s) {
     return wcs_to_u8s(ws, normalized);
 #else
     // TODO: NFCにする。
+    return s;
+#endif
+}
+
+std::optional<String> get_env_var(const Char* name) {
+    if (!name) {
+        throw invalid_argument("get_env_var(!name)");
+    }
+
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+    auto w32name = u8s_to_win32s(name);
+    auto needs = GetEnvironmentVariable(w32name.c_str(), nullptr, 0);
+    if (needs == 0) {
+        if (GetLastError() != ERROR_ENVVAR_NOT_FOUND) {
+            raise_win32_error("GetEnvironmentVariable");
+        }
+
+        return nullopt;
+    }
+
+    Win32String value(needs - 1, L'\0');
+    auto written = GetEnvironmentVariable(w32name.c_str(), value.data(), needs);
+    if (written == 0 || written != value.size()) {
+        raise_win32_error("GetEnvironmentVariable");
+    }
+
+    auto result = win32s_to_u8s(value);
+    return result;
+#else
+    auto value = getenv(name);
+    if (!value) {
+        return nullopt;
+    }
+
+    return value;
 #endif
 }
 

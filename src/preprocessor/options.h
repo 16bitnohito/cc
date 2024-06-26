@@ -49,9 +49,11 @@ public:
     bool output_line_directive() const;
     bool output_comment() const;
     bool support_trigraphs() const;
+    const std::vector<String>& system_include_dirs() const;
     const std::vector<String>& additional_include_dirs() const;
     const std::vector<MacroDefinitionOperation>& macro_operations() const;
 
+    bool parse_env_var();
     bool parse_options(const std::vector<String>& args);
     void print_usage();
 
@@ -64,6 +66,7 @@ private:
     bool output_line_directive_;
     bool output_comment_;
     bool support_trigraphs_;
+    std::vector<String> system_include_dirs_;
     std::vector<String> additional_include_dirs_;
     std::vector<MacroDefinitionOperation> macro_operations_;
 };

@@ -458,7 +458,7 @@ std::string IncludeSpec::header_name() const {
     return header_name_.substr(1, header_name_.length() - 2);
 }
 
-bool IncludeSpec::is_includes_source_dir() const {
+bool IncludeSpec::is_double_quoted_form() const {
     return header_name_[0] == '"';
 }
 
@@ -502,8 +502,14 @@ bool Preprocessor::has_error() {
 int Preprocessor::run() {
     //  TODO: コマンドラインで指定されたもの以外でインクルードパスを追加するならここで。
 
+    const vector<String>& sys_dirs = opts_.system_include_dirs();
+    for (const auto& d : sys_dirs) {
+        include_dirs_.push_back(IncludeDir{ IncludeDir::kSystem, d });
+    }
     const vector<String>& dirs = opts_.additional_include_dirs();
-    include_dirs_.insert(include_dirs_.end(), dirs.begin(), dirs.end());
+    for (const auto& d : dirs) {
+        include_dirs_.push_back(IncludeDir{ IncludeDir::kUser, d });
+    }
 
     //
     String err_path = opts_.error_log_filepath();
@@ -557,7 +563,7 @@ int Preprocessor::run() {
     }
 
     prepare_predefined_macro();
-    preprocessing_file(in, in_path);
+    preprocessing_file(in, in_path, IncludeDir{ IncludeDir::kSource, path_string(in_path).parent_path().u8string() });
     //log_info("{} errors, {} warnings.\n", error_count_, warning_count_);
 
     if (!cleanup()) {
@@ -763,8 +769,8 @@ void Preprocessor::prepare_predefined_macro() {
     }
 }
 
-void Preprocessor::preprocessing_file(std::istream* input, const String& path) {
-    SourceFile source(*input, path, opts_, diag_, sources_);
+void Preprocessor::preprocessing_file(std::istream* input, const String& path, const IncludeDir& include_dir) {
+    SourceFile source(*input, path, include_dir, opts_, diag_, sources_);
     TokenStream stream(source);
     push_stream(stream);
 
@@ -2286,7 +2292,7 @@ bool Preprocessor::expand_op_has_include(const Macro& /*macro*/, const Macro::Ar
     }
 
     IncludeSpec spec(header_name);
-    if (search_include_file(spec, nullptr)) {
+    if (search_include_file(spec, nullptr, nullptr)) {
         result_expanded.push_back(kTokenPpNumberOne);
     } else {
         result_expanded.push_back(kTokenPpNumberZero);
@@ -2398,15 +2404,16 @@ TokenList Preprocessor::expand_directive_line() {
     return result;
 }
 
-bool Preprocessor::search_include_file(const IncludeSpec& include_spec, pp::String* file_path_str) {
+bool Preprocessor::search_include_file(const IncludeSpec& include_spec, String* file_path_str, IncludeDir* include_dir) {
     String name = internal_from_source(include_spec.header_name());
     if (name.empty()) {
         return false;
     }
     String path_str;
+    IncludeDir result_inc_dir;
     bool exist = false;
 
-    if (include_spec.is_includes_source_dir()) {
+    if (include_spec.is_double_quoted_form()) {
         auto source_dir = current_source().parent_dir();
         if (!source_dir.empty()) {
             path_str = source_dir + kPathDelimiter + name;
@@ -2415,14 +2422,16 @@ bool Preprocessor::search_include_file(const IncludeSpec& include_spec, pp::Stri
         }
         path_str = normalize_path(path_str);
         exist = file_exists(path_string(path_str));
+        result_inc_dir = IncludeDir{ IncludeDir::kSource, source_dir };
     }
 
     if (!exist) {
         for (const auto& dir : include_dirs_) {
-            path_str = dir + kPathDelimiter + name;
+            path_str = dir.path() + kPathDelimiter + name;
             path_str = normalize_path(path_str);
             exist = file_exists(path_string(path_str));
             if (exist) {
+                result_inc_dir = dir;
                 break;
             }
         }
@@ -2431,6 +2440,9 @@ bool Preprocessor::search_include_file(const IncludeSpec& include_spec, pp::Stri
     if (exist) {
         if (file_path_str) {
             *file_path_str = move(path_str);
+        }
+        if (include_dir) {
+            *include_dir = result_inc_dir;
         }
     }
 
@@ -3130,8 +3142,9 @@ std::string Preprocessor::execute_stringize(const Macro::ArgList& args, Macro::A
 bool Preprocessor::execute_include(const std::string& header_name, const Token& header_name_token) {
     IncludeSpec spec(header_name);
     String path_str;
+    IncludeDir include_dir;
     ifstream next_input;
-    if (search_include_file(spec, &path_str)) {
+    if (search_include_file(spec, &path_str, &include_dir)) {
         next_input.open(path_string(path_str), ios_base::binary);
     }
 
@@ -3145,7 +3158,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
     if (included_files_ > kMinSpecSourceFileInclusion) {
         info(header_name_token, kMinSpecSourceFileInclusionWarning, kMinSpecSourceFileInclusion, included_files_);
     }
-    preprocessing_file(&next_input, path_str);
+    preprocessing_file(&next_input, path_str, include_dir);
     included_files_--;
 
     return true;
@@ -3160,7 +3173,7 @@ EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context)
     // TODO: ヘッダーファイルの流用なのをどうにかする。名前だけ変えるとか。
     IncludeSpec i_spec(spec.resource_id());
     String path_str;
-    if (!search_include_file(i_spec, &path_str)) {
+    if (!search_include_file(i_spec, &path_str, nullptr)) {
         if (!has_embed_context) {
             fatal_error(peek(1), kEmbedResoruceNotFoundError, spec.resource_id());
         }
@@ -3503,7 +3516,9 @@ bool Preprocessor::is_valid_macro_name(const Token& name) {
     }
 
     if (name.string().find("__STDC_") == 0) {
-        warning(name, kStdcReservedMacroName);
+        if (!current_source().is_system_file()) {
+            warning(name, kStdcReservedMacroName);
+        }
     }
 
     return true;

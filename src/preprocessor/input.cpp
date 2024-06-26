@@ -17,10 +17,26 @@ const String kPathDelimiter = T_("/");
 #endif
 
 
-SourceFile::SourceFile(std::istream& input, const String& filepath, const Options& opts, Diagnostics& diag, SourceFileStack& sources)
+const Char* IncludeDir::type_string(Type type) {
+    switch (type) {
+    case IncludeDir::kSystem:
+        return T_("kSystem");
+    case IncludeDir::kUser:
+        return T_("kUser");
+    case IncludeDir::kSource:
+        return T_("kSource");
+    default:
+        assert(false);
+        return T_("(null)");
+    }
+}
+
+
+SourceFile::SourceFile(std::istream& input, const String& filepath, const IncludeDir& include_dir, const Options& opts, Diagnostics& diag, SourceFileStack& sources)
     : sources_(sources)
     , scanner_(input, opts.support_trigraphs(), diag, sources)
     , path_(filepath)
+    , include_dir_(include_dir)
     , condition_level_()
     , groups_()
     , line_(1) {

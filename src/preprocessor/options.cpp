@@ -22,6 +22,7 @@ Options::Options() {
     output_line_directive_ = true;
     output_comment_ = false;
     support_trigraphs_ = false;
+    //system_inculde_dirs_;
     //additional_include_dirs_;
     //macro_operations_;
 }
@@ -53,6 +54,10 @@ bool Options::support_trigraphs() const {
     return support_trigraphs_;
 }
 
+const std::vector<String>& Options::system_include_dirs() const {
+    return system_include_dirs_;
+}
+
 const std::vector<String>& Options::additional_include_dirs() const {
     return additional_include_dirs_;
 }
@@ -61,11 +66,41 @@ const std::vector<MacroDefinitionOperation>& Options::macro_operations() const {
     return macro_operations_;
 }
 
+bool Options::parse_env_var() {
+    auto inc_path = get_env_var(T_("INCLUDE"));
+    if (inc_path && !(*inc_path).empty()) {
+        vector<String> paths;
+        ptrdiff_t next = 0;
+        while (next < (*inc_path).size()) {
+            ptrdiff_t end = (*inc_path).find(L';', next);
+            if (end == String::npos) {
+                auto p = (*inc_path).substr(next);
+                paths.push_back(p);
+                break;
+            }
+
+            auto p = (*inc_path).substr(next, (end - next));
+            paths.push_back(p);
+            next = end + 1;
+        }
+
+        system_include_dirs_ = move(paths);
+    }
+
+    return true;
+}
+
 bool Options::parse_options(const std::vector<String>& args) {
     if (ssize(args) > numeric_limits<int>::max()) {
         return false;   // too many options
     }
 
+    // とりあえず環境変数はここで、先に。
+    if (!parse_env_var()) {
+        return false;
+    }
+
+    // 以下、コマンドラインのオプション。
     int argc = static_cast<int>(ssize(args));
     for (int i = 1; i < argc; i++) {
         const String& arg = args[i];

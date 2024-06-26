@@ -2,6 +2,8 @@
 #ifndef CC_CONFIG_H_
 #define CC_CONFIG_H_
 
+#include <cstdint>
+
 // HOST
 #define PLATFORM_UNKNOWN    0
 #define PLATFORM_WINDOWS    1
@@ -18,7 +20,10 @@ namespace cc {
 using target_intmax_t = std::int32_t;
 using target_uintmax_t = std::uint32_t;
 
-#define TARGET_CHAR_BIT     8
+#define TARGET_INTMAX_WIDTH      32
+#define TARGET_UINTMAX_WIDTH     32
+
+#define TARGET_CHAR_BIT		8
 
 // BUILD
 //#if USE_STD_FILESYSTEM

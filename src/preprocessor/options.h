@@ -53,11 +53,12 @@ public:
     const std::vector<String>& additional_include_dirs() const;
     const std::vector<MacroDefinitionOperation>& macro_operations() const;
 
-    bool parse_env_var();
     bool parse_options(const std::vector<String>& args);
     void print_usage();
 
 private:
+    bool parse_env_var(const Char* name);
+
     String input_encoding_;
     String input_filepath_;
     String output_encoding_;

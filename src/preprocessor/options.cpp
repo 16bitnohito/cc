@@ -1,5 +1,7 @@
 #include "preprocessor/options.h"
 
+#include <ranges>
+
 #include "util/logger.h"
 
 using namespace lib::util;
@@ -66,25 +68,25 @@ const std::vector<MacroDefinitionOperation>& Options::macro_operations() const {
     return macro_operations_;
 }
 
-bool Options::parse_env_var() {
-    auto inc_path = get_env_var(T_("INCLUDE"));
+
+
+
+bool Options::parse_env_var(const Char* name) {
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+    constexpr auto separator = T_(';');
+#else
+    constexpr auto separator = T_(':');
+#endif
+
+    auto inc_path = get_env_var(name);
     if (inc_path && !(*inc_path).empty()) {
-        vector<String> paths;
-        ptrdiff_t next = 0;
-        while (next < (*inc_path).size()) {
-            ptrdiff_t end = (*inc_path).find(L';', next);
-            if (end == String::npos) {
-                auto p = (*inc_path).substr(next);
-                paths.push_back(p);
-                break;
+        auto paths = static_cast<StringView>(*inc_path);
+        for (auto r : paths | views::split(separator)) {
+            if (!r.empty()) {
+                // 環境変数で指定されているものは、システム扱いされる。
+                system_include_dirs_.push_back({ r.data(), r.size() });
             }
-
-            auto p = (*inc_path).substr(next, (end - next));
-            paths.push_back(p);
-            next = end + 1;
         }
-
-        system_include_dirs_ = move(paths);
     }
 
     return true;
@@ -95,10 +97,19 @@ bool Options::parse_options(const std::vector<String>& args) {
         return false;   // too many options
     }
 
-    // とりあえず環境変数はここで、先に。
-    if (!parse_env_var()) {
+    // 環境変数で指定されるインクルードパスは、ここで先に解析する。
+#if HOST_PLATFORM == PLATFORM_WINDOWS
+    if (!parse_env_var(T_("INCLUDE"))) {
         return false;
     }
+#else
+    if (!parse_env_var(T_("CPATH"))) {
+        return false;
+    }
+    if (!parse_env_var(T_("C_INCLUDE_PATH"))) {
+        return false;
+    }
+#endif
 
     // 以下、コマンドラインのオプション。
     int argc = static_cast<int>(ssize(args));

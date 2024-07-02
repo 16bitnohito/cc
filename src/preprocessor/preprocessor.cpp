@@ -502,6 +502,8 @@ bool Preprocessor::has_error() {
 int Preprocessor::run() {
     //  TODO: コマンドラインで指定されたもの以外でインクルードパスを追加するならここで。
 
+    // include_dirs_への追加は検索順序に関わる。
+    // 先にシステム (環境変数)、次にユーザー (Iオプション)の順になっていなければならない。
     const vector<String>& sys_dirs = opts_.system_include_dirs();
     for (const auto& d : sys_dirs) {
         include_dirs_.push_back(IncludeDir{ IncludeDir::kSystem, d });
@@ -550,20 +552,27 @@ int Preprocessor::run() {
         return 1;
     }
 
-    istream* in = &cin;
+    Path in_full_path;
+    Path in_parent_path;
+    istream* in;
     ifstream in_file;
     if (in_path != T_("-")) {
-        in_file.open(path_string(in_path), ios_base::binary);
+        in_full_path = filesystem::absolute(in_path);
+        in_file.open(in_full_path, ios_base::binary);
         if (!in_file.is_open()) {
             log_error(kNoSuchFileError, in_path.c_str());
             return 1;
         }
-
+        in_parent_path = in_full_path.parent_path();
         in = &in_file;
+    } else {
+        in_full_path = in_path;
+        in_parent_path = filesystem::current_path();
+        in = &cin;
     }
 
     prepare_predefined_macro();
-    preprocessing_file(in, in_path, IncludeDir{ IncludeDir::kSource, path_string(in_path).parent_path().u8string() });
+    preprocessing_file(in, internal_string(in_full_path), IncludeDir{ IncludeDir::kSource, internal_string(in_parent_path) });
     //log_info("{} errors, {} warnings.\n", error_count_, warning_count_);
 
     if (!cleanup()) {
@@ -2415,11 +2424,7 @@ bool Preprocessor::search_include_file(const IncludeSpec& include_spec, String* 
 
     if (include_spec.is_double_quoted_form()) {
         auto source_dir = current_source().parent_dir();
-        if (!source_dir.empty()) {
-            path_str = source_dir + kPathDelimiter + name;
-        } else {
-            path_str = name;
-        }
+        path_str = source_dir + kPathDelimiter + name;
         path_str = normalize_path(path_str);
         exist = file_exists(path_string(path_str));
         result_inc_dir = IncludeDir{ IncludeDir::kSource, source_dir };
@@ -2442,7 +2447,7 @@ bool Preprocessor::search_include_file(const IncludeSpec& include_spec, String* 
             *file_path_str = move(path_str);
         }
         if (include_dir) {
-            *include_dir = result_inc_dir;
+            *include_dir = move(result_inc_dir);
         }
     }
 

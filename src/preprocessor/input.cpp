@@ -69,10 +69,13 @@ void SourceFile::scanner_hint(ScannerHint hint) {
 }
 
 String SourceFile::parent_dir() {
-    String::size_type i = path_.rfind(kPathDelimiter);
-    if (i == string::npos) {
-        return T_("");
+    if (path_ == T_("-")) {
+        return include_dir().path();
     } else {
+        String::size_type i = path_.rfind(kPathDelimiter);
+        if (i == string::npos) {
+            throw logic_error(__func__);
+        }
         return path_.substr(0, (i - 0));
     }
 }

@@ -345,6 +345,7 @@ private:
 
     TokenList expand_directive_line();
 
+    // この検索処理は includeと has_includeだけでなく、embedと has_embedでも使う。
     bool search_include_file(const IncludeSpec& include_spec, String* file_path_str, IncludeDir* include_dir);
 
     using MacroExpantionFuncPtr = bool (Preprocessor::*)(const Macro&, const Macro::ArgList&, TokenList&);

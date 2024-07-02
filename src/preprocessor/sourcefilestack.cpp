@@ -18,11 +18,11 @@ void SourceFileStack::push(SourceFile* source) {
 	if (!source) {
 		throw invalid_argument(__func__);
 	}
-	sources_.push(source);
+    sources_.push_back(source);
 }
 
 void SourceFileStack::pop() {
-	sources_.pop();
+    sources_.pop_back();
 }
 
 SourceFile& SourceFileStack::current_source() const {
@@ -30,11 +30,11 @@ SourceFile& SourceFileStack::current_source() const {
 		throw logic_error(__func__);
 	}
 
-	return *sources_.top();
+    return *sources_.back();
 }
 
 SourceFile* SourceFileStack::current_source_pointer() const {
-	return sources_.empty() ? nullptr : sources_.top();
+    return sources_.empty() ? nullptr : sources_.back();
 }
 
 String SourceFileStack::current_source_path() const {
@@ -55,6 +55,14 @@ std::uint32_t SourceFileStack::current_source_line_number() {
 	} else {
 		return current_source().line();
 	}
+}
+
+void SourceFileStack::enum_files(std::function<bool (SourceFile*)> callback) {
+    for (auto it = sources_.rbegin(); it != sources_.rend(); ++it) {
+        if (!callback(*it)) {
+            break;
+        }
+    }
 }
 
 }

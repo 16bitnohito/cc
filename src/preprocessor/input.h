@@ -100,7 +100,7 @@ public:
 
     void scanner_hint(ScannerHint hint);
 
-    bool is_system_file() const { return include_dir_.type() == IncludeDir::kSystem; }
+    bool is_system_file() const { return is_system_file_; }
 
     const String& source_path() const { return path_; }
     void source_path(const String& value) { path_ = value; }
@@ -110,6 +110,7 @@ public:
     void dec_condition_level() { --condition_level_; }
 
     String parent_dir();
+    const IncludeDir& include_dir() const { return include_dir_; }
     std::size_t num_groups() const { return groups_.size(); }
     Group* current_group() const { return groups_.top(); }
 
@@ -129,6 +130,7 @@ private:
     int condition_level_;
     std::stack<Group*> groups_;
     std::uint32_t line_;
+    bool is_system_file_;
 };
 
 /**

@@ -39,10 +39,19 @@ SourceFile::SourceFile(std::istream& input, const String& filepath, const Includ
     , include_dir_(include_dir)
     , condition_level_()
     , groups_()
-    , line_(1) {
+    , line_(1)
+    , is_system_file_() {
     sources_.push(this);
+    sources_.enum_files(
+           [this](SourceFile* s) {
+                if (s->include_dir().type() == IncludeDir::kSystem) {
+                    is_system_file_ = true;
+                    return false;
+                }
+                return true;
+            });
 }
-
+ 
 SourceFile::~SourceFile() {
     sources_.pop();
 }

@@ -96,6 +96,11 @@ String internal_string(PlatformStringView s) {
 }
 
 [[nodiscard]] inline
+String internal_string(const Path& s) {
+    return s.u8string();
+}
+
+[[nodiscard]] inline
 PlatformString platform_string(const Char* s) {
     return lib::win32util::u8s_to_wcs(s);
 }
@@ -154,6 +159,11 @@ const PlatformChar* platform_string(const Char* s) {
 [[nodiscard]] inline constexpr
 const PlatformString& platform_string(const String& s) {
     return s;
+}
+
+[[nodiscard]] inline
+String internal_string(const Path& s) {
+    return s.string();
 }
 
 [[nodiscard]] inline constexpr

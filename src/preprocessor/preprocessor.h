@@ -295,8 +295,8 @@ private:
     bool group_part();
     void if_section();
     TokenList make_constant_expression();
-    target_intmax_t constant_expression(const TokenList& expr_tokens, const Token& dir_token);
-    void calc(std::stack<Operator>& ops, std::stack<target_intmax_t>& nums, const Operator& next_op);
+    target_uintmax_t constant_expression(const TokenList& expr_tokens, const Token& dir_token);
+    void calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op);
     bool if_group();
     bool elif_groups(bool processed);
     bool elif_group(bool processed);

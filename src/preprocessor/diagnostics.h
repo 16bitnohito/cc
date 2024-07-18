@@ -66,6 +66,8 @@ extern const StringView kVaArgsRequiresAtLeastOneArgument;
 extern const StringView kInvalidConstantExpressionError;
 extern const StringView kConstantNumberIsNotAIntegerError;
 extern const StringView kInvalidOperatorError;
+extern const StringView kIntegerConstantOutOfRangeError;
+extern const StringView kIntegerConstantFormatError;
 
 extern const StringView kNoCorrespondingIfError;
 extern const StringView kUnterminatedIfError;

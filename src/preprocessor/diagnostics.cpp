@@ -64,6 +64,8 @@ const StringView kVaArgsRequiresAtLeastOneArgument = T_("可変引数は少な�
 const StringView kInvalidConstantExpressionError = T_("整数定数式でなければならない。");
 const StringView kConstantNumberIsNotAIntegerError = T_("{}は整数ではないか、ここでは取り扱えない。");
 const StringView kInvalidOperatorError = T_("\"{}\"は定数式で使えない演算子である。");
+const StringView kIntegerConstantOutOfRangeError = T_("取り扱えない範囲の整数定数が指定されている。");
+const StringView kIntegerConstantFormatError = T_("整数定数ではない、または不明な形式である。");
 
 const StringView kNoCorrespondingIfError = T_("#ifの無い {}が見つかった。");
 const StringView kUnterminatedIfError = T_("{}行目の #ifに対応する #endifが無い。");

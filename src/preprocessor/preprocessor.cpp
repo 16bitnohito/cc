@@ -1061,7 +1061,7 @@ TokenList Preprocessor::make_constant_expression() {
     return expr;
 }
 
-target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, const Token& dir_token) {
+target_uintmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, const Token& dir_token) {
     //  TODO: make_constant_expressionの中身をここに移して、ここの中身は calculator.cppにしたい。
 
 #if !defined(NDEBUG)
@@ -1073,7 +1073,7 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
     push_stream(stream);
 
     stack<Operator> ops;
-    stack<target_intmax_t> nums;
+    stack<Integer> nums;
     bool bad_expr = false;
     bool unary = true;
 
@@ -1087,10 +1087,21 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
             auto& s = t.string();
             match(TokenType::kPpNumber);
 
-            target_intmax_t n = 0;
-            if (!parse_int(s, &n)) {
-                error(t, kConstantNumberIsNotAIntegerError, s);
+            Integer n;
+            if (auto e = parse_int(s, n); e != errc{}) {
+                switch (e) {
+                case errc::invalid_argument:
+                    error(t, kIntegerConstantFormatError);
+                    break;
+                case errc::result_out_of_range:
+                    error(t, kIntegerConstantOutOfRangeError);
+                    break;
+                default:
+                    assert(false);
+                    break;
+                }
                 bad_expr = true;
+                n = { IntegerType::kIntMaxT, 0 };
             }
             nums.push(n);
             unary = false;
@@ -1104,7 +1115,7 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
 
             auto i = s.find('\'');
             int c = (s[i + 1] & 0xff);
-            nums.push(c);
+            nums.push(Integer{ IntegerType::kIntMaxT, static_cast<unsigned>(c) });
             unary = false;
             break;
         }
@@ -1191,13 +1202,14 @@ target_intmax_t Preprocessor::constant_expression(const TokenList& expr_tokens, 
         return 0;
     }
 
-    target_intmax_t result = nums.top();
+    auto result = nums.top();
     nums.pop();
 
-    return result;
+    // 今の所、符号の有無は関係は無く、0かそれ以外かの判断しか行われないので値だけ返す。
+    return result.value;
 }
 
-void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, const Operator& next_op) {
+void Preprocessor::calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op) {
     if (ops.empty()) {
         return;
     }
@@ -1220,7 +1232,7 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
                 break;
             }
 
-            target_intmax_t l = nums.top();
+            target_intmax_t l = nums.top().value;
             nums.pop();
 
             switch (op.id) {
@@ -1250,9 +1262,9 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
                 break;
             }
 
-            target_intmax_t r = nums.top();
+            target_intmax_t r = nums.top().value;
             nums.pop();
-            target_intmax_t l = nums.top();
+            target_intmax_t l = nums.top().value;
             nums.pop();
 
             switch (op.id) {
@@ -1324,11 +1336,11 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
                 break;
             }
 
-            target_intmax_t r = nums.top();
+            target_intmax_t r = nums.top().value;
             nums.pop();
-            target_intmax_t l = nums.top();
+            target_intmax_t l = nums.top().value;
             nums.pop();
-            target_intmax_t c = nums.top();
+            target_intmax_t c = nums.top().value;
             nums.pop();
 
             switch (op.id) {
@@ -1358,7 +1370,7 @@ void Preprocessor::calc(stack<Operator>& ops, stack<target_intmax_t>& nums, cons
         }
 
         if (op.arity > 0) {
-            nums.push(result);
+            nums.push({ IntegerType::kIntMaxT, static_cast<target_uintmax_t>(result) });
         }
     }
 }

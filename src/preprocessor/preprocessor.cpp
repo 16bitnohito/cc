@@ -3171,6 +3171,7 @@ bool Preprocessor::execute_include(const std::string& header_name, const Token& 
 
 EmbedResult Preprocessor::execute_embed(EmbedSpec& spec, bool has_embed_context) {
     constexpr auto kEmbedElementWidth = TARGET_CHAR_BIT;
+    constexpr auto kEmbedElementWidth = CC_TARGET_CHAR_BIT;
     // とりあえずこれで制限する。
     constexpr auto kMaxResourceSizeInBytes = 0x10000;
 

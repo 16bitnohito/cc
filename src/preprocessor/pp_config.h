@@ -3,11 +3,11 @@
 
 #include "config.h"
 #include "util/utility.h"
+#include "util/integer.h"
 
 namespace pp {
 
-using target_intmax_t = cc::target_intmax_t;
-using target_uintmax_t = cc::target_uintmax_t;
+#include "util/using_integer.inl"
 
 using Char = lib::util::Char;
 using String = lib::util::String;

@@ -1162,7 +1162,7 @@ target_uintmax_t Preprocessor::constant_expression(const TokenList& expr_tokens,
             if (!bad_expr) {
                 if (op.id == OperatorId::kOpenParen) {
                     ops.push(kOperatorOpenParen);
-                    unary = false;
+                    unary = true;
                 } else {
                     if (!unary) {
                         if (!calc(ops, nums, op, dir_token)) {

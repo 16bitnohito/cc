@@ -68,6 +68,7 @@ extern const StringView kConstantNumberIsNotAIntegerError;
 extern const StringView kInvalidOperatorError;
 extern const StringView kIntegerConstantOutOfRangeError;
 extern const StringView kIntegerConstantFormatError;
+extern const StringView kDivideByZeroError;
 
 extern const StringView kNoCorrespondingIfError;
 extern const StringView kUnterminatedIfError;

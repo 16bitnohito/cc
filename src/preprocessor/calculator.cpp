@@ -99,6 +99,41 @@ constexpr IntegerMax type_list_unsigned[] = {
 
 namespace pp {
 
+const char* operator_id_to_string(OperatorId id) {
+#define CASE(id)    case OperatorId::id: return #id
+    switch (id) {
+    CASE(kUnknown);
+    CASE(kCloseParen);
+    CASE(kOpenParen);
+    //CASE(kComma);
+    CASE(kColon);
+    CASE(kCond);
+    CASE(kOr);
+    CASE(kAnd);
+    CASE(kBitOr);
+    CASE(kBitXor);
+    CASE(kBitAnd);
+    CASE(kEq);
+    CASE(kNeq);
+    CASE(kLt);
+    CASE(kGt);
+    CASE(kLeq);
+    CASE(kGeq);
+    CASE(kShl);
+    CASE(kShr);
+    CASE(kAdd);
+    CASE(kSub);
+    CASE(kMul);
+    CASE(kDiv);
+    CASE(kMod);
+    CASE(kPlus);
+    CASE(kMinus);
+    CASE(kCompl);
+    CASE(kNot);
+    default: return "(OperatorId?)";
+    }
+}
+
 void init_calculator() {
 }
 

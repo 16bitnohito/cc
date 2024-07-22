@@ -1165,7 +1165,9 @@ target_uintmax_t Preprocessor::constant_expression(const TokenList& expr_tokens,
                     unary = false;
                 } else {
                     if (!unary) {
-                        calc(ops, nums, op);
+                        if (!calc(ops, nums, op, dir_token)) {
+                            bad_expr = true;
+                        }
                     }
                     if (op.id == OperatorId::kCloseParen) {
                         ops.pop();
@@ -1195,7 +1197,9 @@ target_uintmax_t Preprocessor::constant_expression(const TokenList& expr_tokens,
         return 0;
     }
 
-    calc(ops, nums, kOperatorCloseParen);
+    if (!calc(ops, nums, kOperatorCloseParen, dir_token)) {
+        return 0;
+    }
 
     if (nums.size() != 1) {
         error(dir_token, as_internal(__func__));
@@ -1209,154 +1213,92 @@ target_uintmax_t Preprocessor::constant_expression(const TokenList& expr_tokens,
     return result.value;
 }
 
-void Preprocessor::calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op) {
+bool Preprocessor::calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op, const Token& dir_token) {
     if (ops.empty()) {
-        return;
+        return true;
     }
 
     int nest = 0;
     while (!ops.empty() &&
-        ((next_op.id != OperatorId::kCloseParen && next_op.precedence > ops.top().precedence) ||
-        (next_op.id == OperatorId::kCloseParen && !(nest == 0 && ops.top().id == OperatorId::kOpenParen)))) {
-        if (ops.empty()) {
-            break;
-        }
-
+            ((next_op.id != OperatorId::kCloseParen && next_op.precedence > ops.top().precedence) ||
+             (next_op.id == OperatorId::kCloseParen && !(nest == 0 && ops.top().id == OperatorId::kOpenParen)))) {
         Operator op = ops.top();
         ops.pop();
 
-        target_intmax_t result;
+        if (nums.size() < op.arity) {
+            error(dir_token, as_internal(__func__));
+            return false;
+        }
+
+        // 配列だの可変長引数だので上手くやりたかった。rだけは必ず使われるのでここでは初期化していない。
+        Integer r;
+        Integer l{};
+        Integer c{};
+        bool sign = false;
+
         switch (op.arity) {
         case 1: {
-            if (nums.size() < 1) {
-                break;
-            }
-
-            target_intmax_t l = nums.top().value;
+            r = nums.top();
             nums.pop();
 
-            switch (op.id) {
-            case OperatorId::kPlus:
-                result = l;
-                break;
-            case OperatorId::kMinus:
-                result = -l;
-                break;
-            case OperatorId::kCompl:
-                result = ~l;
-                break;
-            case OperatorId::kNot:
-                result = (l == 0) ? 1 : 0;
-                break;
-            case OperatorId::kCond:
-                result = l;
-                break;
-            default:
-                assert(false);
-                break;
-            }
+            sign = r.type.is_signed();
             break;
         }
         case 2: {
-            if (nums.size() < 2) {
-                break;
-            }
-
-            target_intmax_t r = nums.top().value;
+            r = nums.top();
             nums.pop();
-            target_intmax_t l = nums.top().value;
+            l = nums.top();
             nums.pop();
 
-            switch (op.id) {
-            case OperatorId::kOr:
-                result = (l != 0) || (r != 0);
-                break;
-            case OperatorId::kAnd:
-                result = (l != 0) && (r != 0);
-                break;
-            case OperatorId::kBitOr:
-                result = l | r;
-                break;
-            case OperatorId::kBitXor:
-                result = l ^ r;
-                break;
-            case OperatorId::kBitAnd:
-                result = l & r;
-                break;
-            case OperatorId::kEq:
-                result = l == r;
-                break;
-            case OperatorId::kNeq:
-                result = l != r;
-                break;
-            case OperatorId::kLt:
-                result = l < r;
-                break;
-            case OperatorId::kGt:
-                result = l > r;
-                break;
-            case OperatorId::kLeq:
-                result = l <= r;
-                break;
-            case OperatorId::kGeq:
-                result = l >= r;
-                break;
-            case OperatorId::kShl:
-                result = l << r;
-                break;
-            case OperatorId::kShr:
-                result = l >> r;
-                break;
-            case OperatorId::kAdd:
-                result = l + r;
-                break;
-            case OperatorId::kSub:
-                result = l - r;
-                break;
-            case OperatorId::kMul:
-                result = l * r;
-                break;
-            case OperatorId::kDiv:
-                result = l / r;
-                break;
-            case OperatorId::kMod:
-                result = l % r;
-                break;
-            //case OperatorId::kComma:
-            //    result = r;
-            //    break;
-            default:
-                assert(false);
-                break;
+            if (op.id == OperatorId::kDiv || op.id == OperatorId::kMod) {
+                if (r.value == 0) {
+                    error(dir_token, kDivideByZeroError);
+                    return false;
+                }
             }
+
+            sign = r.type.is_signed() && l.type.is_signed();
             break;
         }
         case 3: {
-            if (nums.size() < 3) {
-                break;
+            r = nums.top();
+            nums.pop();
+            l = nums.top();
+            nums.pop();
+            c = nums.top();
+            nums.pop();
+
+            if (op.id != OperatorId::kColon) {
+                error(dir_token, as_internal(__func__));
+                return false;
             }
 
-            target_intmax_t r = nums.top().value;
-            nums.pop();
-            target_intmax_t l = nums.top().value;
-            nums.pop();
-            target_intmax_t c = nums.top().value;
-            nums.pop();
-
-            switch (op.id) {
-            case OperatorId::kColon:
-                result = c ? l : r;
-                break;
-            default:
-                assert(false);
-                break;
+            // ここの符号については、条件演算子しかないので、第 2と第 3オペランドの型で決まる。
+            sign = r.type.is_signed() && l.type.is_signed();
+            break;
+        }
+        default: {
+            if (op.arity != 0) {
+                error(dir_token, as_internal(__func__));
+                return false;
             }
             break;
         }
-        default:
+        }   // switch
+
+        if (op.arity > 0) {
+            if (sign) {
+                auto result = calc_signed(op, static_cast<target_intmax_t>(r.value), static_cast<target_intmax_t>(l.value), static_cast<target_intmax_t>(c.value));
+                nums.push({ IntegerType::kIntMaxT, static_cast<target_uintmax_t>(result) });
+            } else {
+                auto result = calc_unsigned(op, r.value, l.value, c.value);
+                nums.push({ IntegerType::kUIntMaxT, result });
+            }
+        } else {
             switch (op.id) {
             case OperatorId::kUnknown:
-                break;
+                error(dir_token, as_internal(__func__));
+                return false;
             case OperatorId::kOpenParen:
                 nest--;
                 break;
@@ -1364,15 +1306,235 @@ void Preprocessor::calc(std::stack<Operator>& ops, std::stack<Integer>& nums, co
                 nest++;
                 break;
             default:
-                assert(false);
-                break;
+                error(dir_token, as_internal(__func__));
+                return false;
             }
         }
-
-        if (op.arity > 0) {
-            nums.push({ IntegerType::kIntMaxT, static_cast<target_uintmax_t>(result) });
-        }
     }
+
+    return true;
+}
+
+target_intmax_t Preprocessor::calc_signed(const Operator& op, target_intmax_t r, target_intmax_t l, target_intmax_t c) {
+    target_intmax_t result = 0;
+
+    switch (op.arity) {
+    case 1: {
+        switch (op.id) {
+        case OperatorId::kPlus:
+            result = +r;
+            break;
+        case OperatorId::kMinus:
+            result = -r;
+            break;
+        case OperatorId::kCompl:
+            result = ~r;
+            break;
+        case OperatorId::kNot:
+            result = (r == 0) ? 1 : 0;
+            break;
+        case OperatorId::kCond:
+            result = r;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    case 2: {
+        switch (op.id) {
+        case OperatorId::kOr:
+            result = (l != 0) || (r != 0);
+            break;
+        case OperatorId::kAnd:
+            result = (l != 0) && (r != 0);
+            break;
+        case OperatorId::kBitOr:
+            result = l | r;
+            break;
+        case OperatorId::kBitXor:
+            result = l ^ r;
+            break;
+        case OperatorId::kBitAnd:
+            result = l & r;
+            break;
+        case OperatorId::kEq:
+            result = l == r;
+            break;
+        case OperatorId::kNeq:
+            result = l != r;
+            break;
+        case OperatorId::kLt:
+            result = l < r;
+            break;
+        case OperatorId::kGt:
+            result = l > r;
+            break;
+        case OperatorId::kLeq:
+            result = l <= r;
+            break;
+        case OperatorId::kGeq:
+            result = l >= r;
+            break;
+        case OperatorId::kShl:
+            result = l << r;
+            break;
+        case OperatorId::kShr:
+            result = l >> r;
+            break;
+        case OperatorId::kAdd:
+            result = l + r;
+            break;
+        case OperatorId::kSub:
+            result = l - r;
+            break;
+        case OperatorId::kMul:
+            result = l * r;
+            break;
+        case OperatorId::kDiv:
+            result = l / r;
+            break;
+        case OperatorId::kMod:
+            result = l % r;
+            break;
+        //case OperatorId::kComma:
+        //    result = r;
+        //    break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    case 3: {
+        switch (op.id) {
+        case OperatorId::kColon:
+            result = c ? l : r;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    default:
+        assert(false);
+        break;
+    }
+
+    return result;
+}
+
+target_uintmax_t Preprocessor::calc_unsigned(const Operator& op, target_uintmax_t r, target_uintmax_t l, target_uintmax_t c) {
+    target_uintmax_t result = 0;
+
+    switch (op.arity) {
+    case 1: {
+        switch (op.id) {
+        case OperatorId::kPlus:
+            result = +r;
+            break;
+        case OperatorId::kMinus:
+            result = -r;
+            break;
+        case OperatorId::kCompl:
+            result = ~r;
+            break;
+        case OperatorId::kNot:
+            result = (r == 0) ? 1 : 0;
+            break;
+        case OperatorId::kCond:
+            result = r;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    case 2: {
+        switch (op.id) {
+        case OperatorId::kOr:
+            result = (l != 0) || (r != 0);
+            break;
+        case OperatorId::kAnd:
+            result = (l != 0) && (r != 0);
+            break;
+        case OperatorId::kBitOr:
+            result = l | r;
+            break;
+        case OperatorId::kBitXor:
+            result = l ^ r;
+            break;
+        case OperatorId::kBitAnd:
+            result = l & r;
+            break;
+        case OperatorId::kEq:
+            result = l == r;
+            break;
+        case OperatorId::kNeq:
+            result = l != r;
+            break;
+        case OperatorId::kLt:
+            result = l < r;
+            break;
+        case OperatorId::kGt:
+            result = l > r;
+            break;
+        case OperatorId::kLeq:
+            result = l <= r;
+            break;
+        case OperatorId::kGeq:
+            result = l >= r;
+            break;
+        case OperatorId::kShl:
+            result = l << r;
+            break;
+        case OperatorId::kShr:
+            result = l >> r;
+            break;
+        case OperatorId::kAdd:
+            result = l + r;
+            break;
+        case OperatorId::kSub:
+            result = l - r;
+            break;
+        case OperatorId::kMul:
+            result = l * r;
+            break;
+        case OperatorId::kDiv:
+            result = l / r;
+            break;
+        case OperatorId::kMod:
+            result = l % r;
+            break;
+        //case OperatorId::kComma:
+        //    result = r;
+        //    break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    case 3: {
+        switch (op.id) {
+        case OperatorId::kColon:
+            result = c ? l : r;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        break;
+    }
+    default:
+        assert(false);
+        break;
+    }
+
+    return result;
 }
 
 bool Preprocessor::if_group() {

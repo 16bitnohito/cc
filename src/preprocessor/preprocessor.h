@@ -296,7 +296,10 @@ private:
     void if_section();
     TokenList make_constant_expression();
     target_uintmax_t constant_expression(const TokenList& expr_tokens, const Token& dir_token);
-    void calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op);
+    bool calc(std::stack<Operator>& ops, std::stack<Integer>& nums, const Operator& next_op, const Token& dir_token);
+    target_intmax_t calc_signed(const Operator& op, target_intmax_t r, target_intmax_t l, target_intmax_t c);
+    target_uintmax_t calc_unsigned(const Operator& op, target_uintmax_t r, target_uintmax_t l, target_uintmax_t c);
+
     bool if_group();
     bool elif_groups(bool processed);
     bool elif_group(bool processed);

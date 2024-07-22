@@ -39,6 +39,8 @@ enum class OperatorId {
     kNot,
 };
 
+const char* operator_id_to_string(OperatorId id);
+
 struct Operator {
     OperatorId id;
     std::string sequence;

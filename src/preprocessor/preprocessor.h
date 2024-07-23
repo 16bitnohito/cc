@@ -18,14 +18,15 @@
 #include <unordered_set>
 #include <vector>
 
-#include "preprocessor/pp_config.h"
-#include "preprocessor/calculator.h"
-#include "preprocessor/diagnostics.h"
-#include "preprocessor/input.h"
-#include "preprocessor/options.h"
-#include "preprocessor/scanner.h"
-#include "preprocessor/sourcefilestack.h"
 #include "util/utility.h"
+
+#include "pp_config.h"
+#include "calculator.h"
+#include "diagnostics.h"
+#include "input.h"
+#include "options.h"
+#include "scanner.h"
+#include "sourcefilestack.h"
 
 #if defined(NDEBUG)
 #define DEBUG(t, ...)

@@ -6,9 +6,10 @@
 #include <cstdio>
 #include <iosfwd>
 
-#include "preprocessor/pp_config.h"
-#include "preprocessor/token.h"
 #include "util/utility.h"
+
+#include "pp_config.h"
+#include "token.h"
 
 namespace pp {
 

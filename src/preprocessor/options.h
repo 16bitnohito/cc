@@ -4,8 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "preprocessor/pp_config.h"
 #include "util/utility.h"
+
+#include "pp_config.h"
 
 namespace pp {
 

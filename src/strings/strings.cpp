@@ -1,4 +1,4 @@
-#include "strings/strings.h"
+#include "strings.h"
 
 namespace lib::strings {
 

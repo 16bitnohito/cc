@@ -1,10 +1,10 @@
-#include "preprocessor/diagnostics.h"
+#include "diagnostics.h"
 
 #include <format>
 #include <iostream>
 
 #include "util/utility.h"
-#include "preprocessor/input.h"
+#include "input.h"
 
 using namespace lib::util;
 using namespace std;

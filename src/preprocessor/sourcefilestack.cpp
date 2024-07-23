@@ -1,8 +1,8 @@
-#include "preprocessor/sourcefilestack.h"
+#include "sourcefilestack.h"
 
 #include <stdexcept>
 
-#include "preprocessor/input.h"
+#include "input.h"
 
 using namespace std;
 

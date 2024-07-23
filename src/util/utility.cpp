@@ -1,4 +1,4 @@
-#include "util/utility.h"
+#include "utility.h"
 
 #if HOST_PLATFORM != PLATFORM_WINDOWS
 #include <cstdlib>

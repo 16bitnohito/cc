@@ -4,12 +4,13 @@
 #include <sstream>
 #include <stack>
 
-#include "preprocessor/pp_config.h"
-#include "preprocessor/diagnostics.h"
-#include "preprocessor/options.h"
-#include "preprocessor/scanner.h"
-#include "preprocessor/token.h"
 #include "util/utility.h"
+
+#include "pp_config.h"
+#include "diagnostics.h"
+#include "options.h"
+#include "scanner.h"
+#include "token.h"
 
 namespace pp {
 

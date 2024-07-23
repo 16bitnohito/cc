@@ -8,10 +8,10 @@
 #include <string>
 #include <vector>
 
-#include "preprocessor/pp_config.h"
-#include "preprocessor/diagnostics.h"
-#include "preprocessor/sourcefilestack.h"
-#include "preprocessor/token.h"
+#include "pp_config.h"
+#include "diagnostics.h"
+#include "sourcefilestack.h"
+#include "token.h"
 
 namespace pp {
 

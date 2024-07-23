@@ -1,4 +1,4 @@
-#include "win32util/win32util.h"
+#include "win32util.h"
 
 using namespace std;
 

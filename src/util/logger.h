@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "config.h"
-#include "util/utility.h"
+#include "utility.h"
 
 namespace lib::util {
 

@@ -17,6 +17,7 @@ add_executable(cpp
                "token.cpp" "token.h")
 
 target_include_directories(cpp PRIVATE "../../src")
+target_link_libraries(cpp PRIVATE strings)
 target_link_libraries(cpp PRIVATE util)
 if (WIN32)
 target_link_libraries(cpp PRIVATE win32util)

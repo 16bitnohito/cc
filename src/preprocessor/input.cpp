@@ -1,10 +1,10 @@
-#include "preprocessor/input.h"
+#include "input.h"
 
 #include <cassert>
 #include <sstream>
 #include <vector>
 
-#include "preprocessor/sourcefilestack.h"
+#include "sourcefilestack.h"
 
 using namespace std;
 

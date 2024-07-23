@@ -1,4 +1,4 @@
-#include "preprocessor/scanner.h"
+#include "scanner.h"
 
 #include <algorithm>
 #include <cassert>

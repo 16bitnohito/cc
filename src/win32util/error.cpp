@@ -1,6 +1,6 @@
-#include "win32util/error.h"
+#include "error.h"
 
-#include "win32util/strings.h"
+#include "strings.h"
 
 using namespace std;
 

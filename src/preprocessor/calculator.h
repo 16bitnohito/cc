@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "preprocessor/pp_config.h"
+#include "pp_config.h"
 
 namespace pp {
 

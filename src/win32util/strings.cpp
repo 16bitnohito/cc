@@ -1,4 +1,4 @@
-#include "win32util/strings.h"
+#include "strings.h"
 
 #include <limits>
 #include <stdexcept>

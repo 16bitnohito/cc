@@ -118,7 +118,7 @@ int c32_to_c8(pp::Scanner::Char32 c32, char (&c8)[4]) {
 
 int char_kind(pp::Scanner::Char32 c) {
     const auto i = to_int(c);
-    if (i < 0 || size(kInitial) <= i) {
+    if (/*i < 0 ||*/ size(kInitial) <= i) {
         return kOther;
     }
 
@@ -2357,15 +2357,6 @@ uint32_t parse_ucn_digits(const char* first, const char* last) {
 constexpr inline
 char to_c(int c) {
     return static_cast<char>(c);
-}
-
-std::string& to_upper_string(std::string& s, std::size_t pos = 0) {
-    for (size_t i = pos; i < s.length(); i++) {
-        if ('a' <= s[i] && s[i] <= 'z') {
-            s[i] = 'A' + (s[i] - 'a');
-        }
-    }
-    return s;
 }
 
 }   // anonymous namespace

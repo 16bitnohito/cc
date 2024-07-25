@@ -176,12 +176,14 @@ public:
 
     }
 
+    EmbedParameter(const EmbedParameter&) = delete;
     EmbedParameter(EmbedParameter&&) = default;
 
     ~EmbedParameter() {
     }
 
 
+    EmbedParameter& operator=(const EmbedParameter&) = delete;
     EmbedParameter& operator=(EmbedParameter&&) = default;
 
     const std::string& name() const {
@@ -283,7 +285,10 @@ enum class EmbedResult {
 class Preprocessor {
 public:
     explicit Preprocessor(const Options& opts, Diagnostics& diag, SourceFileStack& sources);
+    Preprocessor(const Preprocessor&) = delete;
     ~Preprocessor();
+
+    Preprocessor& operator=(const Preprocessor&) = delete;
 
     bool has_error();
     int run();

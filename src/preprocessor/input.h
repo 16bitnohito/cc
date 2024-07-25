@@ -95,7 +95,10 @@ public:
     friend class ConditionScope;
 
     explicit SourceFile(std::istream& input, const String& filepath, const IncludeDir& include_dir, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
+    SourceFile(const SourceFile&) = delete;
     virtual ~SourceFile() override;
+
+    SourceFile& operator=(const SourceFile&) = delete;
 
     virtual Token next_token() override;
 
@@ -140,7 +143,10 @@ class SourceString
     : public Source {
 public:
     explicit SourceString(const std::string& string, const Options& opts, Diagnostics& diag, SourceFileStack& sources);
+    SourceString(const SourceString&) = delete;
     virtual ~SourceString() override;
+
+    SourceString& operator=(const SourceString&) = delete;
 
     virtual Token next_token() override;
 
@@ -155,7 +161,10 @@ class SourceTokenList
     : public Source {
 public:
     explicit SourceTokenList(const TokenList& tokens);
+    SourceTokenList(const SourceTokenList&) = delete;
     virtual ~SourceTokenList() override;
+
+    SourceTokenList& operator=(const SourceTokenList&) = delete;
 
     virtual Token next_token() override;
 

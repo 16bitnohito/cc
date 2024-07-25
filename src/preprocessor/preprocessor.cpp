@@ -1010,7 +1010,7 @@ TokenList Preprocessor::make_constant_expression() {
 
                     TokenList replaced;
                     expand(*m, args, replaced);
-                    expr.push_back(replaced.front());
+                    replace_stream(move(replaced));
                 }
             }
         } else {

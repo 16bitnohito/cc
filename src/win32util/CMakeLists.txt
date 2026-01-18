@@ -1,6 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.8)
-
-add_library(win32util STATIC
+﻿add_library(win32util STATIC
             "error.cpp" "error.h"
             "heap.cpp" "heap.h"
             "strings.cpp" "strings.h"

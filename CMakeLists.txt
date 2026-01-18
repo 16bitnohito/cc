@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : 最上位の CMake プロジェクト ファイル。グローバル構成を行います
 # また、サブプロジェクトをここに含めます。
 #
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.21)
 
 project("cc")
 
@@ -17,7 +17,7 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED on)
 set(CMAKE_C_EXTENSIONS off)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_CXX_EXTENSIONS off)
 
@@ -29,7 +29,7 @@ configure_file(
 include_directories("${PROJECT_BINARY_DIR}")
 
 if (MSVC)
-    string(REGEX REPLACE "/W[0-3]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+	add_compile_options(/W4)
     add_compile_options(
                         /wd4061     # switch 中の列挙子 '' ('' の) は case ラベルによって明示的にハンドルされません。
                         #/wd4245     # '' から '' に変換しました。signed/unsigned が一致しません。
@@ -40,10 +40,13 @@ if (MSVC)
                         /wd4710     # インライン関数ではありません。
                         /wd4711     # 関数 '' に自動インライン展開を選択しました。
                         /wd4820     # '' バイトのパディングを データ メンバー '' の後に追加しました。
+						/wd4865		# コマンド ラインで '/Zc:enumTypes' を指定すると、基本の型が '' から '' に変更されます
                         /wd5026     # 移動コンストラクターが暗黙的に削除済みとして定義されました
                         /wd5027     # 移動代入演算子が暗黙的に削除済みとして定義されました
-                        /wd5045)    # spectre
-    add_compile_options(/permissive- /Zc:__cplusplus /Zc:throwingNew /Zc:referenceBinding /utf-8)
+						/wd5039     # スローする可能性がある関数へのポインターまたは参照が、-EHc で 'extern "C"' 関数に渡されました。
+                        /wd5045     # spectre
+					   )
+    add_compile_options(/permissive- /Zc:__cplusplus /Zc:checkGwOdr /Zc:enumTypes /Zc:inline /Zc:preprocessor /Zc:throwingNew /Zc:templateScope /utf-8 /sdl)
     add_compile_options($<$<CONFIG:Debug>:>
                         $<$<CONFIG:Release>:/Gy>
                         $<$<CONFIG:MinSizeRel>:/Gy>

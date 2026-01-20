@@ -12,6 +12,7 @@ namespace pp {
 using Char = lib::util::Char;
 using String = lib::util::String;
 using StringView = lib::util::StringView;
+using Path = lib::util::Path;
 
 }   // namespace pp
 

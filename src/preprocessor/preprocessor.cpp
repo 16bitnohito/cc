@@ -483,6 +483,7 @@ Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag, SourceFileSta
     , used_macro_names_()
     , included_files_()
     , rescan_count_()
+    , macro_invocation_stack_()
 {
     clock_start_ = clock();
 }
@@ -1436,7 +1437,7 @@ target_uintmax_t Preprocessor::calc_unsigned(const Operator& op, target_uintmax_
             result = +r;
             break;
         case OperatorId::kMinus:
-            result = -r;
+            result = static_cast<target_uintmax_t>(-static_cast<target_intmax_t>(r));
             break;
         case OperatorId::kCompl:
             result = ~r;

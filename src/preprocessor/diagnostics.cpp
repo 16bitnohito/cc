@@ -100,6 +100,8 @@ const StringView kConditionalInclusionOperatorUsageError = T_("識別子 {}は�
 const StringView kLineNeedsDecimalConstantError = T_("#lineには 10進整数（接尾辞無し）を指定しなければならない。");
 const StringView kLineOutOfRangeError = T_("#lineに指定する行数は [{}, {}]の範囲でなければならない。");
 
+const StringView kCounterMacroExpantionLimitNumberExceededError = T_("__COUNTER__マクロの呼び出しが {}回を超えてはならない。");
+
 const StringView kUnknownEscapeSequenceWarning = T_("エスケープシーケンスとして認識されない。");
 const StringView kInvalidHexadecimalEscapeSequenceFormatError = T_("16進数エスケープシーケンスは少なくとも 1桁必要である。");
 const StringView kInvalidUniversalCharacterNameCodePointError = T_("ユニバーサル文字名では指定できないコードポイントである。");

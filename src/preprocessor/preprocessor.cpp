@@ -346,6 +346,7 @@ constexpr char kIdentVaOpt[] = "__VA_OPT__";
 constexpr char kIdentHasCAttribute[] = "__has_c_attribute";
 constexpr char kIdentHasInclude[] = "__has_include";
 constexpr char kIdentHasEmbed[] = "__has_embed";
+constexpr char kIdentCounter[] = "__COUNTER__";
 constexpr char kPunctEllipsis[] = "...";
 constexpr char kKeywordTrue[] = "true";
 
@@ -433,6 +434,8 @@ MacroExpantionMethod Macro::get_expantion_method(MacroForm /*form*/, const std::
         return MacroExpantionMethod::kOpHasInclude;
     } else if (name == kIdentHasEmbed) {
         return MacroExpantionMethod::kOpHasEmbed;
+    } else if (name == kIdentCounter) {
+        return MacroExpantionMethod::kCounter;
     } else {
         bool directly = true;
         for (const auto& t : replist) {
@@ -484,6 +487,7 @@ Preprocessor::Preprocessor(const Options& opts, Diagnostics& diag, SourceFileSta
     , included_files_()
     , rescan_count_()
     , macro_invocation_stack_()
+    , counter_value_()
 {
     clock_start_ = clock();
 }
@@ -636,6 +640,7 @@ void Preprocessor::prepare_predefined_macro() {
     //  定義済みマクロをここで追加する。
     predef_macro_names_.clear();
 
+    //add_predefined_macro("__COUNTER__",      "0",                TokenType::kPpNumber);   // 下で。
     add_predefined_macro("__DATE__",         quote_string(date), TokenType::kStringLiteral);
     add_predefined_macro("__FILE__",         quote_string(""),   TokenType::kStringLiteral);
     add_predefined_macro("__LINE__",         "0",                TokenType::kPpNumber);
@@ -672,6 +677,7 @@ void Preprocessor::prepare_predefined_macro() {
     predef_macro_names_.push_back(kIdentHasCAttribute);
     predef_macro_names_.push_back(kIdentHasInclude);
     predef_macro_names_.push_back(kIdentHasEmbed);
+    predef_macro_names_.push_back(kIdentCounter);
 
     //  仕様的な定義済みマクロはここまでとして、後の検索の為にソートしておく。
     sort(predef_macro_names_.begin(), predef_macro_names_.end());
@@ -733,6 +739,17 @@ void Preprocessor::prepare_predefined_macro() {
             Macro::ParamList{ "header_name" },
             TokenList{}, "", kTokenNull);
         auto result = macros_.insert({ op_has_embed->name(), op_has_embed });
+        if (!result.second) {
+            fatal_error(kTokenNull, as_internal(__func__));
+        }
+    }
+
+    // __COUNTER__
+    {
+        auto counter = Macro::create_macro(
+            kIdentCounter,
+            TokenList{}, "", kTokenNull);
+        auto result = macros_.insert({ counter->name(), counter });
         if (!result.second) {
             fatal_error(kTokenNull, as_internal(__func__));
         }
@@ -1030,7 +1047,7 @@ TokenList Preprocessor::make_constant_expression() {
                 TokenList replaced;
                 if (!m->is_function()) {
                     DEBUG(t, T_("[START]: {}"), m->name());
-                    expand(*m, Macro::kNoArgs, replaced);
+                    expand(*m, Macro::kNoArgs, replaced, t);
                 } else {
                     skip_ws();
 
@@ -2050,7 +2067,7 @@ void Preprocessor::text_line(const TokenList& ws_tokens) {
         TokenList expanded;
         if (!m->is_function()) {
             DEBUG(t, T_("[START]: {}"), m->name());
-            dont_rescan = expand(*m, Macro::kNoArgs, expanded);
+            dont_rescan = expand(*m, Macro::kNoArgs, expanded, t);
         } else {
             bool broken = false;
             TokenList ws;
@@ -2117,13 +2134,13 @@ const TokenList& Preprocessor::get_expanded_arg(size_t n, const TokenList& arg, 
     return cache[n];
 }
 
-bool Preprocessor::expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded) {
+bool Preprocessor::expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded, const Token& pos /*= kTokenNull*/) {
 #if !defined(NDEBUG)
     Indent indent;
 #endif
 
     Macro::ArgList expanded_args(macro_args.size());
-    macro_invocation_stack_.push_back({ &macro, &macro_args, &expanded_args });
+    macro_invocation_stack_.push_back({ &macro, &macro_args, &expanded_args, pos });
     auto ord = enum_ordinal(macro.expantion_method());
     bool dont_rescan = (this->*expantion_methods_[ord])(macro, macro_args, result_expanded);
     macro_invocation_stack_.pop_back();
@@ -2572,6 +2589,20 @@ bool Preprocessor::expand_op_has_embed(const Macro& /*macro*/, const Macro::ArgL
     return true;
 }
 
+bool Preprocessor::expand_counter(const Macro& /*macro*/, const Macro::ArgList& /*macro_args*/, TokenList& result_expanded) {
+    result_expanded.push_back({ to_string(counter_value_), TokenType::kPpNumber });
+
+    constexpr target_ulong kMaxNumberOfExpansions = TARGET_ULONG_C(2147483648);
+    if (counter_value_ < kMaxNumberOfExpansions) {
+        counter_value_++;
+    } else {
+        error(macro_invocation_stack_.front().pos, kCounterMacroExpantionLimitNumberExceededError, kMaxNumberOfExpansions);
+    }
+
+    return true;
+}
+
+
 TokenList Preprocessor::expand_directive_line() {
     TokenList tokens;
     skip_directive_line(&tokens);
@@ -2711,7 +2742,7 @@ void Preprocessor::scan(TokenList& result_expanded) {
         bool dont_rescan = false;
         TokenList expanded;
         if (!m->is_function()) {
-            dont_rescan = expand(*m, Macro::kNoArgs, expanded);
+            dont_rescan = expand(*m, Macro::kNoArgs, expanded, t);
         } else {
             TokenList ws;
             skip_ws(&ws);

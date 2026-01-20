@@ -60,6 +60,7 @@ enum class MacroExpantionMethod {
     kOpHasCAttribute,
     kOpHasInclude,
     kOpHasEmbed,
+    kCounter,
 
     kNumElements,
 };
@@ -343,7 +344,7 @@ private:
     };
 #endif
 
-    bool expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+    bool expand(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded, const Token& pos = kTokenNull);
     bool expand_directly_copyable(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_normal(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_pragma(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
@@ -351,6 +352,7 @@ private:
     bool expand_op_has_c_attribute(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_include(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
     bool expand_op_has_embed(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
+    bool expand_counter(const Macro& macro, const Macro::ArgList& macro_args, TokenList& result_expanded);
 
     TokenList expand_directive_line();
 
@@ -366,6 +368,7 @@ private:
         &Preprocessor::expand_op_has_c_attribute,
         &Preprocessor::expand_op_has_include,
         &Preprocessor::expand_op_has_embed,
+        &Preprocessor::expand_counter,
     };
 
     TokenList substitute_by_arg_if_need(const Macro& macro, const Macro::ArgList& macro_args, const Token& token);
@@ -524,8 +527,11 @@ private:
         const Macro* macro;
         const Macro::ArgList* args;
         Macro::ArgList* expanded_args;
+        Token pos;
     };
     std::vector<MacroInvocation> macro_invocation_stack_;
+
+    target_ulong counter_value_;
 };
 
 /**

@@ -48,6 +48,9 @@ using target_uintmax_t = target_ulonglong;
 #define CC_TARGET_INTMAX_WIDTH      CC_TARGET_LLONG_WIDTH
 #define CC_TARGET_UINTMAX_WIDTH     CC_TARGET_ULLONG_WIDTH
 
+#define TARGET_LONG_C(x)        UINT32_C(x)
+#define TARGET_ULONG_C(x)       UINT32_C(x)
+
 }   // namespace lib::util
 
 #endif  // CC_UTIL_INTEGER_H_

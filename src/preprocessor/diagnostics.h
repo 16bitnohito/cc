@@ -109,6 +109,8 @@ extern const StringView kConditionalInclusionOperatorUsageError;
 extern const StringView kLineNeedsDecimalConstantError;
 extern const StringView kLineOutOfRangeError;
 
+extern const StringView kCounterMacroExpantionLimitNumberExceededError;
+
 extern const StringView kUnknownEscapeSequenceWarning;
 extern const StringView kInvalidHexadecimalEscapeSequenceFormatError;
 extern const StringView kInvalidUniversalCharacterNameCodePointError;
